@@ -348,7 +348,7 @@ export function ProblemsView() {
                   </div>
                 </div>
               )
-            }))}
+            })}
           </div>
         </CardContent>
       </Card>
