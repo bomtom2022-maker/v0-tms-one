@@ -15,6 +15,7 @@ import { ReportsView } from '@/components/reports-view'
 import { ScheduledView } from '@/components/scheduled-view'
 import { UsersView } from '@/components/users-view'
 import { LoginView } from '@/components/login-view'
+import { InstallPrompt } from '@/components/install-prompt'
 
 type View = 'dashboard' | 'new-ticket' | 'problems' | 'machines' | 'maintenance' | 'parts' | 'reports' | 'scheduled' | 'users'
 
@@ -115,6 +116,9 @@ function TMSApp() {
           {renderView()}
         </div>
       </main>
+      
+      {/* Prompt para instalar o app */}
+      <InstallPrompt />
     </div>
   )
 }
