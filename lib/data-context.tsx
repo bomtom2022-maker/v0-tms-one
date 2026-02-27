@@ -97,6 +97,8 @@ const INITIAL_TICKETS: Ticket[] = [
     downtime: 0,
     accumulatedTime: 0,
     actions: [],
+    createdBy: 'user-002',
+    createdByName: 'Maria Santos',
   },
   {
     id: 'ticket-002',
@@ -111,6 +113,8 @@ const INITIAL_TICKETS: Ticket[] = [
     downtime: 0,
     accumulatedTime: 0,
     actions: [],
+    createdBy: 'user-004',
+    createdByName: 'Ana Costa',
   },
   {
     id: 'ticket-003',
@@ -125,6 +129,8 @@ const INITIAL_TICKETS: Ticket[] = [
     downtime: 0,
     accumulatedTime: 0,
     actions: [],
+    createdBy: 'user-001',
+    createdByName: 'Carlos Silva',
   },
   {
     id: 'ticket-004',
@@ -139,7 +145,9 @@ const INITIAL_TICKETS: Ticket[] = [
     totalCost: 0,
     downtime: 0,
     accumulatedTime: 0,
-    actions: [{ type: 'start', operatorName: 'Joao Silva', timestamp: new Date(Date.now() - 30 * 60 * 1000) }],
+    actions: [{ type: 'start', operatorName: 'Joao Pereira', timestamp: new Date(Date.now() - 30 * 60 * 1000) }],
+    createdBy: 'user-003',
+    createdByName: 'Joao Pereira',
   },
 ]
 
@@ -156,6 +164,8 @@ interface DataContextType {
   addProblem: (name: string, defaultPriority: Priority) => void
   updateProblem: (id: string, name: string, defaultPriority: Priority) => void
   addTicket: (ticket: Omit<Ticket, 'id' | 'createdAt' | 'usedParts' | 'totalCost' | 'downtime' | 'accumulatedTime' | 'actions' | 'status'>) => void
+  updateTicketObservation: (ticketId: string, observation: string) => void
+  cancelTicket: (ticketId: string) => void
   addScheduledMaintenance: (data: Omit<ScheduledMaintenance, 'id' | 'createdAt' | 'status'>) => void
   updateScheduledMaintenance: (id: string, data: Partial<Omit<ScheduledMaintenance, 'id' | 'createdAt'>>) => void
   deleteScheduledMaintenance: (id: string) => void
@@ -168,6 +178,7 @@ interface DataContextType {
   getProblemById: (id: string) => Problem | undefined
   getPartById: (id: string) => Part | undefined
   getMaintenanceStats: () => { machineId: string; machineName: string; totalDowntime: number; ticketCount: number }[]
+  getLastTicketByUser: (userId: string) => Ticket | undefined
 }
 
 const DataContext = createContext<DataContextType | undefined>(undefined)
@@ -239,6 +250,20 @@ export function DataProvider({ children }: { children: ReactNode }) {
       actions: [],
     }
     setTickets(prev => [newTicket, ...prev])
+  }, [])
+
+  const updateTicketObservation = useCallback((ticketId: string, observation: string) => {
+    setTickets(prev => prev.map(ticket => 
+      ticket.id === ticketId ? { ...ticket, observation } : ticket
+    ))
+  }, [])
+
+  const cancelTicket = useCallback((ticketId: string) => {
+    setTickets(prev => prev.map(ticket => 
+      ticket.id === ticketId && ticket.status === 'open' 
+        ? { ...ticket, status: 'cancelled' as const } 
+        : ticket
+    ))
   }, [])
 
   const addScheduledMaintenance = useCallback((data: Omit<ScheduledMaintenance, 'id' | 'createdAt' | 'status'>) => {
@@ -382,6 +407,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const getMachineById = useCallback((id: string) => machines.find(m => m.id === id), [machines])
   const getProblemById = useCallback((id: string) => problems.find(p => p.id === id), [problems])
   const getPartById = useCallback((id: string) => parts.find(p => p.id === id), [parts])
+  
+  // Retorna o ultimo chamado criado por um usuario (mais recente)
+  const getLastTicketByUser = useCallback((userId: string) => {
+    const userTickets = tickets
+      .filter(t => t.createdBy === userId)
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    return userTickets[0]
+  }, [tickets])
 
   const getMaintenanceStats = useCallback(() => {
     const stats = new Map<string, { totalDowntime: number; ticketCount: number }>()
@@ -419,6 +452,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
       addProblem,
       updateProblem,
       addTicket,
+      updateTicketObservation,
+      cancelTicket,
       addScheduledMaintenance,
       updateScheduledMaintenance,
       deleteScheduledMaintenance,
@@ -431,6 +466,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       getProblemById,
       getPartById,
       getMaintenanceStats,
+      getLastTicketByUser,
     }}>
       {children}
     </DataContext.Provider>

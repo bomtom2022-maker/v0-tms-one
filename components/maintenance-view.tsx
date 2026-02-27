@@ -17,6 +17,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { useData } from '@/lib/data-context'
+import { useAuth } from '@/lib/auth-context'
 import { PRIORITY_CONFIG, formatDuration, formatCurrency, type UsedPart } from '@/lib/types'
 import { Play, Pause, Square, ArrowLeft, Package, CheckCircle, User, History, MessageSquare, AlertTriangle, CheckCircle2, XCircle } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -40,6 +41,7 @@ export function MaintenanceView({ ticketId, onBack, onComplete }: MaintenanceVie
     resumeMaintenance,
     completeMaintenance 
   } = useData()
+  const { currentUser } = useAuth()
   
   const [elapsedTime, setElapsedTime] = useState(0)
   const [selectedParts, setSelectedParts] = useState<Record<string, number>>({})
@@ -48,13 +50,13 @@ export function MaintenanceView({ ticketId, onBack, onComplete }: MaintenanceVie
   const [completionNotes, setCompletionNotes] = useState('')
   const [problemResolved, setProblemResolved] = useState<boolean | null>(null)
   
-  // Operator dialog states
-  const [operatorName, setOperatorName] = useState('')
-  const [showOperatorDialog, setShowOperatorDialog] = useState(false)
-  const [pendingAction, setPendingAction] = useState<'start' | 'pause' | 'resume' | 'complete' | null>(null)
-  
-  // Pause specific states
+  // Dialog states - apenas para pausa (que precisa de motivo)
+  const [showPauseDialog, setShowPauseDialog] = useState(false)
   const [pauseReason, setPauseReason] = useState('')
+  
+  // Dialog de confirmacao simples
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false)
+  const [pendingAction, setPendingAction] = useState<'start' | 'resume' | 'complete' | null>(null)
 
   const ticket = ticketId ? tickets.find(t => t.id === ticketId) : null
 
@@ -84,35 +86,35 @@ export function MaintenanceView({ ticketId, onBack, onComplete }: MaintenanceVie
     return () => clearInterval(interval)
   }, [ticket])
 
-  const handleActionWithOperator = (action: 'start' | 'pause' | 'resume' | 'complete') => {
+  // Nome do operador vem do usuario logado
+  const operatorName = currentUser?.name || 'Usuario'
+
+  const handleAction = (action: 'start' | 'resume' | 'complete') => {
     setPendingAction(action)
-    setOperatorName('')
+    setShowConfirmDialog(true)
+  }
+
+  const handlePauseAction = () => {
     setPauseReason('')
-    setShowOperatorDialog(true)
+    setShowPauseDialog(true)
   }
 
   const confirmAction = useCallback(() => {
-    if (!ticketId || !operatorName.trim() || !pendingAction) return
-    
-    // Validacao especifica para pausa
-    if (pendingAction === 'pause' && !pauseReason.trim()) return
+    if (!ticketId || !pendingAction) return
 
     switch (pendingAction) {
       case 'start':
-        startMaintenance(ticketId, operatorName.trim())
-        break
-      case 'pause':
-        pauseMaintenance(ticketId, operatorName.trim(), pauseReason.trim())
+        startMaintenance(ticketId, operatorName)
         break
       case 'resume':
-        resumeMaintenance(ticketId, operatorName.trim())
+        resumeMaintenance(ticketId, operatorName)
         break
       case 'complete':
         const usedParts: UsedPart[] = Object.entries(selectedParts)
           .filter(([, qty]) => qty > 0)
           .map(([partId, quantity]) => ({ partId, quantity }))
         
-        completeMaintenance(ticketId, usedParts, operatorName.trim(), completionNotes.trim() || undefined, problemResolved ?? true)
+        completeMaintenance(ticketId, usedParts, operatorName, completionNotes.trim() || undefined, problemResolved ?? true)
         setShowSuccess(true)
         
         setTimeout(() => {
@@ -126,27 +128,30 @@ export function MaintenanceView({ ticketId, onBack, onComplete }: MaintenanceVie
         break
     }
 
-    setShowOperatorDialog(false)
-    setOperatorName('')
-    setPauseReason('')
+    setShowConfirmDialog(false)
     setPendingAction(null)
-  }, [ticketId, operatorName, pendingAction, pauseReason, selectedParts, completionNotes, problemResolved, startMaintenance, pauseMaintenance, resumeMaintenance, completeMaintenance, onComplete])
+  }, [ticketId, operatorName, pendingAction, selectedParts, completionNotes, problemResolved, startMaintenance, resumeMaintenance, completeMaintenance, onComplete])
+
+  const confirmPause = useCallback(() => {
+    if (!ticketId || !pauseReason.trim()) return
+    
+    pauseMaintenance(ticketId, operatorName, pauseReason.trim())
+    setShowPauseDialog(false)
+    setPauseReason('')
+  }, [ticketId, operatorName, pauseReason, pauseMaintenance])
 
   const totalCost = Object.entries(selectedParts).reduce((sum, [partId, qty]) => {
     const part = parts.find(p => p.id === partId)
     return sum + (part ? part.price * qty : 0)
   }, 0)
 
-  const getActionLabel = (action: 'start' | 'pause' | 'resume' | 'complete') => {
+  const getActionLabel = (action: 'start' | 'resume' | 'complete') => {
     switch (action) {
       case 'start': return 'Iniciar Manutencao'
-      case 'pause': return 'Pausar Manutencao'
       case 'resume': return 'Continuar Manutencao'
       case 'complete': return 'Finalizar Manutencao'
     }
   }
-
-  const isPauseValid = pendingAction === 'pause' ? operatorName.trim() && pauseReason.trim() : operatorName.trim()
 
   // Success screen
   if (showSuccess) {
@@ -178,49 +183,75 @@ export function MaintenanceView({ ticketId, onBack, onComplete }: MaintenanceVie
 
   return (
     <div className="space-y-6">
-      {/* Operator Dialog */}
-      <Dialog open={showOperatorDialog} onOpenChange={setShowOperatorDialog}>
+      {/* Dialog de Confirmacao */}
+      <Dialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <User className="w-5 h-5" />
-              Identificacao do Operador
+              Confirmar Acao
             </DialogTitle>
             <DialogDescription>
               {pendingAction && getActionLabel(pendingAction)}
             </DialogDescription>
           </DialogHeader>
+          <div className="py-4">
+            <div className="flex items-center gap-3 p-4 bg-muted rounded-lg">
+              <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
+                <User className="w-5 h-5 text-primary" />
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Operador</p>
+                <p className="font-medium">{operatorName}</p>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowConfirmDialog(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={confirmAction}>
+              Confirmar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog de Pausa (precisa do motivo) */}
+      <Dialog open={showPauseDialog} onOpenChange={setShowPauseDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Pause className="w-5 h-5" />
+              Pausar Manutencao
+            </DialogTitle>
+            <DialogDescription>
+              Informe o motivo da pausa
+            </DialogDescription>
+          </DialogHeader>
           <div className="space-y-4 py-4">
+            <div className="flex items-center gap-3 p-3 bg-muted rounded-lg">
+              <User className="w-4 h-4 text-muted-foreground" />
+              <span className="text-sm">{operatorName}</span>
+            </div>
             <div className="space-y-2">
-              <Label htmlFor="operator-name">Nome do Operador *</Label>
-              <Input
-                id="operator-name"
-                placeholder="Digite seu nome completo"
-                value={operatorName}
-                onChange={(e) => setOperatorName(e.target.value)}
+              <Label htmlFor="pause-reason">Motivo da Pausa *</Label>
+              <Textarea
+                id="pause-reason"
+                placeholder="Informe o motivo da pausa (obrigatorio)"
+                value={pauseReason}
+                onChange={(e) => setPauseReason(e.target.value)}
+                rows={3}
                 autoFocus
               />
             </div>
-            
-            {pendingAction === 'pause' && (
-              <div className="space-y-2">
-                <Label htmlFor="pause-reason">Motivo da Pausa *</Label>
-                <Textarea
-                  id="pause-reason"
-                  placeholder="Informe o motivo da pausa (obrigatorio)"
-                  value={pauseReason}
-                  onChange={(e) => setPauseReason(e.target.value)}
-                  rows={3}
-                />
-              </div>
-            )}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowOperatorDialog(false)}>
+            <Button variant="outline" onClick={() => setShowPauseDialog(false)}>
               Cancelar
             </Button>
-            <Button onClick={confirmAction} disabled={!isPauseValid}>
-              Confirmar
+            <Button onClick={confirmPause} disabled={!pauseReason.trim()}>
+              Confirmar Pausa
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -302,7 +333,7 @@ export function MaintenanceView({ ticketId, onBack, onComplete }: MaintenanceVie
             <Button 
               size="lg" 
               className="w-full bg-green-600 hover:bg-green-700 text-white"
-              onClick={() => handleActionWithOperator('start')}
+              onClick={() => handleAction('start')}
             >
               <Play className="w-5 h-5 mr-2" />
               Iniciar Manutencao
@@ -315,7 +346,7 @@ export function MaintenanceView({ ticketId, onBack, onComplete }: MaintenanceVie
                 size="lg" 
                 variant="outline"
                 className="w-full border-yellow-500 text-yellow-600 hover:bg-yellow-50"
-                onClick={() => handleActionWithOperator('pause')}
+                onClick={handlePauseAction}
               >
                 <Pause className="w-5 h-5 mr-2" />
                 Pausar
@@ -337,7 +368,7 @@ export function MaintenanceView({ ticketId, onBack, onComplete }: MaintenanceVie
               <Button 
                 size="lg" 
                 className="w-full bg-green-600 hover:bg-green-700 text-white"
-                onClick={() => handleActionWithOperator('resume')}
+                onClick={() => handleAction('resume')}
               >
                 <Play className="w-5 h-5 mr-2" />
                 Continuar
@@ -526,7 +557,7 @@ export function MaintenanceView({ ticketId, onBack, onComplete }: MaintenanceVie
                   Cancelar
                 </Button>
                 <Button 
-                  onClick={() => handleActionWithOperator('complete')}
+                  onClick={() => handleAction('complete')}
                   disabled={problemResolved === null}
                 >
                   Confirmar Finalizacao

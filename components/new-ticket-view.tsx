@@ -15,6 +15,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { useData } from '@/lib/data-context'
+import { useAuth } from '@/lib/auth-context'
 import { PRIORITY_CONFIG, type Priority } from '@/lib/types'
 import { CheckCircle, AlertTriangle, Clock, AlertCircle, AlertOctagon } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -25,6 +26,7 @@ interface NewTicketViewProps {
 
 export function NewTicketView({ onSuccess }: NewTicketViewProps) {
   const { machines, problems, addTicket, getProblemById } = useData()
+  const { currentUser } = useAuth()
   const [machineId, setMachineId] = useState('')
   const [problemId, setProblemId] = useState('')
   const [priority, setPriority] = useState<Priority>('medium')
@@ -79,6 +81,8 @@ export function NewTicketView({ onSuccess }: NewTicketViewProps) {
         priority,
         observation,
         machineStopped,
+        createdBy: currentUser?.id || '',
+        createdByName: currentUser?.name || '',
       })
 
       setShowSuccess(true)
