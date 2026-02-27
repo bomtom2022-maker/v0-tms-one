@@ -2,6 +2,7 @@
 
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/lib/auth-context'
+import { NotificationBell } from '@/components/notification-bell'
 import { 
   LayoutDashboard, 
   Plus, 
@@ -84,14 +85,17 @@ export function Sidebar({ currentView, onViewChange }: SidebarProps) {
               <p className="text-xs text-sidebar-foreground/60">Vetore</p>
             </div>
           </div>
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            onClick={() => setMobileOpen(!mobileOpen)}
-            className="text-sidebar-foreground"
-          >
-            {mobileOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-          </Button>
+          <div className="flex items-center gap-2">
+            <NotificationBell />
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              onClick={() => setMobileOpen(!mobileOpen)}
+              className="text-sidebar-foreground"
+            >
+              {mobileOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+            </Button>
+          </div>
         </div>
       </header>
 
@@ -110,14 +114,17 @@ export function Sidebar({ currentView, onViewChange }: SidebarProps) {
         mobileOpen ? "translate-x-0" : "-translate-x-full"
       )}>
         {/* Logo */}
-        <div className="hidden lg:flex items-center gap-3 p-6 border-b border-sidebar-border">
-          <div className="w-10 h-10 bg-sidebar-primary rounded-xl flex items-center justify-center">
-            <Settings className="w-6 h-6 text-sidebar-primary-foreground" />
+        <div className="hidden lg:flex items-center justify-between p-6 border-b border-sidebar-border">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-sidebar-primary rounded-xl flex items-center justify-center">
+              <Settings className="w-6 h-6 text-sidebar-primary-foreground" />
+            </div>
+            <div>
+              <h1 className="text-xl font-bold text-sidebar-foreground">TMS One</h1>
+              <p className="text-xs text-sidebar-foreground/60">Vetore Industrial</p>
+            </div>
           </div>
-          <div>
-            <h1 className="text-xl font-bold text-sidebar-foreground">TMS One</h1>
-            <p className="text-xs text-sidebar-foreground/60">Vetore Industrial</p>
-          </div>
+          <NotificationBell />
         </div>
 
         {/* Navigation */}
