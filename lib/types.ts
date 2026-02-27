@@ -50,6 +50,7 @@ export interface Ticket {
   accumulatedTime: number // tempo acumulado durante pausas
   actions: MaintenanceAction[]
   completionNotes?: string // observacao ao finalizar
+  resolved?: boolean // problema foi resolvido?
 }
 
 export interface MaintenanceStats {

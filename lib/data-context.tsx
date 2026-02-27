@@ -124,7 +124,7 @@ interface DataContextType {
   startMaintenance: (ticketId: string, operatorName: string) => void
   pauseMaintenance: (ticketId: string, operatorName: string, reason: string) => void
   resumeMaintenance: (ticketId: string, operatorName: string) => void
-  completeMaintenance: (ticketId: string, usedParts: UsedPart[], operatorName: string, completionNotes?: string) => void
+  completeMaintenance: (ticketId: string, usedParts: UsedPart[], operatorName: string, completionNotes?: string, resolved?: boolean) => void
   getTicketById: (id: string) => Ticket | undefined
   getMachineById: (id: string) => Machine | undefined
   getProblemById: (id: string) => Problem | undefined
@@ -267,7 +267,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     }))
   }, [])
 
-  const completeMaintenance = useCallback((ticketId: string, usedParts: UsedPart[], operatorName: string, completionNotes?: string) => {
+  const completeMaintenance = useCallback((ticketId: string, usedParts: UsedPart[], operatorName: string, completionNotes?: string, resolved?: boolean) => {
     setTickets(prev => prev.map(ticket => {
       if (ticket.id !== ticketId) return ticket
       
@@ -298,6 +298,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
         timestamp: now,
       }
 
+      // Se problema nao foi resolvido, colocar maquina em observacao
+      if (resolved === false) {
+        setMachines(prevMachines => prevMachines.map(m => 
+          m.id === ticket.machineId ? { ...m, status: 'attention' as const } : m
+        ))
+      }
+
       return {
         ...ticket,
         status: 'completed' as const,
@@ -307,6 +314,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         downtime,
         actions: [...ticket.actions, action],
         completionNotes,
+        resolved,
       }
     }))
   }, [parts])

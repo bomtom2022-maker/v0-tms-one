@@ -18,7 +18,7 @@ import {
 } from '@/components/ui/dialog'
 import { useData } from '@/lib/data-context'
 import { PRIORITY_CONFIG, formatDuration, formatCurrency, type UsedPart } from '@/lib/types'
-import { Play, Pause, Square, ArrowLeft, Package, CheckCircle, User, History, MessageSquare } from 'lucide-react'
+import { Play, Pause, Square, ArrowLeft, Package, CheckCircle, User, History, MessageSquare, AlertTriangle, CheckCircle2, XCircle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
@@ -46,6 +46,7 @@ export function MaintenanceView({ ticketId, onBack, onComplete }: MaintenanceVie
   const [showCompletionForm, setShowCompletionForm] = useState(false)
   const [showSuccess, setShowSuccess] = useState(false)
   const [completionNotes, setCompletionNotes] = useState('')
+  const [problemResolved, setProblemResolved] = useState<boolean | null>(null)
   
   // Operator dialog states
   const [operatorName, setOperatorName] = useState('')
@@ -111,7 +112,7 @@ export function MaintenanceView({ ticketId, onBack, onComplete }: MaintenanceVie
           .filter(([, qty]) => qty > 0)
           .map(([partId, quantity]) => ({ partId, quantity }))
         
-        completeMaintenance(ticketId, usedParts, operatorName.trim(), completionNotes.trim() || undefined)
+        completeMaintenance(ticketId, usedParts, operatorName.trim(), completionNotes.trim() || undefined, problemResolved ?? true)
         setShowSuccess(true)
         
         setTimeout(() => {
@@ -119,6 +120,7 @@ export function MaintenanceView({ ticketId, onBack, onComplete }: MaintenanceVie
           setShowCompletionForm(false)
           setSelectedParts({})
           setCompletionNotes('')
+          setProblemResolved(null)
           onComplete()
         }, 2000)
         break
@@ -128,7 +130,7 @@ export function MaintenanceView({ ticketId, onBack, onComplete }: MaintenanceVie
     setOperatorName('')
     setPauseReason('')
     setPendingAction(null)
-  }, [ticketId, operatorName, pendingAction, pauseReason, selectedParts, completionNotes, startMaintenance, pauseMaintenance, resumeMaintenance, completeMaintenance, onComplete])
+  }, [ticketId, operatorName, pendingAction, pauseReason, selectedParts, completionNotes, problemResolved, startMaintenance, pauseMaintenance, resumeMaintenance, completeMaintenance, onComplete])
 
   const totalCost = Object.entries(selectedParts).reduce((sum, [partId, qty]) => {
     const part = parts.find(p => p.id === partId)
@@ -413,10 +415,49 @@ export function MaintenanceView({ ticketId, onBack, onComplete }: MaintenanceVie
               Finalizacao da Manutencao
             </CardTitle>
             <CardDescription>
-              Selecione as pecas utilizadas e adicione observacoes
+              Informe o resultado da manutencao
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
+            {/* Problem Resolved Selection */}
+            <div className="space-y-3">
+              <Label className="text-base font-medium">O problema foi resolvido? *</Label>
+              <div className="grid grid-cols-2 gap-3">
+                <Button
+                  type="button"
+                  variant={problemResolved === true ? "default" : "outline"}
+                  className={cn(
+                    "h-auto py-4 flex flex-col items-center gap-2",
+                    problemResolved === true && "bg-green-600 hover:bg-green-700 text-white"
+                  )}
+                  onClick={() => setProblemResolved(true)}
+                >
+                  <CheckCircle2 className="w-6 h-6" />
+                  <span>Sim, Resolvido</span>
+                </Button>
+                <Button
+                  type="button"
+                  variant={problemResolved === false ? "default" : "outline"}
+                  className={cn(
+                    "h-auto py-4 flex flex-col items-center gap-2",
+                    problemResolved === false && "bg-orange-500 hover:bg-orange-600 text-white"
+                  )}
+                  onClick={() => setProblemResolved(false)}
+                >
+                  <XCircle className="w-6 h-6" />
+                  <span>Nao Resolvido</span>
+                </Button>
+              </div>
+              {problemResolved === false && (
+                <div className="flex items-start gap-2 p-3 bg-orange-50 rounded-lg border border-orange-200">
+                  <AlertTriangle className="w-5 h-5 text-orange-500 shrink-0 mt-0.5" />
+                  <p className="text-sm text-orange-700">
+                    A maquina sera automaticamente colocada em <strong>Observacao</strong> para acompanhamento.
+                  </p>
+                </div>
+              )}
+            </div>
+
             {/* Completion Notes */}
             <div className="space-y-2">
               <Label htmlFor="completion-notes" className="flex items-center gap-2">
@@ -478,13 +519,24 @@ export function MaintenanceView({ ticketId, onBack, onComplete }: MaintenanceVie
               </div>
 
               <div className="grid grid-cols-2 gap-3">
-                <Button variant="outline" onClick={() => setShowCompletionForm(false)}>
+                <Button variant="outline" onClick={() => {
+                  setShowCompletionForm(false)
+                  setProblemResolved(null)
+                }}>
                   Cancelar
                 </Button>
-                <Button onClick={() => handleActionWithOperator('complete')}>
+                <Button 
+                  onClick={() => handleActionWithOperator('complete')}
+                  disabled={problemResolved === null}
+                >
                   Confirmar Finalizacao
                 </Button>
               </div>
+              {problemResolved === null && (
+                <p className="text-sm text-muted-foreground text-center">
+                  Selecione se o problema foi resolvido para continuar
+                </p>
+              )}
             </div>
           </CardContent>
         </Card>
