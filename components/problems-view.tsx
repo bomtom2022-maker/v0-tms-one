@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -24,7 +24,7 @@ import {
 } from '@/components/ui/dialog'
 import { useData } from '@/lib/data-context'
 import { PRIORITY_CONFIG, type Priority } from '@/lib/types'
-import { Plus, AlertTriangle, Clock, AlertCircle, Pencil } from 'lucide-react'
+import { Plus, AlertTriangle, Clock, AlertCircle, Pencil, Search, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 export function ProblemsView() {
@@ -33,6 +33,26 @@ export function ProblemsView() {
   const [editingProblem, setEditingProblem] = useState<{ id: string; name: string; defaultPriority: Priority } | null>(null)
   const [newProblemName, setNewProblemName] = useState('')
   const [newProblemPriority, setNewProblemPriority] = useState<Priority>('medium')
+  
+  // Filtros
+  const [searchTerm, setSearchTerm] = useState('')
+  const [priorityFilter, setPriorityFilter] = useState<Priority | 'all'>('all')
+
+  // Problemas filtrados
+  const filteredProblems = useMemo(() => {
+    return problems.filter(problem => {
+      const matchesSearch = problem.name.toLowerCase().includes(searchTerm.toLowerCase())
+      const matchesPriority = priorityFilter === 'all' || problem.defaultPriority === priorityFilter
+      return matchesSearch && matchesPriority
+    })
+  }, [problems, searchTerm, priorityFilter])
+
+  const hasActiveFilters = searchTerm || priorityFilter !== 'all'
+
+  const clearFilters = () => {
+    setSearchTerm('')
+    setPriorityFilter('all')
+  }
 
   const handleAddProblem = () => {
     if (!newProblemName.trim()) return
@@ -200,6 +220,78 @@ export function ProblemsView() {
         </DialogContent>
       </Dialog>
 
+      {/* Filtros */}
+      <Card>
+        <CardHeader className="pb-4">
+          <CardTitle className="text-base">Filtros</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-col sm:flex-row gap-4">
+            {/* Busca por nome */}
+            <div className="flex-1">
+              <Label htmlFor="search" className="sr-only">Buscar problema</Label>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input
+                  id="search"
+                  placeholder="Buscar por nome do problema..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+            </div>
+            
+            {/* Filtro por prioridade */}
+            <div className="w-full sm:w-48">
+              <Label htmlFor="priority-filter" className="sr-only">Filtrar por prioridade</Label>
+              <Select value={priorityFilter} onValueChange={(v) => setPriorityFilter(v as Priority | 'all')}>
+                <SelectTrigger id="priority-filter">
+                  <SelectValue placeholder="Prioridade" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas as prioridades</SelectItem>
+                  {(Object.keys(PRIORITY_CONFIG) as Priority[]).map((p) => {
+                    const config = PRIORITY_CONFIG[p]
+                    const Icon = getPriorityIcon(p)
+                    return (
+                      <SelectItem key={p} value={p}>
+                        <div className="flex items-center gap-2">
+                          <div className={cn("p-1 rounded", config.color)}>
+                            <Icon className="w-3 h-3 text-white" />
+                          </div>
+                          <span>{config.label}</span>
+                        </div>
+                      </SelectItem>
+                    )
+                  })}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Botao limpar filtros */}
+            {hasActiveFilters && (
+              <Button variant="ghost" size="icon" onClick={clearFilters} className="shrink-0">
+                <X className="w-4 h-4" />
+                <span className="sr-only">Limpar filtros</span>
+              </Button>
+            )}
+          </div>
+
+          {/* Resumo dos resultados */}
+          <div className="mt-4 flex items-center justify-between text-sm text-muted-foreground">
+            <span>
+              Mostrando {filteredProblems.length} de {problems.length} problemas
+            </span>
+            {hasActiveFilters && (
+              <Button variant="link" size="sm" onClick={clearFilters} className="h-auto p-0">
+                Limpar filtros
+              </Button>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Problems List */}
       <Card>
         <CardHeader>
@@ -210,7 +302,13 @@ export function ProblemsView() {
         </CardHeader>
         <CardContent>
           <div className="grid gap-3">
-            {problems.map((problem) => {
+            {filteredProblems.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                {hasActiveFilters 
+                  ? 'Nenhum problema encontrado com os filtros aplicados.'
+                  : 'Nenhum problema cadastrado ainda.'}
+              </div>
+            ) : filteredProblems.map((problem) => {
               const config = PRIORITY_CONFIG[problem.defaultPriority]
               const Icon = getPriorityIcon(problem.defaultPriority)
               

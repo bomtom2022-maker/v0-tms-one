@@ -5,6 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
+import { Label } from '@/components/ui/label'
 import {
   Select,
   SelectContent,
@@ -12,10 +14,19 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { useData } from '@/lib/data-context'
-import { PRIORITY_CONFIG, MACHINE_STATUS_CONFIG, type Priority } from '@/lib/types'
-import { Clock, Search, Filter, Play, Pause, ArrowRight, AlertOctagon, Cog } from 'lucide-react'
-import { formatDistanceToNow } from 'date-fns'
+import { useAuth } from '@/lib/auth-context'
+import { PRIORITY_CONFIG, type Priority } from '@/lib/types'
+import { Clock, Search, Filter, Play, Pause, ArrowRight, AlertOctagon, Cog, User, Pencil, X, Eye } from 'lucide-react'
+import { formatDistanceToNow, format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { cn } from '@/lib/utils'
 
@@ -24,14 +35,24 @@ interface DashboardViewProps {
 }
 
 export function DashboardView({ onSelectTicket }: DashboardViewProps) {
-  const { tickets, machines, problems, getMachineById, getProblemById } = useData()
+  const { tickets, machines, problems, getMachineById, getProblemById, getLastTicketByUser, updateTicketObservation, cancelTicket } = useData()
+  const { currentUser, isManutentor, isLider } = useAuth()
   
   const [searchTerm, setSearchTerm] = useState('')
   const [filterMachine, setFilterMachine] = useState<string>('all')
   const [filterProblem, setFilterProblem] = useState<string>('all')
   const [filterPriority, setFilterPriority] = useState<string>('all')
 
-  const totalActive = tickets.filter(t => t.status !== 'completed').length
+  // Dialog de edicao/cancelamento para lideres
+  const [editDialogOpen, setEditDialogOpen] = useState(false)
+  const [editObservation, setEditObservation] = useState('')
+  const [cancelDialogOpen, setCancelDialogOpen] = useState(false)
+
+  // Ultimo chamado do usuario para lideres
+  const lastUserTicket = currentUser ? getLastTicketByUser(currentUser.id) : undefined
+  const canEditLastTicket = isLider && lastUserTicket && lastUserTicket.status === 'open'
+
+  const totalActive = tickets.filter(t => t.status !== 'completed' && t.status !== 'cancelled').length
   const completedToday = tickets.filter(t => {
     if (t.status !== 'completed' || !t.completedAt) return false
     const today = new Date()
@@ -47,10 +68,10 @@ export function DashboardView({ onSelectTicket }: DashboardViewProps) {
     }
   }, [machines])
 
-  // Filtrar tickets ativos (não finalizados)
+  // Filtrar tickets ativos (nao finalizados e nao cancelados)
   const activeTickets = useMemo(() => {
     return tickets
-      .filter(t => t.status !== 'completed')
+      .filter(t => t.status !== 'completed' && t.status !== 'cancelled')
       .filter(t => {
         const machine = getMachineById(t.machineId)
         const problem = getProblemById(t.problemId)
@@ -64,7 +85,7 @@ export function DashboardView({ onSelectTicket }: DashboardViewProps) {
           if (!matchMachine && !matchProblem && !matchObservation) return false
         }
         
-        // Filtro de máquina
+        // Filtro de maquina
         if (filterMachine !== 'all' && t.machineId !== filterMachine) return false
         
         // Filtro de problema
@@ -86,16 +107,45 @@ export function DashboardView({ onSelectTicket }: DashboardViewProps) {
 
   const hasActiveFilters = searchTerm || filterMachine !== 'all' || filterProblem !== 'all' || filterPriority !== 'all'
 
+  const handleOpenEditDialog = () => {
+    if (lastUserTicket) {
+      setEditObservation(lastUserTicket.observation)
+      setEditDialogOpen(true)
+    }
+  }
+
+  const handleSaveObservation = () => {
+    if (lastUserTicket) {
+      updateTicketObservation(lastUserTicket.id, editObservation)
+      setEditDialogOpen(false)
+    }
+  }
+
+  const handleCancelTicket = () => {
+    if (lastUserTicket) {
+      cancelTicket(lastUserTicket.id)
+      setCancelDialogOpen(false)
+    }
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl lg:text-3xl font-bold text-foreground">
-          Dashboard de Gestao
-        </h1>
-        <p className="text-muted-foreground mt-1">
-          {totalActive} chamados ativos &bull; {completedToday} finalizados hoje
-        </p>
+      <div className="flex items-start justify-between">
+        <div>
+          <h1 className="text-2xl lg:text-3xl font-bold text-foreground">
+            Dashboard de Gestao
+          </h1>
+          <p className="text-muted-foreground mt-1">
+            {totalActive} chamados ativos {isManutentor && <span>&bull; {completedToday} finalizados hoje</span>}
+          </p>
+        </div>
+        {isLider && (
+          <Badge variant="outline" className="flex items-center gap-1 px-3 py-1">
+            <Eye className="w-3 h-3" />
+            Modo Visualizacao
+          </Badge>
+        )}
       </div>
 
       {/* Machine Status Cards - Top Section */}
@@ -276,12 +326,16 @@ export function DashboardView({ onSelectTicket }: DashboardViewProps) {
                     ? 'bg-yellow-50 text-yellow-600 border-yellow-200'
                     : 'bg-gray-50 text-gray-600 border-gray-200'
 
+                // Verificar se e o ultimo chamado do lider para destacar
+                const isOwnLastTicket = isLider && lastUserTicket?.id === ticket.id
+
                 return (
                   <div
                     key={ticket.id}
                     className={cn(
                       "p-4 hover:bg-muted/50 transition-colors border-l-4",
-                      priorityConfig.borderColor
+                      priorityConfig.borderColor,
+                      isOwnLastTicket && "bg-amber-50/30"
                     )}
                   >
                     <div className="flex items-start justify-between gap-4">
@@ -307,6 +361,11 @@ export function DashboardView({ onSelectTicket }: DashboardViewProps) {
                               Maquina Parada
                             </Badge>
                           )}
+                          {isOwnLastTicket && (
+                            <Badge variant="outline" className="text-xs bg-amber-50 text-amber-600 border-amber-200">
+                              Seu chamado
+                            </Badge>
+                          )}
                         </div>
                         <p className="text-sm text-muted-foreground mt-1">
                           {problem?.name || 'Problema nao especificado'}
@@ -316,25 +375,59 @@ export function DashboardView({ onSelectTicket }: DashboardViewProps) {
                             {ticket.observation}
                           </p>
                         )}
-                        <div className="flex items-center gap-1 mt-2 text-xs text-muted-foreground">
-                          <Clock className="w-3 h-3" />
-                          <span>
+                        <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
+                          <span className="flex items-center gap-1">
+                            <Clock className="w-3 h-3" />
                             {formatDistanceToNow(ticket.createdAt, { 
                               addSuffix: true, 
                               locale: ptBR 
                             })}
                           </span>
+                          {ticket.createdByName && (
+                            <span className="flex items-center gap-1">
+                              <User className="w-3 h-3" />
+                              {ticket.createdByName}
+                            </span>
+                          )}
                         </div>
                       </div>
-                      <Button 
-                        variant="default" 
-                        size="sm"
-                        onClick={() => onSelectTicket(ticket.id)}
-                        className="shrink-0"
-                      >
-                        {ticket.status === 'open' ? 'Iniciar' : 'Gerenciar'}
-                        <ArrowRight className="w-4 h-4 ml-1" />
-                      </Button>
+                      
+                      {/* Botoes de acao */}
+                      <div className="flex gap-2 shrink-0">
+                        {/* Botoes de editar/cancelar para o ultimo chamado do lider */}
+                        {isOwnLastTicket && ticket.status === 'open' && (
+                          <>
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              onClick={handleOpenEditDialog}
+                            >
+                              <Pencil className="w-3 h-3 mr-1" />
+                              Editar
+                            </Button>
+                            <Button 
+                              variant="destructive" 
+                              size="sm"
+                              onClick={() => setCancelDialogOpen(true)}
+                            >
+                              <X className="w-3 h-3 mr-1" />
+                              Cancelar
+                            </Button>
+                          </>
+                        )}
+                        
+                        {/* Botao de gerenciar - apenas para manutentores */}
+                        {isManutentor && (
+                          <Button 
+                            variant="default" 
+                            size="sm"
+                            onClick={() => onSelectTicket(ticket.id)}
+                          >
+                            {ticket.status === 'open' ? 'Iniciar' : 'Gerenciar'}
+                            <ArrowRight className="w-4 h-4 ml-1" />
+                          </Button>
+                        )}
+                      </div>
                     </div>
                   </div>
                 )
@@ -343,6 +436,63 @@ export function DashboardView({ onSelectTicket }: DashboardViewProps) {
           )}
         </CardContent>
       </Card>
+
+      {/* Dialog de Edicao */}
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Editar Observacao do Chamado</DialogTitle>
+            <DialogDescription>
+              Atualize a observacao do seu ultimo chamado registrado.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Observacao</Label>
+              <Textarea
+                value={editObservation}
+                onChange={(e) => setEditObservation(e.target.value)}
+                rows={4}
+                placeholder="Descreva o problema..."
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditDialogOpen(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={handleSaveObservation}>
+              Salvar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog de Cancelamento */}
+      <Dialog open={cancelDialogOpen} onOpenChange={setCancelDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Cancelar Chamado</DialogTitle>
+            <DialogDescription>
+              Tem certeza que deseja cancelar este chamado? Esta acao nao pode ser desfeita.
+            </DialogDescription>
+          </DialogHeader>
+          {lastUserTicket && (
+            <div className="p-4 bg-muted rounded-lg">
+              <p className="font-medium">{getMachineById(lastUserTicket.machineId)?.name}</p>
+              <p className="text-sm text-muted-foreground">{getProblemById(lastUserTicket.problemId)?.name}</p>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCancelDialogOpen(false)}>
+              Manter Chamado
+            </Button>
+            <Button variant="destructive" onClick={handleCancelTicket}>
+              Confirmar Cancelamento
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

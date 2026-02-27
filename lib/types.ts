@@ -2,6 +2,23 @@ export type Priority = 'high' | 'medium' | 'low'
 
 export type MachineStatus = 'critical' | 'attention' | 'ok'
 
+// Tipos de Usuario
+export type UserRole = 'manutentor' | 'lider'
+
+export interface User {
+  id: string
+  name: string
+  email: string
+  password: string
+  role: UserRole
+  createdAt: Date
+}
+
+export interface AuthSession {
+  user: Omit<User, 'password'>
+  isAuthenticated: boolean
+}
+
 export interface Machine {
   id: string
   name: string
@@ -40,7 +57,7 @@ export interface Ticket {
   problemId: string
   observation: string
   priority: Priority
-  status: 'open' | 'in-progress' | 'paused' | 'completed'
+  status: 'open' | 'in-progress' | 'paused' | 'completed' | 'cancelled'
   createdAt: Date
   startedAt?: Date
   completedAt?: Date
@@ -52,6 +69,8 @@ export interface Ticket {
   completionNotes?: string // observacao ao finalizar
   resolved?: boolean // problema foi resolvido?
   machineStopped?: boolean // maquina parada?
+  createdBy: string // userId de quem criou o chamado
+  createdByName: string // nome de quem criou o chamado
 }
 
 export interface ScheduledMaintenance {

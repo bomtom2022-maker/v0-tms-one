@@ -15,6 +15,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { useData } from '@/lib/data-context'
+import { useAuth } from '@/lib/auth-context'
 import { PRIORITY_CONFIG, type Priority } from '@/lib/types'
 import { CheckCircle, AlertTriangle, Clock, AlertCircle, AlertOctagon } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -25,6 +26,7 @@ interface NewTicketViewProps {
 
 export function NewTicketView({ onSuccess }: NewTicketViewProps) {
   const { machines, problems, addTicket, getProblemById } = useData()
+  const { currentUser } = useAuth()
   const [machineId, setMachineId] = useState('')
   const [problemId, setProblemId] = useState('')
   const [priority, setPriority] = useState<Priority>('medium')
@@ -79,6 +81,8 @@ export function NewTicketView({ onSuccess }: NewTicketViewProps) {
         priority,
         observation,
         machineStopped,
+        createdBy: currentUser?.id || '',
+        createdByName: currentUser?.name || '',
       })
 
       setShowSuccess(true)
@@ -111,6 +115,11 @@ export function NewTicketView({ onSuccess }: NewTicketViewProps) {
   }
 
   const selectedProblem = problemId ? getProblemById(problemId) : null
+  
+  // Verifica se e o problema "Outros" (requer observacao obrigatoria)
+  const isOtherProblem = selectedProblem?.name.toLowerCase() === 'outros' || selectedProblem?.name.toLowerCase() === 'outro'
+  const isObservationRequired = isOtherProblem
+  const isFormValid = machineId && problemId && (!isObservationRequired || observation.trim().length > 0)
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
@@ -285,19 +294,41 @@ export function NewTicketView({ onSuccess }: NewTicketViewProps) {
         )}
 
         {/* Observacao */}
-        <Card>
+        <Card className={cn(isObservationRequired && !observation.trim() && "border-amber-500")}>
           <CardHeader className="pb-3">
-            <CardTitle className="text-base">Observacao</CardTitle>
-            <CardDescription>Descreva o problema em detalhes</CardDescription>
+            <CardTitle className="text-base flex items-center gap-2">
+              Observacao
+              {isObservationRequired && (
+                <Badge variant="outline" className="text-amber-600 border-amber-500 text-xs font-normal">
+                  Obrigatorio
+                </Badge>
+              )}
+            </CardTitle>
+            <CardDescription>
+              {isObservationRequired 
+                ? 'Descreva detalhadamente o problema especifico (campo obrigatorio para "Outros")'
+                : 'Descreva o problema em detalhes'}
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <Textarea
               value={observation}
               onChange={(e) => setObservation(e.target.value)}
-              placeholder="Descreva o problema observado, sintomas, comportamento da maquina, etc."
+              placeholder={isObservationRequired 
+                ? "OBRIGATORIO: Descreva detalhadamente o problema especifico..."
+                : "Descreva o problema observado, sintomas, comportamento da maquina, etc."}
               rows={4}
-              className="resize-none"
+              className={cn(
+                "resize-none",
+                isObservationRequired && !observation.trim() && "border-amber-500 focus-visible:ring-amber-500"
+              )}
             />
+            {isObservationRequired && !observation.trim() && (
+              <p className="text-sm text-amber-600 mt-2 flex items-center gap-1">
+                <AlertTriangle className="w-4 h-4" />
+                Este campo e obrigatorio quando o tipo de problema for "Outros"
+              </p>
+            )}
           </CardContent>
         </Card>
 
@@ -309,7 +340,7 @@ export function NewTicketView({ onSuccess }: NewTicketViewProps) {
             "w-full",
             machineStopped && "bg-red-600 hover:bg-red-700"
           )}
-          disabled={!machineId || !problemId || isSubmitting}
+          disabled={!isFormValid || isSubmitting}
         >
           {isSubmitting ? 'Registrando...' : machineStopped ? 'Registrar Chamado URGENTE' : 'Registrar Chamado'}
         </Button>
