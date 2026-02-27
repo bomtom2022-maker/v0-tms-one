@@ -24,12 +24,13 @@ import {
 } from '@/components/ui/dialog'
 import { useData } from '@/lib/data-context'
 import { PRIORITY_CONFIG, type Priority } from '@/lib/types'
-import { Plus, AlertTriangle, Clock, AlertCircle } from 'lucide-react'
+import { Plus, AlertTriangle, Clock, AlertCircle, Pencil } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 export function ProblemsView() {
-  const { problems, addProblem } = useData()
+  const { problems, addProblem, updateProblem } = useData()
   const [isOpen, setIsOpen] = useState(false)
+  const [editingProblem, setEditingProblem] = useState<{ id: string; name: string; defaultPriority: Priority } | null>(null)
   const [newProblemName, setNewProblemName] = useState('')
   const [newProblemPriority, setNewProblemPriority] = useState<Priority>('medium')
 
@@ -40,6 +41,13 @@ export function ProblemsView() {
     setNewProblemName('')
     setNewProblemPriority('medium')
     setIsOpen(false)
+  }
+
+  const handleEditProblem = () => {
+    if (!editingProblem || !editingProblem.name.trim()) return
+    
+    updateProblem(editingProblem.id, editingProblem.name.trim(), editingProblem.defaultPriority)
+    setEditingProblem(null)
   }
 
   const getPriorityIcon = (priority: Priority) => {
@@ -59,7 +67,7 @@ export function ProblemsView() {
             Cadastro de Problemas
           </h1>
           <p className="text-muted-foreground mt-1">
-            Gerencie os tipos de problemas e suas prioridades padrão
+            Gerencie os tipos de problemas e suas prioridades padrao
           </p>
         </div>
         
@@ -74,7 +82,7 @@ export function ProblemsView() {
             <DialogHeader>
               <DialogTitle>Cadastrar Novo Problema</DialogTitle>
               <DialogDescription>
-                Defina o nome do problema e sua prioridade padrão. A prioridade será sugerida automaticamente ao abrir um chamado.
+                Defina o nome do problema e sua prioridade padrao. A prioridade sera sugerida automaticamente ao abrir um chamado.
               </DialogDescription>
             </DialogHeader>
             
@@ -90,7 +98,7 @@ export function ProblemsView() {
               </div>
               
               <div className="space-y-2">
-                <Label>Prioridade Padrão</Label>
+                <Label>Prioridade Padrao</Label>
                 <Select value={newProblemPriority} onValueChange={(v) => setNewProblemPriority(v as Priority)}>
                   <SelectTrigger>
                     <SelectValue />
@@ -113,7 +121,7 @@ export function ProblemsView() {
                   </SelectContent>
                 </Select>
                 <p className="text-xs text-muted-foreground">
-                  Esta prioridade será automaticamente selecionada quando este problema for escolhido em um chamado.
+                  Esta prioridade sera automaticamente selecionada quando este problema for escolhido em um chamado.
                 </p>
               </div>
             </div>
@@ -130,12 +138,74 @@ export function ProblemsView() {
         </Dialog>
       </div>
 
+      {/* Edit Problem Dialog */}
+      <Dialog open={!!editingProblem} onOpenChange={(open) => !open && setEditingProblem(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Editar Problema</DialogTitle>
+            <DialogDescription>
+              Altere o nome e a prioridade padrao do problema.
+            </DialogDescription>
+          </DialogHeader>
+          
+          {editingProblem && (
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-problem-name">Nome do Problema</Label>
+                <Input
+                  id="edit-problem-name"
+                  value={editingProblem.name}
+                  onChange={(e) => setEditingProblem({ ...editingProblem, name: e.target.value })}
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label>Prioridade Padrao</Label>
+                <Select 
+                  value={editingProblem.defaultPriority} 
+                  onValueChange={(v) => setEditingProblem({ ...editingProblem, defaultPriority: v as Priority })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(Object.keys(PRIORITY_CONFIG) as Priority[]).map((p) => {
+                      const config = PRIORITY_CONFIG[p]
+                      const Icon = getPriorityIcon(p)
+                      return (
+                        <SelectItem key={p} value={p}>
+                          <div className="flex items-center gap-2">
+                            <div className={cn("p-1 rounded", config.color)}>
+                              <Icon className="w-3 h-3 text-white" />
+                            </div>
+                            <span>{config.label}</span>
+                          </div>
+                        </SelectItem>
+                      )
+                    })}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          )}
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditingProblem(null)}>
+              Cancelar
+            </Button>
+            <Button onClick={handleEditProblem} disabled={!editingProblem?.name.trim()}>
+              Salvar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Problems List */}
       <Card>
         <CardHeader>
           <CardTitle>Problemas Cadastrados</CardTitle>
           <CardDescription>
-            Lista de todos os problemas disponíveis para abertura de chamados
+            Lista de todos os problemas disponiveis para abertura de chamados
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -159,12 +229,25 @@ export function ProblemsView() {
                     </div>
                     <span className="font-medium">{problem.name}</span>
                   </div>
-                  <Badge 
-                    variant="secondary"
-                    className={cn(config.bgLight, config.textColor, "text-xs")}
-                  >
-                    {config.label}
-                  </Badge>
+                  <div className="flex items-center gap-2">
+                    <Badge 
+                      variant="secondary"
+                      className={cn(config.bgLight, config.textColor, "text-xs")}
+                    >
+                      {config.label}
+                    </Badge>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => setEditingProblem({ 
+                        id: problem.id, 
+                        name: problem.name, 
+                        defaultPriority: problem.defaultPriority 
+                      })}
+                    >
+                      <Pencil className="w-4 h-4" />
+                    </Button>
+                  </div>
                 </div>
               )
             })}

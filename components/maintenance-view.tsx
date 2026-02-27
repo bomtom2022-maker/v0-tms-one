@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
 import {
   Dialog,
   DialogContent,
@@ -17,7 +18,7 @@ import {
 } from '@/components/ui/dialog'
 import { useData } from '@/lib/data-context'
 import { PRIORITY_CONFIG, formatDuration, formatCurrency, type UsedPart } from '@/lib/types'
-import { Play, Pause, Square, Clock, ArrowLeft, Package, CheckCircle, User, History } from 'lucide-react'
+import { Play, Pause, Square, ArrowLeft, Package, CheckCircle, User, History, MessageSquare } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
@@ -44,9 +45,15 @@ export function MaintenanceView({ ticketId, onBack, onComplete }: MaintenanceVie
   const [selectedParts, setSelectedParts] = useState<Record<string, number>>({})
   const [showCompletionForm, setShowCompletionForm] = useState(false)
   const [showSuccess, setShowSuccess] = useState(false)
+  const [completionNotes, setCompletionNotes] = useState('')
+  
+  // Operator dialog states
   const [operatorName, setOperatorName] = useState('')
   const [showOperatorDialog, setShowOperatorDialog] = useState(false)
   const [pendingAction, setPendingAction] = useState<'start' | 'pause' | 'resume' | 'complete' | null>(null)
+  
+  // Pause specific states
+  const [pauseReason, setPauseReason] = useState('')
 
   const ticket = ticketId ? tickets.find(t => t.id === ticketId) : null
 
@@ -59,7 +66,7 @@ export function MaintenanceView({ ticketId, onBack, onComplete }: MaintenanceVie
       return
     }
 
-    // Encontrar o último start ou resume
+    // Encontrar o ultimo start ou resume
     const lastStartOrResume = [...ticket.actions]
       .reverse()
       .find(a => a.type === 'start' || a.type === 'resume')
@@ -79,18 +86,22 @@ export function MaintenanceView({ ticketId, onBack, onComplete }: MaintenanceVie
   const handleActionWithOperator = (action: 'start' | 'pause' | 'resume' | 'complete') => {
     setPendingAction(action)
     setOperatorName('')
+    setPauseReason('')
     setShowOperatorDialog(true)
   }
 
   const confirmAction = useCallback(() => {
     if (!ticketId || !operatorName.trim() || !pendingAction) return
+    
+    // Validacao especifica para pausa
+    if (pendingAction === 'pause' && !pauseReason.trim()) return
 
     switch (pendingAction) {
       case 'start':
         startMaintenance(ticketId, operatorName.trim())
         break
       case 'pause':
-        pauseMaintenance(ticketId, operatorName.trim())
+        pauseMaintenance(ticketId, operatorName.trim(), pauseReason.trim())
         break
       case 'resume':
         resumeMaintenance(ticketId, operatorName.trim())
@@ -100,13 +111,14 @@ export function MaintenanceView({ ticketId, onBack, onComplete }: MaintenanceVie
           .filter(([, qty]) => qty > 0)
           .map(([partId, quantity]) => ({ partId, quantity }))
         
-        completeMaintenance(ticketId, usedParts, operatorName.trim())
+        completeMaintenance(ticketId, usedParts, operatorName.trim(), completionNotes.trim() || undefined)
         setShowSuccess(true)
         
         setTimeout(() => {
           setShowSuccess(false)
           setShowCompletionForm(false)
           setSelectedParts({})
+          setCompletionNotes('')
           onComplete()
         }, 2000)
         break
@@ -114,8 +126,9 @@ export function MaintenanceView({ ticketId, onBack, onComplete }: MaintenanceVie
 
     setShowOperatorDialog(false)
     setOperatorName('')
+    setPauseReason('')
     setPendingAction(null)
-  }, [ticketId, operatorName, pendingAction, selectedParts, startMaintenance, pauseMaintenance, resumeMaintenance, completeMaintenance, onComplete])
+  }, [ticketId, operatorName, pendingAction, pauseReason, selectedParts, completionNotes, startMaintenance, pauseMaintenance, resumeMaintenance, completeMaintenance, onComplete])
 
   const totalCost = Object.entries(selectedParts).reduce((sum, [partId, qty]) => {
     const part = parts.find(p => p.id === partId)
@@ -124,12 +137,14 @@ export function MaintenanceView({ ticketId, onBack, onComplete }: MaintenanceVie
 
   const getActionLabel = (action: 'start' | 'pause' | 'resume' | 'complete') => {
     switch (action) {
-      case 'start': return 'Iniciar Manutenção'
-      case 'pause': return 'Pausar Manutenção'
-      case 'resume': return 'Continuar Manutenção'
-      case 'complete': return 'Finalizar Manutenção'
+      case 'start': return 'Iniciar Manutencao'
+      case 'pause': return 'Pausar Manutencao'
+      case 'resume': return 'Continuar Manutencao'
+      case 'complete': return 'Finalizar Manutencao'
     }
   }
+
+  const isPauseValid = pendingAction === 'pause' ? operatorName.trim() && pauseReason.trim() : operatorName.trim()
 
   // Success screen
   if (showSuccess) {
@@ -138,7 +153,7 @@ export function MaintenanceView({ ticketId, onBack, onComplete }: MaintenanceVie
         <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mb-4 animate-in zoom-in duration-300">
           <CheckCircle className="w-10 h-10 text-green-600" />
         </div>
-        <h2 className="text-xl font-semibold text-foreground">Manutenção Finalizada!</h2>
+        <h2 className="text-xl font-semibold text-foreground">Manutencao Finalizada!</h2>
         <p className="text-muted-foreground mt-2">Tempo total registrado: {formatDuration(elapsedTime)}</p>
       </div>
     )
@@ -167,33 +182,42 @@ export function MaintenanceView({ ticketId, onBack, onComplete }: MaintenanceVie
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <User className="w-5 h-5" />
-              Identificação do Operador
+              Identificacao do Operador
             </DialogTitle>
             <DialogDescription>
-              Informe seu nome para registrar a ação: {pendingAction && getActionLabel(pendingAction)}
+              {pendingAction && getActionLabel(pendingAction)}
             </DialogDescription>
           </DialogHeader>
-          <div className="py-4">
-            <Label htmlFor="operator-name">Nome do Operador</Label>
-            <Input
-              id="operator-name"
-              placeholder="Digite seu nome completo"
-              value={operatorName}
-              onChange={(e) => setOperatorName(e.target.value)}
-              className="mt-2"
-              autoFocus
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && operatorName.trim()) {
-                  confirmAction()
-                }
-              }}
-            />
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="operator-name">Nome do Operador *</Label>
+              <Input
+                id="operator-name"
+                placeholder="Digite seu nome completo"
+                value={operatorName}
+                onChange={(e) => setOperatorName(e.target.value)}
+                autoFocus
+              />
+            </div>
+            
+            {pendingAction === 'pause' && (
+              <div className="space-y-2">
+                <Label htmlFor="pause-reason">Motivo da Pausa *</Label>
+                <Textarea
+                  id="pause-reason"
+                  placeholder="Informe o motivo da pausa (obrigatorio)"
+                  value={pauseReason}
+                  onChange={(e) => setPauseReason(e.target.value)}
+                  rows={3}
+                />
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowOperatorDialog(false)}>
               Cancelar
             </Button>
-            <Button onClick={confirmAction} disabled={!operatorName.trim()}>
+            <Button onClick={confirmAction} disabled={!isPauseValid}>
               Confirmar
             </Button>
           </DialogFooter>
@@ -207,7 +231,7 @@ export function MaintenanceView({ ticketId, onBack, onComplete }: MaintenanceVie
         </Button>
         <div>
           <h1 className="text-xl lg:text-2xl font-bold text-foreground">
-            Controle de Manutenção
+            Controle de Manutencao
           </h1>
           <p className="text-muted-foreground text-sm">
             Chamado #{ticket.id.split('-')[1]}
@@ -236,8 +260,8 @@ export function MaintenanceView({ ticketId, onBack, onComplete }: MaintenanceVie
             <p className="text-foreground">{problem?.name}</p>
           </div>
           <div>
-            <p className="text-sm font-medium text-muted-foreground">Observação</p>
-            <p className="text-foreground">{ticket.observation || 'Nenhuma observação'}</p>
+            <p className="text-sm font-medium text-muted-foreground">Observacao</p>
+            <p className="text-foreground">{ticket.observation || 'Nenhuma observacao'}</p>
           </div>
         </CardContent>
       </Card>
@@ -246,7 +270,7 @@ export function MaintenanceView({ ticketId, onBack, onComplete }: MaintenanceVie
       <Card className="bg-sidebar text-sidebar-foreground">
         <CardContent className="py-8">
           <div className="text-center">
-            <p className="text-sm text-sidebar-foreground/70 mb-2">Tempo de Manutenção</p>
+            <p className="text-sm text-sidebar-foreground/70 mb-2">Tempo de Manutencao</p>
             <div className="font-mono text-5xl lg:text-6xl font-bold tracking-wider">
               {formatDuration(elapsedTime)}
             </div>
@@ -254,7 +278,7 @@ export function MaintenanceView({ ticketId, onBack, onComplete }: MaintenanceVie
               {ticket.status === 'in-progress' && (
                 <span className="flex items-center justify-center gap-2">
                   <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-                  Cronômetro ativo
+                  Cronometro ativo
                 </span>
               )}
               {ticket.status === 'paused' && (
@@ -263,7 +287,7 @@ export function MaintenanceView({ ticketId, onBack, onComplete }: MaintenanceVie
                   Pausado
                 </span>
               )}
-              {ticket.status === 'open' && 'Aguardando início'}
+              {ticket.status === 'open' && 'Aguardando inicio'}
             </p>
           </div>
         </CardContent>
@@ -279,7 +303,7 @@ export function MaintenanceView({ ticketId, onBack, onComplete }: MaintenanceVie
               onClick={() => handleActionWithOperator('start')}
             >
               <Play className="w-5 h-5 mr-2" />
-              Iniciar Manutenção
+              Iniciar Manutencao
             </Button>
           )}
           
@@ -336,17 +360,17 @@ export function MaintenanceView({ ticketId, onBack, onComplete }: MaintenanceVie
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
               <History className="w-4 h-4" />
-              Histórico de Ações
+              Historico de Acoes
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
               {ticket.actions.map((action, index) => {
                 const actionLabels = {
-                  start: 'Iniciou manutenção',
-                  pause: 'Pausou manutenção',
-                  resume: 'Retomou manutenção',
-                  complete: 'Finalizou manutenção',
+                  start: 'Iniciou manutencao',
+                  pause: 'Pausou manutencao',
+                  resume: 'Retomou manutencao',
+                  complete: 'Finalizou manutencao',
                 }
                 const actionColors = {
                   start: 'bg-green-500',
@@ -356,15 +380,22 @@ export function MaintenanceView({ ticketId, onBack, onComplete }: MaintenanceVie
                 }
                 
                 return (
-                  <div key={index} className="flex items-center gap-3 text-sm">
-                    <div className={cn("w-2 h-2 rounded-full", actionColors[action.type])} />
-                    <div className="flex-1">
-                      <span className="font-medium">{action.operatorName}</span>
-                      <span className="text-muted-foreground"> - {actionLabels[action.type]}</span>
+                  <div key={index} className="border-l-2 border-muted pl-4 pb-3">
+                    <div className="flex items-center gap-3 text-sm">
+                      <div className={cn("w-2 h-2 rounded-full", actionColors[action.type])} />
+                      <div className="flex-1">
+                        <span className="font-medium">{action.operatorName}</span>
+                        <span className="text-muted-foreground"> - {actionLabels[action.type]}</span>
+                      </div>
+                      <span className="text-xs text-muted-foreground">
+                        {format(new Date(action.timestamp), "HH:mm", { locale: ptBR })}
+                      </span>
                     </div>
-                    <span className="text-xs text-muted-foreground">
-                      {format(new Date(action.timestamp), "HH:mm", { locale: ptBR })}
-                    </span>
+                    {action.reason && (
+                      <p className="text-sm text-muted-foreground mt-1 italic">
+                        Motivo: {action.reason}
+                      </p>
+                    )}
                   </div>
                 )
               })}
@@ -373,57 +404,76 @@ export function MaintenanceView({ ticketId, onBack, onComplete }: MaintenanceVie
         </Card>
       )}
 
-      {/* Parts Selection (when completing) */}
+      {/* Parts Selection and Completion Notes (when completing) */}
       {showCompletionForm && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Package className="w-5 h-5" />
-              Peças Utilizadas
+              Finalizacao da Manutencao
             </CardTitle>
             <CardDescription>
-              Selecione as peças que foram utilizadas na manutenção
+              Selecione as pecas utilizadas e adicione observacoes
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-3 max-h-60 overflow-y-auto">
-              {parts.map((part) => (
-                <div key={part.id} className="flex items-center gap-4 p-3 rounded-lg border">
-                  <Checkbox
-                    id={part.id}
-                    checked={(selectedParts[part.id] || 0) > 0}
-                    onCheckedChange={(checked) => {
-                      setSelectedParts(prev => ({
-                        ...prev,
-                        [part.id]: checked ? 1 : 0
-                      }))
-                    }}
-                  />
-                  <Label htmlFor={part.id} className="flex-1 cursor-pointer">
-                    <span className="font-medium">{part.name}</span>
-                    <span className="text-muted-foreground text-sm ml-2">
-                      {formatCurrency(part.price)}
-                    </span>
-                  </Label>
-                  {(selectedParts[part.id] || 0) > 0 && (
-                    <Input
-                      type="number"
-                      min={1}
-                      value={selectedParts[part.id] || 1}
-                      onChange={(e) => setSelectedParts(prev => ({
-                        ...prev,
-                        [part.id]: parseInt(e.target.value) || 0
-                      }))}
-                      className="w-20"
+          <CardContent className="space-y-6">
+            {/* Completion Notes */}
+            <div className="space-y-2">
+              <Label htmlFor="completion-notes" className="flex items-center gap-2">
+                <MessageSquare className="w-4 h-4" />
+                Observacoes da Manutencao (opcional)
+              </Label>
+              <Textarea
+                id="completion-notes"
+                placeholder="Descreva o que foi feito, problemas encontrados, recomendacoes..."
+                value={completionNotes}
+                onChange={(e) => setCompletionNotes(e.target.value)}
+                rows={3}
+              />
+            </div>
+
+            {/* Parts Selection */}
+            <div className="space-y-3">
+              <Label>Pecas Utilizadas</Label>
+              <div className="space-y-3 max-h-60 overflow-y-auto">
+                {parts.map((part) => (
+                  <div key={part.id} className="flex items-center gap-4 p-3 rounded-lg border">
+                    <Checkbox
+                      id={part.id}
+                      checked={(selectedParts[part.id] || 0) > 0}
+                      onCheckedChange={(checked) => {
+                        setSelectedParts(prev => ({
+                          ...prev,
+                          [part.id]: checked ? 1 : 0
+                        }))
+                      }}
                     />
-                  )}
-                </div>
-              ))}
+                    <Label htmlFor={part.id} className="flex-1 cursor-pointer">
+                      <span className="font-medium">{part.name}</span>
+                      <span className="text-muted-foreground text-sm ml-2">
+                        {formatCurrency(part.price)}
+                      </span>
+                    </Label>
+                    {(selectedParts[part.id] || 0) > 0 && (
+                      <Input
+                        type="number"
+                        min={1}
+                        value={selectedParts[part.id] || 1}
+                        onChange={(e) => setSelectedParts(prev => ({
+                          ...prev,
+                          [part.id]: parseInt(e.target.value) || 0
+                        }))}
+                        className="w-20"
+                      />
+                    )}
+                  </div>
+                ))}
+              </div>
             </div>
 
             <div className="border-t pt-4">
               <div className="flex justify-between items-center mb-4">
-                <span className="font-medium">Custo Total em Peças:</span>
+                <span className="font-medium">Custo Total em Pecas:</span>
                 <span className="text-xl font-bold">{formatCurrency(totalCost)}</span>
               </div>
 
@@ -432,7 +482,7 @@ export function MaintenanceView({ ticketId, onBack, onComplete }: MaintenanceVie
                   Cancelar
                 </Button>
                 <Button onClick={() => handleActionWithOperator('complete')}>
-                  Confirmar Finalização
+                  Confirmar Finalizacao
                 </Button>
               </div>
             </div>

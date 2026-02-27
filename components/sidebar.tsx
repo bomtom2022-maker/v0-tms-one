@@ -9,12 +9,13 @@ import {
   BarChart3,
   Menu,
   X,
-  Settings
+  Settings,
+  Cog
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useState } from 'react'
 
-type View = 'dashboard' | 'new-ticket' | 'problems' | 'maintenance' | 'parts' | 'reports'
+type View = 'dashboard' | 'new-ticket' | 'problems' | 'machines' | 'maintenance' | 'parts' | 'reports'
 
 interface SidebarProps {
   currentView: View
@@ -24,9 +25,10 @@ interface SidebarProps {
 const menuItems = [
   { id: 'dashboard' as const, label: 'Dashboard', icon: LayoutDashboard },
   { id: 'new-ticket' as const, label: 'Novo Chamado', icon: Plus },
+  { id: 'machines' as const, label: 'Maquinas', icon: Cog },
   { id: 'problems' as const, label: 'Problemas', icon: Wrench },
-  { id: 'parts' as const, label: 'Peças', icon: Package },
-  { id: 'reports' as const, label: 'Relatórios', icon: BarChart3 },
+  { id: 'parts' as const, label: 'Pecas', icon: Package },
+  { id: 'reports' as const, label: 'Relatorios', icon: BarChart3 },
 ]
 
 export function Sidebar({ currentView, onViewChange }: SidebarProps) {

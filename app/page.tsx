@@ -6,11 +6,12 @@ import { Sidebar } from '@/components/sidebar'
 import { DashboardView } from '@/components/dashboard-view'
 import { NewTicketView } from '@/components/new-ticket-view'
 import { ProblemsView } from '@/components/problems-view'
+import { MachinesView } from '@/components/machines-view'
 import { MaintenanceView } from '@/components/maintenance-view'
 import { PartsView } from '@/components/parts-view'
 import { ReportsView } from '@/components/reports-view'
 
-type View = 'dashboard' | 'new-ticket' | 'problems' | 'maintenance' | 'parts' | 'reports'
+type View = 'dashboard' | 'new-ticket' | 'problems' | 'machines' | 'maintenance' | 'parts' | 'reports'
 
 function TMSApp() {
   const [currentView, setCurrentView] = useState<View>('dashboard')
@@ -43,6 +44,8 @@ function TMSApp() {
         return <NewTicketView onSuccess={handleNewTicketSuccess} />
       case 'problems':
         return <ProblemsView />
+      case 'machines':
+        return <MachinesView />
       case 'maintenance':
         return (
           <MaintenanceView 

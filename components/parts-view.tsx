@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
 import {
   Table,
   TableBody,
@@ -13,16 +14,26 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { useData } from '@/lib/data-context'
 import { formatCurrency } from '@/lib/types'
-import { Plus, Package, DollarSign, CheckCircle } from 'lucide-react'
+import { Plus, Package, DollarSign, CheckCircle, Pencil } from 'lucide-react'
 
 export function PartsView() {
-  const { parts, addPart } = useData()
+  const { parts, addPart, updatePart } = useData()
   const [showForm, setShowForm] = useState(false)
   const [newPartName, setNewPartName] = useState('')
   const [newPartPrice, setNewPartPrice] = useState('')
+  const [newPartDescription, setNewPartDescription] = useState('')
   const [showSuccess, setShowSuccess] = useState(false)
+  const [editingPart, setEditingPart] = useState<{ id: string; name: string; price: number; description?: string } | null>(null)
 
   const totalValue = parts.reduce((sum, part) => sum + part.price, 0)
 
@@ -31,10 +42,11 @@ export function PartsView() {
     
     if (!newPartName.trim() || !newPartPrice) return
 
-    addPart(newPartName.trim(), parseFloat(newPartPrice))
+    addPart(newPartName.trim(), parseFloat(newPartPrice), newPartDescription.trim() || undefined)
     
     setNewPartName('')
     setNewPartPrice('')
+    setNewPartDescription('')
     setShowSuccess(true)
     
     setTimeout(() => {
@@ -43,21 +55,28 @@ export function PartsView() {
     }, 1500)
   }
 
+  const handleEditPart = () => {
+    if (!editingPart || !editingPart.name.trim()) return
+    
+    updatePart(editingPart.id, editingPart.name.trim(), editingPart.price, editingPart.description?.trim() || undefined)
+    setEditingPart(null)
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl lg:text-3xl font-bold text-foreground">
-            Gestão de Peças
+            Gestao de Pecas
           </h1>
           <p className="text-muted-foreground mt-1">
-            Cadastre e gerencie as peças do estoque
+            Cadastre e gerencie as pecas do estoque
           </p>
         </div>
         <Button onClick={() => setShowForm(!showForm)}>
           <Plus className="w-4 h-4 mr-2" />
-          Nova Peça
+          Nova Peca
         </Button>
       </div>
 
@@ -99,17 +118,17 @@ export function PartsView() {
               {showSuccess ? (
                 <>
                   <CheckCircle className="w-5 h-5 text-green-600" />
-                  Peça Cadastrada!
+                  Peca Cadastrada!
                 </>
               ) : (
                 <>
                   <Plus className="w-5 h-5" />
-                  Cadastrar Nova Peça
+                  Cadastrar Nova Peca
                 </>
               )}
             </CardTitle>
             {!showSuccess && (
-              <CardDescription>Preencha os dados da nova peça</CardDescription>
+              <CardDescription>Preencha os dados da nova peca</CardDescription>
             )}
           </CardHeader>
           {!showSuccess && (
@@ -117,7 +136,7 @@ export function PartsView() {
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
-                    <Label htmlFor="partName">Nome da Peça</Label>
+                    <Label htmlFor="partName">Nome da Peca</Label>
                     <Input
                       id="partName"
                       value={newPartName}
@@ -126,7 +145,7 @@ export function PartsView() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="partPrice">Preço Unitário (R$)</Label>
+                    <Label htmlFor="partPrice">Preco Unitario (R$)</Label>
                     <Input
                       id="partPrice"
                       type="number"
@@ -138,9 +157,19 @@ export function PartsView() {
                     />
                   </div>
                 </div>
+                <div className="space-y-2">
+                  <Label htmlFor="partDescription">Descricao (opcional)</Label>
+                  <Textarea
+                    id="partDescription"
+                    value={newPartDescription}
+                    onChange={(e) => setNewPartDescription(e.target.value)}
+                    placeholder="Ex: Rolamento de esferas para eixo principal"
+                    rows={2}
+                  />
+                </div>
                 <div className="flex gap-3">
                   <Button type="submit" disabled={!newPartName.trim() || !newPartPrice}>
-                    Cadastrar Peça
+                    Cadastrar Peca
                   </Button>
                   <Button type="button" variant="outline" onClick={() => setShowForm(false)}>
                     Cancelar
@@ -152,11 +181,65 @@ export function PartsView() {
         </Card>
       )}
 
+      {/* Edit Part Dialog */}
+      <Dialog open={!!editingPart} onOpenChange={(open) => !open && setEditingPart(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Editar Peca</DialogTitle>
+            <DialogDescription>
+              Altere os dados da peca.
+            </DialogDescription>
+          </DialogHeader>
+          
+          {editingPart && (
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-part-name">Nome da Peca</Label>
+                <Input
+                  id="edit-part-name"
+                  value={editingPart.name}
+                  onChange={(e) => setEditingPart({ ...editingPart, name: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-part-price">Preco Unitario (R$)</Label>
+                <Input
+                  id="edit-part-price"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={editingPart.price}
+                  onChange={(e) => setEditingPart({ ...editingPart, price: parseFloat(e.target.value) || 0 })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-part-description">Descricao (opcional)</Label>
+                <Textarea
+                  id="edit-part-description"
+                  value={editingPart.description || ''}
+                  onChange={(e) => setEditingPart({ ...editingPart, description: e.target.value })}
+                  rows={2}
+                />
+              </div>
+            </div>
+          )}
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditingPart(null)}>
+              Cancelar
+            </Button>
+            <Button onClick={handleEditPart} disabled={!editingPart?.name.trim()}>
+              Salvar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Parts Table */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">Lista de Peças</CardTitle>
-          <CardDescription>Todas as peças cadastradas no sistema</CardDescription>
+          <CardTitle className="text-lg">Lista de Pecas</CardTitle>
+          <CardDescription>Todas as pecas cadastradas no sistema</CardDescription>
         </CardHeader>
         <CardContent className="p-0">
           <div className="overflow-x-auto">
@@ -164,8 +247,10 @@ export function PartsView() {
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-16">#</TableHead>
-                  <TableHead>Nome da Peça</TableHead>
-                  <TableHead className="text-right">Preço Unitário</TableHead>
+                  <TableHead>Nome da Peca</TableHead>
+                  <TableHead>Descricao</TableHead>
+                  <TableHead className="text-right">Preco Unitario</TableHead>
+                  <TableHead className="w-16">Acoes</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -175,8 +260,25 @@ export function PartsView() {
                       {index + 1}
                     </TableCell>
                     <TableCell className="font-medium">{part.name}</TableCell>
+                    <TableCell className="text-muted-foreground text-sm">
+                      {part.description || '-'}
+                    </TableCell>
                     <TableCell className="text-right">
                       {formatCurrency(part.price)}
+                    </TableCell>
+                    <TableCell>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => setEditingPart({ 
+                          id: part.id, 
+                          name: part.name, 
+                          price: part.price,
+                          description: part.description 
+                        })}
+                      >
+                        <Pencil className="w-4 h-4" />
+                      </Button>
                     </TableCell>
                   </TableRow>
                 ))}

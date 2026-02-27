@@ -1,60 +1,60 @@
 'use client'
 
 import { createContext, useContext, useState, useCallback, type ReactNode } from 'react'
-import type { Machine, Problem, Part, Ticket, UsedPart, Priority, MaintenanceAction } from './types'
+import type { Machine, Problem, Part, Ticket, UsedPart, Priority, MaintenanceAction, MachineStatus } from './types'
 
-// Dados iniciais de máquinas CNC
+// Dados iniciais de maquinas CNC
 const INITIAL_MACHINES: Machine[] = [
-  { id: 'cnc-001', name: 'CNC Torno Romi GL-240', sector: 'Usinagem A' },
-  { id: 'cnc-002', name: 'CNC Fresadora Haas VF-2', sector: 'Usinagem A' },
-  { id: 'cnc-003', name: 'CNC Centro de Usinagem Mazak', sector: 'Usinagem B' },
-  { id: 'cnc-004', name: 'CNC Retífica Studer S33', sector: 'Acabamento' },
-  { id: 'cnc-005', name: 'CNC Torno Okuma LB3000', sector: 'Usinagem B' },
-  { id: 'cnc-006', name: 'CNC Fresadora DMG Mori', sector: 'Usinagem C' },
-  { id: 'cnc-007', name: 'CNC Eletroerosão Sodick', sector: 'Especiais' },
-  { id: 'cnc-008', name: 'CNC Torno Traub TNL26', sector: 'Usinagem A' },
-  { id: 'cnc-009', name: 'CNC Centro Vertical Makino', sector: 'Usinagem C' },
-  { id: 'cnc-010', name: 'CNC Mandriladora TOS', sector: 'Usinagem B' },
+  { id: 'cnc-001', name: 'CNC Torno Romi GL-240', sector: 'Usinagem A', status: 'critical' },
+  { id: 'cnc-002', name: 'CNC Fresadora Haas VF-2', sector: 'Usinagem A', status: 'ok' },
+  { id: 'cnc-003', name: 'CNC Centro de Usinagem Mazak', sector: 'Usinagem B', status: 'attention' },
+  { id: 'cnc-004', name: 'CNC Retifica Studer S33', sector: 'Acabamento', status: 'ok' },
+  { id: 'cnc-005', name: 'CNC Torno Okuma LB3000', sector: 'Usinagem B', status: 'critical' },
+  { id: 'cnc-006', name: 'CNC Fresadora DMG Mori', sector: 'Usinagem C', status: 'ok' },
+  { id: 'cnc-007', name: 'CNC Eletroerosao Sodick', sector: 'Especiais', status: 'attention' },
+  { id: 'cnc-008', name: 'CNC Torno Traub TNL26', sector: 'Usinagem A', status: 'ok' },
+  { id: 'cnc-009', name: 'CNC Centro Vertical Makino', sector: 'Usinagem C', status: 'critical' },
+  { id: 'cnc-010', name: 'CNC Mandriladora TOS', sector: 'Usinagem B', status: 'ok' },
 ]
 
-// Problemas pré-cadastrados com prioridade padrão
+// Problemas pre-cadastrados com prioridade padrao
 const INITIAL_PROBLEMS: Problem[] = [
   { id: 'prob-001', name: 'Falha no Spindle', defaultPriority: 'high' },
   { id: 'prob-002', name: 'Erro de Posicionamento', defaultPriority: 'high' },
-  { id: 'prob-003', name: 'Vazamento de Óleo', defaultPriority: 'medium' },
-  { id: 'prob-004', name: 'Problema no Sistema de Refrigeração', defaultPriority: 'medium' },
+  { id: 'prob-003', name: 'Vazamento de Oleo', defaultPriority: 'medium' },
+  { id: 'prob-004', name: 'Problema no Sistema de Refrigeracao', defaultPriority: 'medium' },
   { id: 'prob-005', name: 'Falha no Magazine de Ferramentas', defaultPriority: 'high' },
   { id: 'prob-006', name: 'Erro no CNC/Controlador', defaultPriority: 'high' },
   { id: 'prob-007', name: 'Problema no Servo Motor', defaultPriority: 'high' },
   { id: 'prob-008', name: 'Desgaste de Guias', defaultPriority: 'medium' },
-  { id: 'prob-009', name: 'Falha no Sistema Hidráulico', defaultPriority: 'high' },
-  { id: 'prob-010', name: 'Problema no Trocador Automático', defaultPriority: 'medium' },
-  { id: 'prob-011', name: 'Manutenção Preventiva Programada', defaultPriority: 'low' },
-  { id: 'prob-012', name: 'Calibração/Ajuste', defaultPriority: 'low' },
+  { id: 'prob-009', name: 'Falha no Sistema Hidraulico', defaultPriority: 'high' },
+  { id: 'prob-010', name: 'Problema no Trocador Automatico', defaultPriority: 'medium' },
+  { id: 'prob-011', name: 'Manutencao Preventiva Programada', defaultPriority: 'low' },
+  { id: 'prob-012', name: 'Calibracao/Ajuste', defaultPriority: 'low' },
   { id: 'prob-013', name: 'Outros', defaultPriority: 'medium' },
 ]
 
-// Peças iniciais
+// Pecas iniciais
 const INITIAL_PARTS: Part[] = [
-  { id: 'part-001', name: 'Rolamento SKF 6205', price: 85.00 },
-  { id: 'part-002', name: 'Correia Dentada HTD 5M', price: 120.00 },
-  { id: 'part-003', name: 'Óleo Hidráulico 20L', price: 280.00 },
-  { id: 'part-004', name: 'Filtro de Óleo', price: 65.00 },
-  { id: 'part-005', name: 'Sensor de Proximidade', price: 450.00 },
-  { id: 'part-006', name: 'Conector Elétrico Industrial', price: 35.00 },
-  { id: 'part-007', name: 'Vedação O-Ring Kit', price: 45.00 },
-  { id: 'part-008', name: 'Fusível Industrial 10A', price: 12.00 },
-  { id: 'part-009', name: 'Graxa Especial 1Kg', price: 95.00 },
-  { id: 'part-010', name: 'Bomba de Refrigeração', price: 1850.00 },
+  { id: 'part-001', name: 'Rolamento SKF 6205', price: 85.00, description: 'Rolamento de esferas para eixo principal' },
+  { id: 'part-002', name: 'Correia Dentada HTD 5M', price: 120.00, description: 'Correia de transmissao' },
+  { id: 'part-003', name: 'Oleo Hidraulico 20L', price: 280.00, description: 'Oleo para sistema hidraulico' },
+  { id: 'part-004', name: 'Filtro de Oleo', price: 65.00, description: 'Filtro para sistema de lubrificacao' },
+  { id: 'part-005', name: 'Sensor de Proximidade', price: 450.00, description: 'Sensor indutivo para posicionamento' },
+  { id: 'part-006', name: 'Conector Eletrico Industrial', price: 35.00, description: 'Conector para painel eletrico' },
+  { id: 'part-007', name: 'Vedacao O-Ring Kit', price: 45.00, description: 'Kit de aneis de vedacao' },
+  { id: 'part-008', name: 'Fusivel Industrial 10A', price: 12.00, description: 'Fusivel de protecao' },
+  { id: 'part-009', name: 'Graxa Especial 1Kg', price: 95.00, description: 'Graxa para guias lineares' },
+  { id: 'part-010', name: 'Bomba de Refrigeracao', price: 1850.00, description: 'Bomba para sistema de refrigeracao' },
 ]
 
-// Chamados de exemplo para demonstração
+// Chamados de exemplo para demonstracao
 const INITIAL_TICKETS: Ticket[] = [
   {
     id: 'ticket-001',
     machineId: 'cnc-001',
     problemId: 'prob-001',
-    observation: 'Spindle apresentando ruído anormal e vibração excessiva durante operação em alta rotação.',
+    observation: 'Spindle apresentando ruido anormal e vibracao excessiva durante operacao em alta rotacao.',
     priority: 'high',
     status: 'open',
     createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000),
@@ -68,7 +68,7 @@ const INITIAL_TICKETS: Ticket[] = [
     id: 'ticket-002',
     machineId: 'cnc-003',
     problemId: 'prob-004',
-    observation: 'Sistema de refrigeração com baixa pressão. Necessário verificar bomba e filtros.',
+    observation: 'Sistema de refrigeracao com baixa pressao. Necessario verificar bomba e filtros.',
     priority: 'medium',
     status: 'open',
     createdAt: new Date(Date.now() - 4 * 60 * 60 * 1000),
@@ -82,7 +82,7 @@ const INITIAL_TICKETS: Ticket[] = [
     id: 'ticket-003',
     machineId: 'cnc-005',
     problemId: 'prob-011',
-    observation: 'Manutenção preventiva mensal programada. Verificar níveis e lubrificação.',
+    observation: 'Manutencao preventiva mensal programada. Verificar niveis e lubrificacao.',
     priority: 'low',
     status: 'open',
     createdAt: new Date(Date.now() - 24 * 60 * 60 * 1000),
@@ -96,7 +96,7 @@ const INITIAL_TICKETS: Ticket[] = [
     id: 'ticket-004',
     machineId: 'cnc-006',
     problemId: 'prob-005',
-    observation: 'Magazine travando na posição três. Verificar sensor e mecanismo.',
+    observation: 'Magazine travando na posicao tres. Verificar sensor e mecanismo.',
     priority: 'high',
     status: 'in-progress',
     createdAt: new Date(Date.now() - 1 * 60 * 60 * 1000),
@@ -105,7 +105,7 @@ const INITIAL_TICKETS: Ticket[] = [
     totalCost: 0,
     downtime: 0,
     accumulatedTime: 0,
-    actions: [{ type: 'start', operatorName: 'João Silva', timestamp: new Date(Date.now() - 30 * 60 * 1000) }],
+    actions: [{ type: 'start', operatorName: 'Joao Silva', timestamp: new Date(Date.now() - 30 * 60 * 1000) }],
   },
 ]
 
@@ -114,13 +114,17 @@ interface DataContextType {
   problems: Problem[]
   parts: Part[]
   tickets: Ticket[]
-  addPart: (name: string, price: number) => void
+  addMachine: (name: string, sector: string, status: MachineStatus) => void
+  updateMachine: (id: string, name: string, sector: string, status: MachineStatus) => void
+  addPart: (name: string, price: number, description?: string) => void
+  updatePart: (id: string, name: string, price: number, description?: string) => void
   addProblem: (name: string, defaultPriority: Priority) => void
+  updateProblem: (id: string, name: string, defaultPriority: Priority) => void
   addTicket: (ticket: Omit<Ticket, 'id' | 'createdAt' | 'usedParts' | 'totalCost' | 'downtime' | 'accumulatedTime' | 'actions' | 'status'>) => void
   startMaintenance: (ticketId: string, operatorName: string) => void
-  pauseMaintenance: (ticketId: string, operatorName: string) => void
+  pauseMaintenance: (ticketId: string, operatorName: string, reason: string) => void
   resumeMaintenance: (ticketId: string, operatorName: string) => void
-  completeMaintenance: (ticketId: string, usedParts: UsedPart[], operatorName: string) => void
+  completeMaintenance: (ticketId: string, usedParts: UsedPart[], operatorName: string, completionNotes?: string) => void
   getTicketById: (id: string) => Ticket | undefined
   getMachineById: (id: string) => Machine | undefined
   getProblemById: (id: string) => Problem | undefined
@@ -131,18 +135,41 @@ interface DataContextType {
 const DataContext = createContext<DataContextType | undefined>(undefined)
 
 export function DataProvider({ children }: { children: ReactNode }) {
-  const [machines] = useState<Machine[]>(INITIAL_MACHINES)
+  const [machines, setMachines] = useState<Machine[]>(INITIAL_MACHINES)
   const [problems, setProblems] = useState<Problem[]>(INITIAL_PROBLEMS)
   const [parts, setParts] = useState<Part[]>(INITIAL_PARTS)
   const [tickets, setTickets] = useState<Ticket[]>(INITIAL_TICKETS)
 
-  const addPart = useCallback((name: string, price: number) => {
+  const addMachine = useCallback((name: string, sector: string, status: MachineStatus) => {
+    const newMachine: Machine = {
+      id: `machine-${Date.now()}`,
+      name,
+      sector,
+      status,
+    }
+    setMachines(prev => [...prev, newMachine])
+  }, [])
+
+  const updateMachine = useCallback((id: string, name: string, sector: string, status: MachineStatus) => {
+    setMachines(prev => prev.map(m => 
+      m.id === id ? { ...m, name, sector, status } : m
+    ))
+  }, [])
+
+  const addPart = useCallback((name: string, price: number, description?: string) => {
     const newPart: Part = {
       id: `part-${Date.now()}`,
       name,
       price,
+      description,
     }
     setParts(prev => [...prev, newPart])
+  }, [])
+
+  const updatePart = useCallback((id: string, name: string, price: number, description?: string) => {
+    setParts(prev => prev.map(p => 
+      p.id === id ? { ...p, name, price, description } : p
+    ))
   }, [])
 
   const addProblem = useCallback((name: string, defaultPriority: Priority) => {
@@ -152,6 +179,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
       defaultPriority,
     }
     setProblems(prev => [...prev, newProblem])
+  }, [])
+
+  const updateProblem = useCallback((id: string, name: string, defaultPriority: Priority) => {
+    setProblems(prev => prev.map(p => 
+      p.id === id ? { ...p, name, defaultPriority } : p
+    ))
   }, [])
 
   const addTicket = useCallback((ticketData: Omit<Ticket, 'id' | 'createdAt' | 'usedParts' | 'totalCost' | 'downtime' | 'accumulatedTime' | 'actions' | 'status'>) => {
@@ -186,7 +219,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     }))
   }, [])
 
-  const pauseMaintenance = useCallback((ticketId: string, operatorName: string) => {
+  const pauseMaintenance = useCallback((ticketId: string, operatorName: string, reason: string) => {
     setTickets(prev => prev.map(ticket => {
       if (ticket.id !== ticketId) return ticket
       
@@ -197,13 +230,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
       
       let additionalTime = 0
       if (lastStartOrResume) {
-        additionalTime = Math.floor((now.getTime() - lastStartOrResume.timestamp.getTime()) / 1000)
+        additionalTime = Math.floor((now.getTime() - new Date(lastStartOrResume.timestamp).getTime()) / 1000)
       }
       
       const action: MaintenanceAction = {
         type: 'pause',
         operatorName,
         timestamp: now,
+        reason,
       }
       
       return { 
@@ -233,7 +267,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     }))
   }, [])
 
-  const completeMaintenance = useCallback((ticketId: string, usedParts: UsedPart[], operatorName: string) => {
+  const completeMaintenance = useCallback((ticketId: string, usedParts: UsedPart[], operatorName: string, completionNotes?: string) => {
     setTickets(prev => prev.map(ticket => {
       if (ticket.id !== ticketId) return ticket
       
@@ -247,7 +281,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
           .find(a => a.type === 'start' || a.type === 'resume')
         
         if (lastStartOrResume) {
-          additionalTime = Math.floor((now.getTime() - lastStartOrResume.timestamp.getTime()) / 1000)
+          additionalTime = Math.floor((now.getTime() - new Date(lastStartOrResume.timestamp).getTime()) / 1000)
         }
       }
       
@@ -272,6 +306,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         totalCost,
         downtime,
         actions: [...ticket.actions, action],
+        completionNotes,
       }
     }))
   }, [parts])
@@ -309,8 +344,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
       problems,
       parts,
       tickets,
+      addMachine,
+      updateMachine,
       addPart,
+      updatePart,
       addProblem,
+      updateProblem,
       addTicket,
       startMaintenance,
       pauseMaintenance,

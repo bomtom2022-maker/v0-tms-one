@@ -1,9 +1,12 @@
 export type Priority = 'high' | 'medium' | 'low'
 
+export type MachineStatus = 'critical' | 'attention' | 'ok'
+
 export interface Machine {
   id: string
   name: string
   sector: string
+  status: MachineStatus
 }
 
 export interface Problem {
@@ -16,6 +19,7 @@ export interface Part {
   id: string
   name: string
   price: number
+  description?: string
 }
 
 export interface UsedPart {
@@ -27,6 +31,7 @@ export interface MaintenanceAction {
   type: 'start' | 'pause' | 'resume' | 'complete'
   operatorName: string
   timestamp: Date
+  reason?: string // motivo da pausa
 }
 
 export interface Ticket {
@@ -44,6 +49,7 @@ export interface Ticket {
   downtime: number // em segundos
   accumulatedTime: number // tempo acumulado durante pausas
   actions: MaintenanceAction[]
+  completionNotes?: string // observacao ao finalizar
 }
 
 export interface MaintenanceStats {
@@ -53,18 +59,45 @@ export interface MaintenanceStats {
   ticketCount: number
 }
 
+export const MACHINE_STATUS_CONFIG = {
+  critical: {
+    label: 'Critica',
+    description: 'Nao pode parar',
+    color: 'bg-red-500',
+    textColor: 'text-red-500',
+    borderColor: 'border-red-500',
+    bgLight: 'bg-red-50',
+  },
+  attention: {
+    label: 'Em Observacao',
+    description: 'Requer atencao',
+    color: 'bg-orange-500',
+    textColor: 'text-orange-500',
+    borderColor: 'border-orange-500',
+    bgLight: 'bg-orange-50',
+  },
+  ok: {
+    label: 'Normal',
+    description: 'Operacao normal',
+    color: 'bg-green-500',
+    textColor: 'text-green-500',
+    borderColor: 'border-green-500',
+    bgLight: 'bg-green-50',
+  },
+} as const
+
 export const PRIORITY_CONFIG = {
   high: {
     label: 'Prioridade Alta',
-    description: 'Máquina Parada',
+    description: 'Maquina Parada',
     color: 'bg-red-500',
     textColor: 'text-red-500',
     borderColor: 'border-red-500',
     bgLight: 'bg-red-50',
   },
   medium: {
-    label: 'Prioridade Média',
-    description: 'Atenção Necessária',
+    label: 'Prioridade Media',
+    description: 'Atencao Necessaria',
     color: 'bg-orange-500',
     textColor: 'text-orange-500',
     borderColor: 'border-orange-500',
