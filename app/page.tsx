@@ -3,7 +3,6 @@
 import { useState, useCallback, useEffect } from 'react'
 import { DataProvider } from '@/lib/data-context'
 import { AuthProvider, useAuth } from '@/lib/auth-context'
-import { SettingsProvider } from '@/lib/settings-context'
 import { Sidebar } from '@/components/sidebar'
 import { DashboardView } from '@/components/dashboard-view'
 import { NewTicketView } from '@/components/new-ticket-view'
@@ -15,9 +14,8 @@ import { ReportsView } from '@/components/reports-view'
 import { ScheduledView } from '@/components/scheduled-view'
 import { UsersView } from '@/components/users-view'
 import { LoginView } from '@/components/login-view'
-import { SettingsView } from '@/components/settings-view'
 
-type View = 'dashboard' | 'new-ticket' | 'problems' | 'machines' | 'maintenance' | 'parts' | 'reports' | 'scheduled' | 'users' | 'settings'
+type View = 'dashboard' | 'new-ticket' | 'problems' | 'machines' | 'maintenance' | 'parts' | 'reports' | 'scheduled' | 'users'
 
 function TMSApp() {
   const { isAuthenticated, isManutentor, isLider } = useAuth()
@@ -93,8 +91,6 @@ function TMSApp() {
         return isManutentor ? <ScheduledView /> : <DashboardView onSelectTicket={handleSelectTicket} />
       case 'users':
         return isManutentor ? <UsersView /> : <DashboardView onSelectTicket={handleSelectTicket} />
-      case 'settings':
-        return isManutentor ? <SettingsView /> : <DashboardView onSelectTicket={handleSelectTicket} />
       default:
         return <DashboardView onSelectTicket={handleSelectTicket} />
     }
@@ -116,12 +112,10 @@ function TMSApp() {
 
 export default function Home() {
   return (
-    <SettingsProvider>
-      <AuthProvider>
-        <DataProvider>
-          <TMSApp />
-        </DataProvider>
-      </AuthProvider>
-    </SettingsProvider>
+    <AuthProvider>
+      <DataProvider>
+        <TMSApp />
+      </DataProvider>
+    </AuthProvider>
   )
 }

@@ -2,8 +2,6 @@
 
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/lib/auth-context'
-import { useSettings } from '@/lib/settings-context'
-import Image from 'next/image'
 import { 
   LayoutDashboard, 
   Plus, 
@@ -32,7 +30,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { useState } from 'react'
 
-type View = 'dashboard' | 'new-ticket' | 'problems' | 'machines' | 'maintenance' | 'parts' | 'reports' | 'scheduled' | 'users' | 'settings'
+type View = 'dashboard' | 'new-ticket' | 'problems' | 'machines' | 'maintenance' | 'parts' | 'reports' | 'scheduled' | 'users'
 
 interface SidebarProps {
   currentView: View
@@ -48,13 +46,11 @@ const allMenuItems = [
   { id: 'parts' as const, label: 'Pecas', icon: Package, roles: ['manutentor'] },
   { id: 'users' as const, label: 'Usuarios', icon: Users, roles: ['manutentor'] },
   { id: 'reports' as const, label: 'Relatorios', icon: BarChart3, roles: ['manutentor'] },
-  { id: 'settings' as const, label: 'Configuracoes', icon: Settings, roles: ['manutentor'] },
 ]
 
 export function Sidebar({ currentView, onViewChange }: SidebarProps) {
   const [mobileOpen, setMobileOpen] = useState(false)
   const { currentUser, logout, isManutentor } = useAuth()
-  const { settings } = useSettings()
 
   const menuItems = allMenuItems.filter(item => 
     item.roles.includes(currentUser?.role || 'lider')
@@ -80,36 +76,13 @@ export function Sidebar({ currentView, onViewChange }: SidebarProps) {
       <header className="lg:hidden fixed top-0 left-0 right-0 z-50 bg-sidebar border-b border-sidebar-border">
         <div className="flex items-center justify-between p-4">
           <div className="flex items-center gap-3">
-            {/* Logo da empresa */}
-            {settings.logoUrl ? (
-              <div className="relative w-8 h-8 rounded-lg overflow-hidden">
-                <Image
-                  src={settings.logoUrl}
-                  alt="Logo"
-                  fill
-                  className="object-contain"
-                />
-              </div>
-            ) : (
-              <div className="w-8 h-8 bg-sidebar-primary rounded-lg flex items-center justify-center">
-                <Settings className="w-5 h-5 text-sidebar-primary-foreground" />
-              </div>
-            )}
+            <div className="w-8 h-8 bg-sidebar-primary rounded-lg flex items-center justify-center">
+              <Settings className="w-5 h-5 text-sidebar-primary-foreground" />
+            </div>
             <div>
               <h1 className="text-lg font-bold text-sidebar-foreground">TMS One</h1>
-              <p className="text-xs text-sidebar-foreground/60">{settings.companyName}</p>
+              <p className="text-xs text-sidebar-foreground/60">Vetore</p>
             </div>
-            {/* Logo secundaria da empresa (retangular) */}
-            {settings.companyLogoUrl && (
-              <div className="relative h-6 w-16 ml-2">
-                <Image
-                  src={settings.companyLogoUrl}
-                  alt="Logo empresa"
-                  fill
-                  className="object-contain"
-                />
-              </div>
-            )}
           </div>
           <Button 
             variant="ghost" 
@@ -137,39 +110,14 @@ export function Sidebar({ currentView, onViewChange }: SidebarProps) {
         mobileOpen ? "translate-x-0" : "-translate-x-full"
       )}>
         {/* Logo */}
-        <div className="hidden lg:flex flex-col gap-3 p-6 border-b border-sidebar-border">
-          <div className="flex items-center gap-3">
-            {/* Logo principal */}
-            {settings.logoUrl ? (
-              <div className="relative w-10 h-10 rounded-xl overflow-hidden">
-                <Image
-                  src={settings.logoUrl}
-                  alt="Logo"
-                  fill
-                  className="object-contain"
-                />
-              </div>
-            ) : (
-              <div className="w-10 h-10 bg-sidebar-primary rounded-xl flex items-center justify-center">
-                <Settings className="w-6 h-6 text-sidebar-primary-foreground" />
-              </div>
-            )}
-            <div className="flex-1">
-              <h1 className="text-xl font-bold text-sidebar-foreground">TMS One</h1>
-              <p className="text-xs text-sidebar-foreground/60">{settings.companyName}</p>
-            </div>
+        <div className="hidden lg:flex items-center gap-3 p-6 border-b border-sidebar-border">
+          <div className="w-10 h-10 bg-sidebar-primary rounded-xl flex items-center justify-center">
+            <Settings className="w-6 h-6 text-sidebar-primary-foreground" />
           </div>
-          {/* Logo secundaria da empresa (retangular) */}
-          {settings.companyLogoUrl && (
-            <div className="relative h-8 w-full">
-              <Image
-                src={settings.companyLogoUrl}
-                alt="Logo empresa"
-                fill
-                className="object-contain object-left"
-              />
-            </div>
-          )}
+          <div>
+            <h1 className="text-xl font-bold text-sidebar-foreground">TMS One</h1>
+            <p className="text-xs text-sidebar-foreground/60">Vetore Industrial</p>
+          </div>
         </div>
 
         {/* Navigation */}

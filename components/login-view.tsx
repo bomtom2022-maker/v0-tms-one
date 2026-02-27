@@ -1,25 +1,21 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState } from 'react'
 import { useAuth } from '@/lib/auth-context'
-import { useSettings } from '@/lib/settings-context'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { Wrench, AlertCircle, Eye, EyeOff, Upload, ImageIcon } from 'lucide-react'
-import Image from 'next/image'
+import { Wrench, AlertCircle, Eye, EyeOff } from 'lucide-react'
 
 export function LoginView() {
   const { login } = useAuth()
-  const { settings, updateLogo } = useSettings()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
   const [isLoading, setIsLoading] = useState(false)
-  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -38,77 +34,18 @@ export function LoginView() {
     setIsLoading(false)
   }
 
-  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (file) {
-      // Validar tipo de arquivo
-      if (!file.type.startsWith('image/')) {
-        setError('Por favor, selecione uma imagem valida')
-        return
-      }
-      
-      // Validar tamanho (max 2MB)
-      if (file.size > 2 * 1024 * 1024) {
-        setError('A imagem deve ter no maximo 2MB')
-        return
-      }
-
-      // Converter para base64 (temporario - sera URL do banco depois)
-      const reader = new FileReader()
-      reader.onload = (event) => {
-        const base64 = event.target?.result as string
-        updateLogo(base64)
-      }
-      reader.readAsDataURL(file)
-    }
-  }
-
   return (
     <div className="min-h-screen flex items-center justify-center bg-muted/30 p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center space-y-4">
-          {/* Area da Logo - Clicavel para upload */}
-          <div 
-            className="mx-auto relative group cursor-pointer"
-            onClick={() => fileInputRef.current?.click()}
-          >
-            {settings.logoUrl ? (
-              <div className="relative w-24 h-24 rounded-xl overflow-hidden border-2 border-dashed border-transparent group-hover:border-primary/50 transition-colors">
-                <Image
-                  src={settings.logoUrl}
-                  alt="Logo da empresa"
-                  fill
-                  className="object-contain"
-                />
-                <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                  <Upload className="w-6 h-6 text-white" />
-                </div>
-              </div>
-            ) : (
-              <div className="w-24 h-24 bg-muted rounded-xl border-2 border-dashed border-muted-foreground/30 group-hover:border-primary/50 flex flex-col items-center justify-center transition-colors">
-                <ImageIcon className="w-8 h-8 text-muted-foreground/50 group-hover:text-primary/70" />
-                <span className="text-xs text-muted-foreground/50 mt-1 group-hover:text-primary/70">Adicionar logo</span>
-              </div>
-            )}
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              onChange={handleLogoUpload}
-              className="hidden"
-            />
+          <div className="mx-auto w-16 h-16 bg-primary rounded-xl flex items-center justify-center">
+            <Wrench className="w-8 h-8 text-primary-foreground" />
           </div>
-          
-          <div className="flex items-center justify-center gap-2">
-            <div className="w-10 h-10 bg-primary rounded-lg flex items-center justify-center">
-              <Wrench className="w-5 h-5 text-primary-foreground" />
-            </div>
-            <div className="text-left">
-              <CardTitle className="text-2xl font-bold">TMS One</CardTitle>
-              <CardDescription className="text-sm">
-                Sistema de Gestao de Manutencao
-              </CardDescription>
-            </div>
+          <div>
+            <CardTitle className="text-2xl font-bold">TMS One</CardTitle>
+            <CardDescription className="text-base mt-1">
+              Sistema de Gestao de Manutencao
+            </CardDescription>
           </div>
         </CardHeader>
         <CardContent>
