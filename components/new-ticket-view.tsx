@@ -1,10 +1,11 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import { Switch } from '@/components/ui/switch'
+import { Label } from '@/components/ui/label'
 import {
   Select,
   SelectContent,
@@ -22,13 +23,38 @@ interface NewTicketViewProps {
 }
 
 export function NewTicketView({ onSuccess }: NewTicketViewProps) {
-  const { machines, problems, addTicket } = useData()
+  const { machines, problems, addTicket, getProblemById } = useData()
   const [machineId, setMachineId] = useState('')
   const [problemId, setProblemId] = useState('')
   const [priority, setPriority] = useState<Priority>('medium')
+  const [manualPriority, setManualPriority] = useState(false)
   const [observation, setObservation] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [showSuccess, setShowSuccess] = useState(false)
+
+  // Auto-selecionar prioridade baseada no problema
+  useEffect(() => {
+    if (problemId && !manualPriority) {
+      const problem = getProblemById(problemId)
+      if (problem) {
+        setPriority(problem.defaultPriority)
+      }
+    }
+  }, [problemId, manualPriority, getProblemById])
+
+  const handleProblemChange = (value: string) => {
+    setProblemId(value)
+  }
+
+  const handleManualPriorityChange = (checked: boolean) => {
+    setManualPriority(checked)
+    if (!checked && problemId) {
+      const problem = getProblemById(problemId)
+      if (problem) {
+        setPriority(problem.defaultPriority)
+      }
+    }
+  }
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -37,7 +63,6 @@ export function NewTicketView({ onSuccess }: NewTicketViewProps) {
 
     setIsSubmitting(true)
 
-    // Simular delay de envio
     setTimeout(() => {
       addTicket({
         machineId,
@@ -48,14 +73,13 @@ export function NewTicketView({ onSuccess }: NewTicketViewProps) {
 
       setShowSuccess(true)
       
-      // Reset form
       setMachineId('')
       setProblemId('')
       setPriority('medium')
+      setManualPriority(false)
       setObservation('')
       setIsSubmitting(false)
 
-      // Hide success message and navigate
       setTimeout(() => {
         setShowSuccess(false)
         onSuccess()
@@ -74,6 +98,8 @@ export function NewTicketView({ onSuccess }: NewTicketViewProps) {
       </div>
     )
   }
+
+  const selectedProblem = problemId ? getProblemById(problemId) : null
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
@@ -117,67 +143,95 @@ export function NewTicketView({ onSuccess }: NewTicketViewProps) {
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-base">Tipo de Problema</CardTitle>
-            <CardDescription>Selecione o problema identificado</CardDescription>
+            <CardDescription>
+              Selecione o problema identificado (a prioridade será definida automaticamente)
+            </CardDescription>
           </CardHeader>
           <CardContent>
-            <Select value={problemId} onValueChange={setProblemId}>
+            <Select value={problemId} onValueChange={handleProblemChange}>
               <SelectTrigger className="w-full">
                 <SelectValue placeholder="Selecione o problema..." />
               </SelectTrigger>
               <SelectContent>
-                {problems.map((problem) => (
-                  <SelectItem key={problem.id} value={problem.id}>
-                    {problem.name}
-                  </SelectItem>
-                ))}
+                {problems.map((problem) => {
+                  const config = PRIORITY_CONFIG[problem.defaultPriority]
+                  return (
+                    <SelectItem key={problem.id} value={problem.id}>
+                      <div className="flex items-center gap-2">
+                        <div className={cn("w-2 h-2 rounded-full", config.color)} />
+                        <span>{problem.name}</span>
+                      </div>
+                    </SelectItem>
+                  )
+                })}
               </SelectContent>
             </Select>
+            
+            {selectedProblem && !manualPriority && (
+              <div className="mt-3 p-3 rounded-lg bg-muted/50">
+                <p className="text-sm text-muted-foreground">
+                  Prioridade automática: <span className={cn("font-medium", PRIORITY_CONFIG[selectedProblem.defaultPriority].textColor)}>
+                    {PRIORITY_CONFIG[selectedProblem.defaultPriority].label}
+                  </span>
+                </p>
+              </div>
+            )}
           </CardContent>
         </Card>
 
-        {/* Seleção de Prioridade */}
+        {/* Toggle para prioridade manual */}
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-base">Prioridade</CardTitle>
-            <CardDescription>Defina a urgência do chamado</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              {(Object.keys(PRIORITY_CONFIG) as Priority[]).map((p) => {
-                const config = PRIORITY_CONFIG[p]
-                const isSelected = priority === p
-                const Icon = p === 'high' ? AlertTriangle : p === 'medium' ? Clock : AlertCircle
-                
-                return (
-                  <button
-                    key={p}
-                    type="button"
-                    onClick={() => setPriority(p)}
-                    className={cn(
-                      "p-4 rounded-lg border-2 transition-all text-left",
-                      isSelected 
-                        ? `${config.borderColor} ${config.bgLight}` 
-                        : "border-border hover:border-muted-foreground/30"
-                    )}
-                  >
-                    <div className="flex items-center gap-2">
-                      <div className={cn("p-1.5 rounded", config.color)}>
-                        <Icon className="w-4 h-4 text-white" />
-                      </div>
-                      <div>
-                        <p className={cn("font-medium text-sm", isSelected && config.textColor)}>
-                          {config.label}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {config.description}
-                        </p>
-                      </div>
-                    </div>
-                  </button>
-                )
-              })}
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="text-base">Prioridade Manual</CardTitle>
+                <CardDescription>Deseja definir a prioridade manualmente?</CardDescription>
+              </div>
+              <Switch 
+                checked={manualPriority} 
+                onCheckedChange={handleManualPriorityChange}
+              />
             </div>
-          </CardContent>
+          </CardHeader>
+          {manualPriority && (
+            <CardContent>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                {(Object.keys(PRIORITY_CONFIG) as Priority[]).map((p) => {
+                  const config = PRIORITY_CONFIG[p]
+                  const isSelected = priority === p
+                  const Icon = p === 'high' ? AlertTriangle : p === 'medium' ? Clock : AlertCircle
+                  
+                  return (
+                    <button
+                      key={p}
+                      type="button"
+                      onClick={() => setPriority(p)}
+                      className={cn(
+                        "p-4 rounded-lg border-2 transition-all text-left",
+                        isSelected 
+                          ? `${config.borderColor} ${config.bgLight}` 
+                          : "border-border hover:border-muted-foreground/30"
+                      )}
+                    >
+                      <div className="flex items-center gap-2">
+                        <div className={cn("p-1.5 rounded", config.color)}>
+                          <Icon className="w-4 h-4 text-white" />
+                        </div>
+                        <div>
+                          <p className={cn("font-medium text-sm", isSelected && config.textColor)}>
+                            {config.label}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {config.description}
+                          </p>
+                        </div>
+                      </div>
+                    </button>
+                  )
+                })}
+              </div>
+            </CardContent>
+          )}
         </Card>
 
         {/* Observação */}

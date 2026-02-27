@@ -1,7 +1,7 @@
 'use client'
 
 import { createContext, useContext, useState, useCallback, type ReactNode } from 'react'
-import type { Machine, Problem, Part, Ticket, UsedPart } from './types'
+import type { Machine, Problem, Part, Ticket, UsedPart, Priority, MaintenanceAction } from './types'
 
 // Dados iniciais de máquinas CNC
 const INITIAL_MACHINES: Machine[] = [
@@ -17,21 +17,21 @@ const INITIAL_MACHINES: Machine[] = [
   { id: 'cnc-010', name: 'CNC Mandriladora TOS', sector: 'Usinagem B' },
 ]
 
-// Problemas pré-cadastrados
+// Problemas pré-cadastrados com prioridade padrão
 const INITIAL_PROBLEMS: Problem[] = [
-  { id: 'prob-001', name: 'Falha no Spindle' },
-  { id: 'prob-002', name: 'Erro de Posicionamento' },
-  { id: 'prob-003', name: 'Vazamento de Óleo' },
-  { id: 'prob-004', name: 'Problema no Sistema de Refrigeração' },
-  { id: 'prob-005', name: 'Falha no Magazine de Ferramentas' },
-  { id: 'prob-006', name: 'Erro no CNC/Controlador' },
-  { id: 'prob-007', name: 'Problema no Servo Motor' },
-  { id: 'prob-008', name: 'Desgaste de Guias' },
-  { id: 'prob-009', name: 'Falha no Sistema Hidráulico' },
-  { id: 'prob-010', name: 'Problema no Trocador Automático' },
-  { id: 'prob-011', name: 'Manutenção Preventiva Programada' },
-  { id: 'prob-012', name: 'Calibração/Ajuste' },
-  { id: 'prob-013', name: 'Outros' },
+  { id: 'prob-001', name: 'Falha no Spindle', defaultPriority: 'high' },
+  { id: 'prob-002', name: 'Erro de Posicionamento', defaultPriority: 'high' },
+  { id: 'prob-003', name: 'Vazamento de Óleo', defaultPriority: 'medium' },
+  { id: 'prob-004', name: 'Problema no Sistema de Refrigeração', defaultPriority: 'medium' },
+  { id: 'prob-005', name: 'Falha no Magazine de Ferramentas', defaultPriority: 'high' },
+  { id: 'prob-006', name: 'Erro no CNC/Controlador', defaultPriority: 'high' },
+  { id: 'prob-007', name: 'Problema no Servo Motor', defaultPriority: 'high' },
+  { id: 'prob-008', name: 'Desgaste de Guias', defaultPriority: 'medium' },
+  { id: 'prob-009', name: 'Falha no Sistema Hidráulico', defaultPriority: 'high' },
+  { id: 'prob-010', name: 'Problema no Trocador Automático', defaultPriority: 'medium' },
+  { id: 'prob-011', name: 'Manutenção Preventiva Programada', defaultPriority: 'low' },
+  { id: 'prob-012', name: 'Calibração/Ajuste', defaultPriority: 'low' },
+  { id: 'prob-013', name: 'Outros', defaultPriority: 'medium' },
 ]
 
 // Peças iniciais
@@ -61,6 +61,8 @@ const INITIAL_TICKETS: Ticket[] = [
     usedParts: [],
     totalCost: 0,
     downtime: 0,
+    accumulatedTime: 0,
+    actions: [],
   },
   {
     id: 'ticket-002',
@@ -73,6 +75,8 @@ const INITIAL_TICKETS: Ticket[] = [
     usedParts: [],
     totalCost: 0,
     downtime: 0,
+    accumulatedTime: 0,
+    actions: [],
   },
   {
     id: 'ticket-003',
@@ -85,6 +89,8 @@ const INITIAL_TICKETS: Ticket[] = [
     usedParts: [],
     totalCost: 0,
     downtime: 0,
+    accumulatedTime: 0,
+    actions: [],
   },
   {
     id: 'ticket-004',
@@ -98,6 +104,8 @@ const INITIAL_TICKETS: Ticket[] = [
     usedParts: [],
     totalCost: 0,
     downtime: 0,
+    accumulatedTime: 0,
+    actions: [{ type: 'start', operatorName: 'João Silva', timestamp: new Date(Date.now() - 30 * 60 * 1000) }],
   },
 ]
 
@@ -107,9 +115,12 @@ interface DataContextType {
   parts: Part[]
   tickets: Ticket[]
   addPart: (name: string, price: number) => void
-  addTicket: (ticket: Omit<Ticket, 'id' | 'createdAt' | 'usedParts' | 'totalCost' | 'downtime' | 'status'>) => void
-  startMaintenance: (ticketId: string) => void
-  completeMaintenance: (ticketId: string, usedParts: UsedPart[]) => void
+  addProblem: (name: string, defaultPriority: Priority) => void
+  addTicket: (ticket: Omit<Ticket, 'id' | 'createdAt' | 'usedParts' | 'totalCost' | 'downtime' | 'accumulatedTime' | 'actions' | 'status'>) => void
+  startMaintenance: (ticketId: string, operatorName: string) => void
+  pauseMaintenance: (ticketId: string, operatorName: string) => void
+  resumeMaintenance: (ticketId: string, operatorName: string) => void
+  completeMaintenance: (ticketId: string, usedParts: UsedPart[], operatorName: string) => void
   getTicketById: (id: string) => Ticket | undefined
   getMachineById: (id: string) => Machine | undefined
   getProblemById: (id: string) => Problem | undefined
@@ -121,7 +132,7 @@ const DataContext = createContext<DataContextType | undefined>(undefined)
 
 export function DataProvider({ children }: { children: ReactNode }) {
   const [machines] = useState<Machine[]>(INITIAL_MACHINES)
-  const [problems] = useState<Problem[]>(INITIAL_PROBLEMS)
+  const [problems, setProblems] = useState<Problem[]>(INITIAL_PROBLEMS)
   const [parts, setParts] = useState<Part[]>(INITIAL_PARTS)
   const [tickets, setTickets] = useState<Ticket[]>(INITIAL_TICKETS)
 
@@ -134,7 +145,16 @@ export function DataProvider({ children }: { children: ReactNode }) {
     setParts(prev => [...prev, newPart])
   }, [])
 
-  const addTicket = useCallback((ticketData: Omit<Ticket, 'id' | 'createdAt' | 'usedParts' | 'totalCost' | 'downtime' | 'status'>) => {
+  const addProblem = useCallback((name: string, defaultPriority: Priority) => {
+    const newProblem: Problem = {
+      id: `prob-${Date.now()}`,
+      name,
+      defaultPriority,
+    }
+    setProblems(prev => [...prev, newProblem])
+  }, [])
+
+  const addTicket = useCallback((ticketData: Omit<Ticket, 'id' | 'createdAt' | 'usedParts' | 'totalCost' | 'downtime' | 'accumulatedTime' | 'actions' | 'status'>) => {
     const newTicket: Ticket = {
       ...ticketData,
       id: `ticket-${Date.now()}`,
@@ -143,38 +163,115 @@ export function DataProvider({ children }: { children: ReactNode }) {
       usedParts: [],
       totalCost: 0,
       downtime: 0,
+      accumulatedTime: 0,
+      actions: [],
     }
     setTickets(prev => [newTicket, ...prev])
   }, [])
 
-  const startMaintenance = useCallback((ticketId: string) => {
-    setTickets(prev => prev.map(ticket => 
-      ticket.id === ticketId 
-        ? { ...ticket, status: 'in-progress' as const, startedAt: new Date() }
-        : ticket
-    ))
+  const startMaintenance = useCallback((ticketId: string, operatorName: string) => {
+    setTickets(prev => prev.map(ticket => {
+      if (ticket.id !== ticketId) return ticket
+      const action: MaintenanceAction = {
+        type: 'start',
+        operatorName,
+        timestamp: new Date(),
+      }
+      return { 
+        ...ticket, 
+        status: 'in-progress' as const, 
+        startedAt: new Date(),
+        actions: [...ticket.actions, action],
+      }
+    }))
   }, [])
 
-  const completeMaintenance = useCallback((ticketId: string, usedParts: UsedPart[]) => {
+  const pauseMaintenance = useCallback((ticketId: string, operatorName: string) => {
     setTickets(prev => prev.map(ticket => {
       if (ticket.id !== ticketId) return ticket
       
-      const completedAt = new Date()
-      const startedAt = ticket.startedAt || ticket.createdAt
-      const downtime = Math.floor((completedAt.getTime() - startedAt.getTime()) / 1000)
+      const now = new Date()
+      const lastStartOrResume = [...ticket.actions]
+        .reverse()
+        .find(a => a.type === 'start' || a.type === 'resume')
+      
+      let additionalTime = 0
+      if (lastStartOrResume) {
+        additionalTime = Math.floor((now.getTime() - lastStartOrResume.timestamp.getTime()) / 1000)
+      }
+      
+      const action: MaintenanceAction = {
+        type: 'pause',
+        operatorName,
+        timestamp: now,
+      }
+      
+      return { 
+        ...ticket, 
+        status: 'paused' as const,
+        accumulatedTime: ticket.accumulatedTime + additionalTime,
+        actions: [...ticket.actions, action],
+      }
+    }))
+  }, [])
+
+  const resumeMaintenance = useCallback((ticketId: string, operatorName: string) => {
+    setTickets(prev => prev.map(ticket => {
+      if (ticket.id !== ticketId) return ticket
+      
+      const action: MaintenanceAction = {
+        type: 'resume',
+        operatorName,
+        timestamp: new Date(),
+      }
+      
+      return { 
+        ...ticket, 
+        status: 'in-progress' as const,
+        actions: [...ticket.actions, action],
+      }
+    }))
+  }, [])
+
+  const completeMaintenance = useCallback((ticketId: string, usedParts: UsedPart[], operatorName: string) => {
+    setTickets(prev => prev.map(ticket => {
+      if (ticket.id !== ticketId) return ticket
+      
+      const now = new Date()
+      
+      // Calcular tempo adicional se estava em progresso
+      let additionalTime = 0
+      if (ticket.status === 'in-progress') {
+        const lastStartOrResume = [...ticket.actions]
+          .reverse()
+          .find(a => a.type === 'start' || a.type === 'resume')
+        
+        if (lastStartOrResume) {
+          additionalTime = Math.floor((now.getTime() - lastStartOrResume.timestamp.getTime()) / 1000)
+        }
+      }
+      
+      const downtime = ticket.accumulatedTime + additionalTime
       
       const totalCost = usedParts.reduce((sum, up) => {
         const part = parts.find(p => p.id === up.partId)
         return sum + (part ? part.price * up.quantity : 0)
       }, 0)
 
+      const action: MaintenanceAction = {
+        type: 'complete',
+        operatorName,
+        timestamp: now,
+      }
+
       return {
         ...ticket,
         status: 'completed' as const,
-        completedAt,
+        completedAt: now,
         usedParts,
         totalCost,
         downtime,
+        actions: [...ticket.actions, action],
       }
     }))
   }, [parts])
@@ -213,8 +310,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
       parts,
       tickets,
       addPart,
+      addProblem,
       addTicket,
       startMaintenance,
+      pauseMaintenance,
+      resumeMaintenance,
       completeMaintenance,
       getTicketById,
       getMachineById,

@@ -9,6 +9,7 @@ export interface Machine {
 export interface Problem {
   id: string
   name: string
+  defaultPriority: Priority
 }
 
 export interface Part {
@@ -22,19 +23,27 @@ export interface UsedPart {
   quantity: number
 }
 
+export interface MaintenanceAction {
+  type: 'start' | 'pause' | 'resume' | 'complete'
+  operatorName: string
+  timestamp: Date
+}
+
 export interface Ticket {
   id: string
   machineId: string
   problemId: string
   observation: string
   priority: Priority
-  status: 'open' | 'in-progress' | 'completed'
+  status: 'open' | 'in-progress' | 'paused' | 'completed'
   createdAt: Date
   startedAt?: Date
   completedAt?: Date
   usedParts: UsedPart[]
   totalCost: number
   downtime: number // em segundos
+  accumulatedTime: number // tempo acumulado durante pausas
+  actions: MaintenanceAction[]
 }
 
 export interface MaintenanceStats {
@@ -76,12 +85,7 @@ export function formatDuration(seconds: number): string {
   const minutes = Math.floor((seconds % 3600) / 60)
   const secs = seconds % 60
   
-  const parts = []
-  if (hours > 0) parts.push(`${hours}h`)
-  if (minutes > 0) parts.push(`${minutes}m`)
-  if (secs > 0 || parts.length === 0) parts.push(`${secs}s`)
-  
-  return parts.join(' ')
+  return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
 }
 
 export function formatCurrency(value: number): string {

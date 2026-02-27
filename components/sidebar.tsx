@@ -14,7 +14,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { useState } from 'react'
 
-type View = 'dashboard' | 'new-ticket' | 'maintenance' | 'parts' | 'reports'
+type View = 'dashboard' | 'new-ticket' | 'problems' | 'maintenance' | 'parts' | 'reports'
 
 interface SidebarProps {
   currentView: View
@@ -24,7 +24,7 @@ interface SidebarProps {
 const menuItems = [
   { id: 'dashboard' as const, label: 'Dashboard', icon: LayoutDashboard },
   { id: 'new-ticket' as const, label: 'Novo Chamado', icon: Plus },
-  { id: 'maintenance' as const, label: 'Manutenção', icon: Wrench },
+  { id: 'problems' as const, label: 'Problemas', icon: Wrench },
   { id: 'parts' as const, label: 'Peças', icon: Package },
   { id: 'reports' as const, label: 'Relatórios', icon: BarChart3 },
 ]
