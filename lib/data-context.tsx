@@ -1,7 +1,7 @@
 'use client'
 
 import { createContext, useContext, useState, useCallback, type ReactNode } from 'react'
-import type { Machine, Problem, Part, Ticket, UsedPart, Priority, MaintenanceAction, MachineStatus } from './types'
+import type { Machine, Problem, Part, Ticket, UsedPart, Priority, MaintenanceAction, MachineStatus, ScheduledMaintenance } from './types'
 
 // Dados iniciais de maquinas CNC
 const INITIAL_MACHINES: Machine[] = [
@@ -46,6 +46,40 @@ const INITIAL_PARTS: Part[] = [
   { id: 'part-008', name: 'Fusivel Industrial 10A', price: 12.00, description: 'Fusivel de protecao' },
   { id: 'part-009', name: 'Graxa Especial 1Kg', price: 95.00, description: 'Graxa para guias lineares' },
   { id: 'part-010', name: 'Bomba de Refrigeracao', price: 1850.00, description: 'Bomba para sistema de refrigeracao' },
+]
+
+// Manutencoes futuras de exemplo
+const INITIAL_SCHEDULED: ScheduledMaintenance[] = [
+  {
+    id: 'sched-001',
+    machineId: 'cnc-001',
+    title: 'Troca de Oleo Hidraulico',
+    description: 'Troca programada do oleo hidraulico do sistema.',
+    scheduledDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+    type: 'preventive',
+    status: 'pending',
+    createdAt: new Date(),
+  },
+  {
+    id: 'sched-002',
+    machineId: 'cnc-003',
+    title: 'Inspecao de Guias Lineares',
+    description: 'Verificar desgaste e ajustar folgas das guias.',
+    scheduledDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
+    type: 'inspection',
+    status: 'pending',
+    createdAt: new Date(),
+  },
+  {
+    id: 'sched-003',
+    machineId: 'cnc-005',
+    title: 'Substituicao de Correias',
+    description: 'Trocar correias do eixo principal conforme plano de manutencao.',
+    scheduledDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+    type: 'preventive',
+    status: 'pending',
+    createdAt: new Date(),
+  },
 ]
 
 // Chamados de exemplo para demonstracao
@@ -114,6 +148,7 @@ interface DataContextType {
   problems: Problem[]
   parts: Part[]
   tickets: Ticket[]
+  scheduledMaintenances: ScheduledMaintenance[]
   addMachine: (name: string, sector: string, status: MachineStatus) => void
   updateMachine: (id: string, name: string, sector: string, status: MachineStatus) => void
   addPart: (name: string, price: number, description?: string) => void
@@ -121,6 +156,9 @@ interface DataContextType {
   addProblem: (name: string, defaultPriority: Priority) => void
   updateProblem: (id: string, name: string, defaultPriority: Priority) => void
   addTicket: (ticket: Omit<Ticket, 'id' | 'createdAt' | 'usedParts' | 'totalCost' | 'downtime' | 'accumulatedTime' | 'actions' | 'status'>) => void
+  addScheduledMaintenance: (data: Omit<ScheduledMaintenance, 'id' | 'createdAt' | 'status'>) => void
+  updateScheduledMaintenance: (id: string, data: Partial<Omit<ScheduledMaintenance, 'id' | 'createdAt'>>) => void
+  deleteScheduledMaintenance: (id: string) => void
   startMaintenance: (ticketId: string, operatorName: string) => void
   pauseMaintenance: (ticketId: string, operatorName: string, reason: string) => void
   resumeMaintenance: (ticketId: string, operatorName: string) => void
@@ -139,6 +177,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [problems, setProblems] = useState<Problem[]>(INITIAL_PROBLEMS)
   const [parts, setParts] = useState<Part[]>(INITIAL_PARTS)
   const [tickets, setTickets] = useState<Ticket[]>(INITIAL_TICKETS)
+  const [scheduledMaintenances, setScheduledMaintenances] = useState<ScheduledMaintenance[]>(INITIAL_SCHEDULED)
 
   const addMachine = useCallback((name: string, sector: string, status: MachineStatus) => {
     const newMachine: Machine = {
@@ -200,6 +239,26 @@ export function DataProvider({ children }: { children: ReactNode }) {
       actions: [],
     }
     setTickets(prev => [newTicket, ...prev])
+  }, [])
+
+  const addScheduledMaintenance = useCallback((data: Omit<ScheduledMaintenance, 'id' | 'createdAt' | 'status'>) => {
+    const newScheduled: ScheduledMaintenance = {
+      ...data,
+      id: `sched-${Date.now()}`,
+      status: 'pending',
+      createdAt: new Date(),
+    }
+    setScheduledMaintenances(prev => [...prev, newScheduled])
+  }, [])
+
+  const updateScheduledMaintenance = useCallback((id: string, data: Partial<Omit<ScheduledMaintenance, 'id' | 'createdAt'>>) => {
+    setScheduledMaintenances(prev => prev.map(s => 
+      s.id === id ? { ...s, ...data } : s
+    ))
+  }, [])
+
+  const deleteScheduledMaintenance = useCallback((id: string) => {
+    setScheduledMaintenances(prev => prev.filter(s => s.id !== id))
   }, [])
 
   const startMaintenance = useCallback((ticketId: string, operatorName: string) => {
@@ -352,6 +411,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       problems,
       parts,
       tickets,
+      scheduledMaintenances,
       addMachine,
       updateMachine,
       addPart,
@@ -359,6 +419,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
       addProblem,
       updateProblem,
       addTicket,
+      addScheduledMaintenance,
+      updateScheduledMaintenance,
+      deleteScheduledMaintenance,
       startMaintenance,
       pauseMaintenance,
       resumeMaintenance,

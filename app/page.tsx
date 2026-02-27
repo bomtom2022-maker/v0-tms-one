@@ -10,8 +10,9 @@ import { MachinesView } from '@/components/machines-view'
 import { MaintenanceView } from '@/components/maintenance-view'
 import { PartsView } from '@/components/parts-view'
 import { ReportsView } from '@/components/reports-view'
+import { ScheduledView } from '@/components/scheduled-view'
 
-type View = 'dashboard' | 'new-ticket' | 'problems' | 'machines' | 'maintenance' | 'parts' | 'reports'
+type View = 'dashboard' | 'new-ticket' | 'problems' | 'machines' | 'maintenance' | 'parts' | 'reports' | 'scheduled'
 
 function TMSApp() {
   const [currentView, setCurrentView] = useState<View>('dashboard')
@@ -58,6 +59,8 @@ function TMSApp() {
         return <PartsView />
       case 'reports':
         return <ReportsView />
+      case 'scheduled':
+        return <ScheduledView />
       default:
         return <DashboardView onSelectTicket={handleSelectTicket} />
     }

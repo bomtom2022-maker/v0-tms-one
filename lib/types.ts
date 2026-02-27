@@ -51,7 +51,40 @@ export interface Ticket {
   actions: MaintenanceAction[]
   completionNotes?: string // observacao ao finalizar
   resolved?: boolean // problema foi resolvido?
+  machineStopped?: boolean // maquina parada?
 }
+
+export interface ScheduledMaintenance {
+  id: string
+  machineId: string
+  title: string
+  description: string
+  scheduledDate: Date
+  type: 'preventive' | 'corrective' | 'inspection'
+  status: 'pending' | 'completed' | 'cancelled'
+  createdAt: Date
+}
+
+export const MAINTENANCE_TYPE_CONFIG = {
+  preventive: {
+    label: 'Preventiva',
+    color: 'bg-blue-500',
+    textColor: 'text-blue-600',
+    bgLight: 'bg-blue-50',
+  },
+  corrective: {
+    label: 'Corretiva',
+    color: 'bg-orange-500',
+    textColor: 'text-orange-600',
+    bgLight: 'bg-orange-50',
+  },
+  inspection: {
+    label: 'Inspecao',
+    color: 'bg-green-500',
+    textColor: 'text-green-600',
+    bgLight: 'bg-green-50',
+  },
+} as const
 
 export interface MaintenanceStats {
   machineId: string

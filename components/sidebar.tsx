@@ -10,12 +10,13 @@ import {
   Menu,
   X,
   Settings,
-  Cog
+  Cog,
+  CalendarClock
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useState } from 'react'
 
-type View = 'dashboard' | 'new-ticket' | 'problems' | 'machines' | 'maintenance' | 'parts' | 'reports'
+type View = 'dashboard' | 'new-ticket' | 'problems' | 'machines' | 'maintenance' | 'parts' | 'reports' | 'scheduled'
 
 interface SidebarProps {
   currentView: View
@@ -25,6 +26,7 @@ interface SidebarProps {
 const menuItems = [
   { id: 'dashboard' as const, label: 'Dashboard', icon: LayoutDashboard },
   { id: 'new-ticket' as const, label: 'Novo Chamado', icon: Plus },
+  { id: 'scheduled' as const, label: 'Manutencoes Futuras', icon: CalendarClock },
   { id: 'machines' as const, label: 'Maquinas', icon: Cog },
   { id: 'problems' as const, label: 'Problemas', icon: Wrench },
   { id: 'parts' as const, label: 'Pecas', icon: Package },

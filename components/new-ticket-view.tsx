@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
+import { Checkbox } from '@/components/ui/checkbox'
 import {
   Select,
   SelectContent,
@@ -15,7 +16,7 @@ import {
 } from '@/components/ui/select'
 import { useData } from '@/lib/data-context'
 import { PRIORITY_CONFIG, type Priority } from '@/lib/types'
-import { CheckCircle, AlertTriangle, Clock, AlertCircle } from 'lucide-react'
+import { CheckCircle, AlertTriangle, Clock, AlertCircle, AlertOctagon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 interface NewTicketViewProps {
@@ -29,6 +30,7 @@ export function NewTicketView({ onSuccess }: NewTicketViewProps) {
   const [priority, setPriority] = useState<Priority>('medium')
   const [manualPriority, setManualPriority] = useState(false)
   const [observation, setObservation] = useState('')
+  const [machineStopped, setMachineStopped] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [showSuccess, setShowSuccess] = useState(false)
 
@@ -42,6 +44,13 @@ export function NewTicketView({ onSuccess }: NewTicketViewProps) {
     }
   }, [problemId, manualPriority, getProblemById])
 
+  // Se maquina parada, automaticamente definir prioridade alta
+  useEffect(() => {
+    if (machineStopped && !manualPriority) {
+      setPriority('high')
+    }
+  }, [machineStopped, manualPriority])
+
   const handleProblemChange = (value: string) => {
     setProblemId(value)
   }
@@ -51,7 +60,7 @@ export function NewTicketView({ onSuccess }: NewTicketViewProps) {
     if (!checked && problemId) {
       const problem = getProblemById(problemId)
       if (problem) {
-        setPriority(problem.defaultPriority)
+        setPriority(machineStopped ? 'high' : problem.defaultPriority)
       }
     }
   }
@@ -69,6 +78,7 @@ export function NewTicketView({ onSuccess }: NewTicketViewProps) {
         problemId,
         priority,
         observation,
+        machineStopped,
       })
 
       setShowSuccess(true)
@@ -78,6 +88,7 @@ export function NewTicketView({ onSuccess }: NewTicketViewProps) {
       setPriority('medium')
       setManualPriority(false)
       setObservation('')
+      setMachineStopped(false)
       setIsSubmitting(false)
 
       setTimeout(() => {
@@ -109,21 +120,21 @@ export function NewTicketView({ onSuccess }: NewTicketViewProps) {
           Novo Chamado
         </h1>
         <p className="text-muted-foreground mt-1">
-          Registre um novo chamado de manutenção
+          Registre um novo chamado de manutencao
         </p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
-        {/* Seleção de Máquina */}
+        {/* Selecao de Maquina */}
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-base">Máquina CNC</CardTitle>
-            <CardDescription>Selecione a máquina com problema</CardDescription>
+            <CardTitle className="text-base">Maquina CNC</CardTitle>
+            <CardDescription>Selecione a maquina com problema</CardDescription>
           </CardHeader>
           <CardContent>
             <Select value={machineId} onValueChange={setMachineId}>
               <SelectTrigger className="w-full">
-                <SelectValue placeholder="Selecione a máquina..." />
+                <SelectValue placeholder="Selecione a maquina..." />
               </SelectTrigger>
               <SelectContent>
                 {machines.map((machine) => (
@@ -139,12 +150,49 @@ export function NewTicketView({ onSuccess }: NewTicketViewProps) {
           </CardContent>
         </Card>
 
-        {/* Seleção de Problema */}
+        {/* Maquina Parada */}
+        <Card className={cn(machineStopped && "border-red-500 bg-red-50/50")}>
+          <CardContent className="p-4">
+            <div className="flex items-start gap-4">
+              <Checkbox 
+                id="machine-stopped"
+                checked={machineStopped}
+                onCheckedChange={(checked) => setMachineStopped(checked as boolean)}
+                className="mt-1"
+              />
+              <div className="flex-1">
+                <Label 
+                  htmlFor="machine-stopped" 
+                  className={cn(
+                    "text-base font-medium cursor-pointer flex items-center gap-2",
+                    machineStopped && "text-red-600"
+                  )}
+                >
+                  <AlertOctagon className={cn("w-5 h-5", machineStopped ? "text-red-500" : "text-muted-foreground")} />
+                  Maquina Parada
+                </Label>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Marque esta opcao se a maquina esta completamente parada e nao pode operar
+                </p>
+              </div>
+            </div>
+            {machineStopped && (
+              <div className="mt-4 p-3 bg-red-100 rounded-lg border border-red-200">
+                <p className="text-sm text-red-700 font-medium flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4" />
+                  Este chamado sera marcado como URGENTE (Prioridade Alta)
+                </p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Selecao de Problema */}
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-base">Tipo de Problema</CardTitle>
             <CardDescription>
-              Selecione o problema identificado (a prioridade será definida automaticamente)
+              Selecione o problema identificado (a prioridade sera definida automaticamente)
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -167,10 +215,10 @@ export function NewTicketView({ onSuccess }: NewTicketViewProps) {
               </SelectContent>
             </Select>
             
-            {selectedProblem && !manualPriority && (
+            {selectedProblem && !manualPriority && !machineStopped && (
               <div className="mt-3 p-3 rounded-lg bg-muted/50">
                 <p className="text-sm text-muted-foreground">
-                  Prioridade automática: <span className={cn("font-medium", PRIORITY_CONFIG[selectedProblem.defaultPriority].textColor)}>
+                  Prioridade automatica: <span className={cn("font-medium", PRIORITY_CONFIG[selectedProblem.defaultPriority].textColor)}>
                     {PRIORITY_CONFIG[selectedProblem.defaultPriority].label}
                   </span>
                 </p>
@@ -180,85 +228,90 @@ export function NewTicketView({ onSuccess }: NewTicketViewProps) {
         </Card>
 
         {/* Toggle para prioridade manual */}
-        <Card>
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle className="text-base">Prioridade Manual</CardTitle>
-                <CardDescription>Deseja definir a prioridade manualmente?</CardDescription>
+        {!machineStopped && (
+          <Card>
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-base">Prioridade Manual</CardTitle>
+                  <CardDescription>Deseja definir a prioridade manualmente?</CardDescription>
+                </div>
+                <Switch 
+                  checked={manualPriority} 
+                  onCheckedChange={handleManualPriorityChange}
+                />
               </div>
-              <Switch 
-                checked={manualPriority} 
-                onCheckedChange={handleManualPriorityChange}
-              />
-            </div>
-          </CardHeader>
-          {manualPriority && (
-            <CardContent>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                {(Object.keys(PRIORITY_CONFIG) as Priority[]).map((p) => {
-                  const config = PRIORITY_CONFIG[p]
-                  const isSelected = priority === p
-                  const Icon = p === 'high' ? AlertTriangle : p === 'medium' ? Clock : AlertCircle
-                  
-                  return (
-                    <button
-                      key={p}
-                      type="button"
-                      onClick={() => setPriority(p)}
-                      className={cn(
-                        "p-4 rounded-lg border-2 transition-all text-left",
-                        isSelected 
-                          ? `${config.borderColor} ${config.bgLight}` 
-                          : "border-border hover:border-muted-foreground/30"
-                      )}
-                    >
-                      <div className="flex items-center gap-2">
-                        <div className={cn("p-1.5 rounded", config.color)}>
-                          <Icon className="w-4 h-4 text-white" />
+            </CardHeader>
+            {manualPriority && (
+              <CardContent>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  {(Object.keys(PRIORITY_CONFIG) as Priority[]).map((p) => {
+                    const config = PRIORITY_CONFIG[p]
+                    const isSelected = priority === p
+                    const Icon = p === 'high' ? AlertTriangle : p === 'medium' ? Clock : AlertCircle
+                    
+                    return (
+                      <button
+                        key={p}
+                        type="button"
+                        onClick={() => setPriority(p)}
+                        className={cn(
+                          "p-4 rounded-lg border-2 transition-all text-left",
+                          isSelected 
+                            ? `${config.borderColor} ${config.bgLight}` 
+                            : "border-border hover:border-muted-foreground/30"
+                        )}
+                      >
+                        <div className="flex items-center gap-2">
+                          <div className={cn("p-1.5 rounded", config.color)}>
+                            <Icon className="w-4 h-4 text-white" />
+                          </div>
+                          <div>
+                            <p className={cn("font-medium text-sm", isSelected && config.textColor)}>
+                              {config.label}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {config.description}
+                            </p>
+                          </div>
                         </div>
-                        <div>
-                          <p className={cn("font-medium text-sm", isSelected && config.textColor)}>
-                            {config.label}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            {config.description}
-                          </p>
-                        </div>
-                      </div>
-                    </button>
-                  )
-                })}
-              </div>
-            </CardContent>
-          )}
-        </Card>
+                      </button>
+                    )
+                  })}
+                </div>
+              </CardContent>
+            )}
+          </Card>
+        )}
 
-        {/* Observação */}
+        {/* Observacao */}
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-base">Observação</CardTitle>
+            <CardTitle className="text-base">Observacao</CardTitle>
             <CardDescription>Descreva o problema em detalhes</CardDescription>
           </CardHeader>
           <CardContent>
             <Textarea
               value={observation}
               onChange={(e) => setObservation(e.target.value)}
-              placeholder="Descreva o problema observado, sintomas, comportamento da máquina, etc."
+              placeholder="Descreva o problema observado, sintomas, comportamento da maquina, etc."
               rows={4}
               className="resize-none"
             />
           </CardContent>
         </Card>
 
-        {/* Botão de Envio */}
+        {/* Botao de Envio */}
         <Button 
           type="submit" 
           size="lg" 
-          className="w-full"
+          className={cn(
+            "w-full",
+            machineStopped && "bg-red-600 hover:bg-red-700"
+          )}
           disabled={!machineId || !problemId || isSubmitting}
         >
-          {isSubmitting ? 'Registrando...' : 'Registrar Chamado'}
+          {isSubmitting ? 'Registrando...' : machineStopped ? 'Registrar Chamado URGENTE' : 'Registrar Chamado'}
         </Button>
       </form>
     </div>

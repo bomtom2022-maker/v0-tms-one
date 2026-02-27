@@ -12,10 +12,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { StatusCards } from './status-cards'
 import { useData } from '@/lib/data-context'
-import { PRIORITY_CONFIG, type Priority } from '@/lib/types'
-import { Clock, Search, Filter, Play, Pause, ArrowRight } from 'lucide-react'
+import { PRIORITY_CONFIG, MACHINE_STATUS_CONFIG, type Priority } from '@/lib/types'
+import { Clock, Search, Filter, Play, Pause, ArrowRight, AlertOctagon, Cog } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { cn } from '@/lib/utils'
@@ -38,6 +37,15 @@ export function DashboardView({ onSelectTicket }: DashboardViewProps) {
     const today = new Date()
     return t.completedAt.toDateString() === today.toDateString()
   }).length
+
+  // Contagem de maquinas por status
+  const machineStats = useMemo(() => {
+    return {
+      critical: machines.filter(m => m.status === 'critical').length,
+      attention: machines.filter(m => m.status === 'attention').length,
+      ok: machines.filter(m => m.status === 'ok').length,
+    }
+  }, [machines])
 
   // Filtrar tickets ativos (não finalizados)
   const activeTickets = useMemo(() => {
@@ -83,15 +91,81 @@ export function DashboardView({ onSelectTicket }: DashboardViewProps) {
       {/* Header */}
       <div>
         <h1 className="text-2xl lg:text-3xl font-bold text-foreground">
-          Dashboard de Gestão
+          Dashboard de Gestao
         </h1>
         <p className="text-muted-foreground mt-1">
           {totalActive} chamados ativos &bull; {completedToday} finalizados hoje
         </p>
       </div>
 
-      {/* Status Cards */}
-      <StatusCards />
+      {/* Machine Status Cards - Top Section */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Card className="border-l-4 border-l-red-500">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">Maquinas Criticas</p>
+                <p className="text-3xl font-bold text-red-500">{machineStats.critical}</p>
+              </div>
+              <div className="p-3 bg-red-50 rounded-full">
+                <AlertOctagon className="w-6 h-6 text-red-500" />
+              </div>
+            </div>
+            <div className="mt-2">
+              <div className="flex flex-wrap gap-1">
+                {machines.filter(m => m.status === 'critical').slice(0, 3).map(m => (
+                  <Badge key={m.id} variant="secondary" className="text-xs bg-red-50 text-red-600">
+                    {m.name.split(' ').slice(0, 2).join(' ')}
+                  </Badge>
+                ))}
+                {machineStats.critical > 3 && (
+                  <Badge variant="secondary" className="text-xs">+{machineStats.critical - 3}</Badge>
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-l-4 border-l-orange-500">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">Em Observacao</p>
+                <p className="text-3xl font-bold text-orange-500">{machineStats.attention}</p>
+              </div>
+              <div className="p-3 bg-orange-50 rounded-full">
+                <Cog className="w-6 h-6 text-orange-500" />
+              </div>
+            </div>
+            <div className="mt-2">
+              <div className="flex flex-wrap gap-1">
+                {machines.filter(m => m.status === 'attention').slice(0, 3).map(m => (
+                  <Badge key={m.id} variant="secondary" className="text-xs bg-orange-50 text-orange-600">
+                    {m.name.split(' ').slice(0, 2).join(' ')}
+                  </Badge>
+                ))}
+                {machineStats.attention > 3 && (
+                  <Badge variant="secondary" className="text-xs">+{machineStats.attention - 3}</Badge>
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-l-4 border-l-green-500">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">Operacao Normal</p>
+                <p className="text-3xl font-bold text-green-500">{machineStats.ok}</p>
+              </div>
+              <div className="p-3 bg-green-50 rounded-full">
+                <Cog className="w-6 h-6 text-green-500" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
 
       {/* Filters */}
       <Card>
@@ -124,10 +198,10 @@ export function DashboardView({ onSelectTicket }: DashboardViewProps) {
             {/* Machine Filter */}
             <Select value={filterMachine} onValueChange={setFilterMachine}>
               <SelectTrigger>
-                <SelectValue placeholder="Todas as Máquinas" />
+                <SelectValue placeholder="Todas as Maquinas" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Todas as Máquinas</SelectItem>
+                <SelectItem value="all">Todas as Maquinas</SelectItem>
                 {machines.map((machine) => (
                   <SelectItem key={machine.id} value={machine.id}>
                     {machine.name}
@@ -172,7 +246,7 @@ export function DashboardView({ onSelectTicket }: DashboardViewProps) {
       {/* Reported Tickets Section */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">Manutenções Reportadas</CardTitle>
+          <CardTitle className="text-lg">Manutencoes Reportadas</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
           {activeTickets.length === 0 ? (
@@ -191,7 +265,7 @@ export function DashboardView({ onSelectTicket }: DashboardViewProps) {
                 const priorityConfig = PRIORITY_CONFIG[ticket.priority]
                 
                 const statusLabel = ticket.status === 'in-progress' 
-                  ? 'Em Manutenção' 
+                  ? 'Em Manutencao' 
                   : ticket.status === 'paused'
                     ? 'Pausado'
                     : 'Aguardando'
@@ -214,7 +288,7 @@ export function DashboardView({ onSelectTicket }: DashboardViewProps) {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
                           <h3 className="font-semibold text-foreground truncate">
-                            {machine?.name || 'Máquina Desconhecida'}
+                            {machine?.name || 'Maquina Desconhecida'}
                           </h3>
                           <Badge 
                             variant="secondary"
@@ -227,9 +301,15 @@ export function DashboardView({ onSelectTicket }: DashboardViewProps) {
                             {ticket.status === 'paused' && <Pause className="w-3 h-3 mr-1" />}
                             {statusLabel}
                           </Badge>
+                          {ticket.machineStopped && (
+                            <Badge variant="destructive" className="text-xs animate-pulse">
+                              <AlertOctagon className="w-3 h-3 mr-1" />
+                              Maquina Parada
+                            </Badge>
+                          )}
                         </div>
                         <p className="text-sm text-muted-foreground mt-1">
-                          {problem?.name || 'Problema não especificado'}
+                          {problem?.name || 'Problema nao especificado'}
                         </p>
                         {ticket.observation && (
                           <p className="text-sm text-foreground/80 mt-2 line-clamp-2">
