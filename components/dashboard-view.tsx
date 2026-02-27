@@ -148,37 +148,6 @@ export function DashboardView({ onSelectTicket }: DashboardViewProps) {
         )}
       </div>
 
-      {/* Alerta para lideres sobre seu ultimo chamado */}
-      {canEditLastTicket && lastUserTicket && (
-        <Card className="border-amber-200 bg-amber-50/50">
-          <CardContent className="p-4">
-            <div className="flex items-start justify-between gap-4">
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-amber-800">
-                  Seu ultimo chamado pode ser editado ou cancelado
-                </p>
-                <p className="text-xs text-amber-600 mt-1">
-                  {getMachineById(lastUserTicket.machineId)?.name} - {getProblemById(lastUserTicket.problemId)?.name}
-                </p>
-                <p className="text-xs text-amber-600 mt-0.5">
-                  Criado {formatDistanceToNow(lastUserTicket.createdAt, { addSuffix: true, locale: ptBR })}
-                </p>
-              </div>
-              <div className="flex gap-2">
-                <Button variant="outline" size="sm" onClick={handleOpenEditDialog}>
-                  <Pencil className="w-3 h-3 mr-1" />
-                  Editar
-                </Button>
-                <Button variant="destructive" size="sm" onClick={() => setCancelDialogOpen(true)}>
-                  <X className="w-3 h-3 mr-1" />
-                  Cancelar
-                </Button>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
       {/* Machine Status Cards - Top Section */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card className="border-l-4 border-l-red-500">
@@ -423,18 +392,42 @@ export function DashboardView({ onSelectTicket }: DashboardViewProps) {
                         </div>
                       </div>
                       
-                      {/* Botao de acao - apenas para manutentores */}
-                      {isManutentor && (
-                        <Button 
-                          variant="default" 
-                          size="sm"
-                          onClick={() => onSelectTicket(ticket.id)}
-                          className="shrink-0"
-                        >
-                          {ticket.status === 'open' ? 'Iniciar' : 'Gerenciar'}
-                          <ArrowRight className="w-4 h-4 ml-1" />
-                        </Button>
-                      )}
+                      {/* Botoes de acao */}
+                      <div className="flex gap-2 shrink-0">
+                        {/* Botoes de editar/cancelar para o ultimo chamado do lider */}
+                        {isOwnLastTicket && ticket.status === 'open' && (
+                          <>
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              onClick={handleOpenEditDialog}
+                            >
+                              <Pencil className="w-3 h-3 mr-1" />
+                              Editar
+                            </Button>
+                            <Button 
+                              variant="destructive" 
+                              size="sm"
+                              onClick={() => setCancelDialogOpen(true)}
+                            >
+                              <X className="w-3 h-3 mr-1" />
+                              Cancelar
+                            </Button>
+                          </>
+                        )}
+                        
+                        {/* Botao de gerenciar - apenas para manutentores */}
+                        {isManutentor && (
+                          <Button 
+                            variant="default" 
+                            size="sm"
+                            onClick={() => onSelectTicket(ticket.id)}
+                          >
+                            {ticket.status === 'open' ? 'Iniciar' : 'Gerenciar'}
+                            <ArrowRight className="w-4 h-4 ml-1" />
+                          </Button>
+                        )}
+                      </div>
                     </div>
                   </div>
                 )
