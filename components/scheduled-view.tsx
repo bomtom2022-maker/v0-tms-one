@@ -75,11 +75,16 @@ export function ScheduledView() {
     
     if (!machineId || !title || !scheduledDate) return
 
+    // Converter a data corretamente para evitar problemas de timezone
+    // O input date retorna yyyy-MM-dd, precisamos criar a data no timezone local
+    const [year, month, day] = scheduledDate.split('-').map(Number)
+    const localDate = new Date(year, month - 1, day, 12, 0, 0) // Meio-dia para evitar problemas de DST
+
     const data = {
       machineId,
       title,
       description,
-      scheduledDate: new Date(scheduledDate),
+      scheduledDate: localDate,
       type: maintenanceType,
     }
 
