@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { useData } from '@/lib/data-context'
-import { formatDuration, formatCurrency, numberToWords } from '@/lib/types'
+import { formatDuration, formatCurrency } from '@/lib/types'
 import { FileText, Clock, DollarSign, Wrench, TrendingUp, Download } from 'lucide-react'
 import {
   BarChart,
@@ -66,7 +66,7 @@ export function ReportsView() {
               </div>
               <div>
                 <p className="text-xs text-muted-foreground">Total de Manutenções</p>
-                <p className="text-xl font-bold">{numberToWords(completedTickets.length)}</p>
+                <p className="text-xl font-bold">{completedTickets.length}</p>
               </div>
             </div>
           </CardContent>
@@ -108,7 +108,7 @@ export function ReportsView() {
               </div>
               <div>
                 <p className="text-xs text-muted-foreground">Máquinas Afetadas</p>
-                <p className="text-xl font-bold">{numberToWords(stats.length)}</p>
+                <p className="text-xl font-bold">{stats.length}</p>
               </div>
             </div>
           </CardContent>
@@ -191,7 +191,7 @@ export function ReportsView() {
                       <div className="flex items-center gap-4 mt-1 text-sm text-muted-foreground">
                         <span className="flex items-center gap-1">
                           <Wrench className="w-3 h-3" />
-                          {numberToWords(stat.ticketCount)} chamados
+                          {stat.ticketCount} chamados
                         </span>
                         <span className="flex items-center gap-1">
                           <Clock className="w-3 h-3" />

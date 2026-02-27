@@ -3,7 +3,6 @@
 import { StatusCards } from './status-cards'
 import { TicketList } from './ticket-list'
 import { useData } from '@/lib/data-context'
-import { numberToWords } from '@/lib/types'
 
 interface DashboardViewProps {
   onSelectTicket: (ticketId: string) => void
@@ -27,7 +26,7 @@ export function DashboardView({ onSelectTicket }: DashboardViewProps) {
           Dashboard de Gestão
         </h1>
         <p className="text-muted-foreground mt-1">
-          {numberToWords(totalActive)} chamados ativos • {numberToWords(completedToday)} finalizados hoje
+          {totalActive} chamados ativos &bull; {completedToday} finalizados hoje
         </p>
       </div>
 

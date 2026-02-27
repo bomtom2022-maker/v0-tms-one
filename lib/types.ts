@@ -71,19 +71,6 @@ export const PRIORITY_CONFIG = {
   },
 } as const
 
-export function numberToWords(num: number): string {
-  const words = [
-    'Zero', 'Um', 'Dois', 'Três', 'Quatro', 'Cinco',
-    'Seis', 'Sete', 'Oito', 'Nove', 'Dez',
-    'Onze', 'Doze', 'Treze', 'Quatorze', 'Quinze',
-    'Dezesseis', 'Dezessete', 'Dezoito', 'Dezenove', 'Vinte'
-  ]
-  if (num >= 0 && num <= 20) {
-    return words[num]
-  }
-  return num.toString()
-}
-
 export function formatDuration(seconds: number): string {
   const hours = Math.floor(seconds / 3600)
   const minutes = Math.floor((seconds % 3600) / 60)

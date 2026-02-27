@@ -14,7 +14,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { useData } from '@/lib/data-context'
-import { formatCurrency, numberToWords } from '@/lib/types'
+import { formatCurrency } from '@/lib/types'
 import { Plus, Package, DollarSign, CheckCircle } from 'lucide-react'
 
 export function PartsView() {
@@ -71,7 +71,7 @@ export function PartsView() {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Total de Itens</p>
-                <p className="text-2xl font-bold">{numberToWords(parts.length)}</p>
+                <p className="text-2xl font-bold">{parts.length}</p>
               </div>
             </div>
           </CardContent>

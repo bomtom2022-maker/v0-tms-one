@@ -2,7 +2,7 @@
 
 import { Card, CardContent } from '@/components/ui/card'
 import { useData } from '@/lib/data-context'
-import { numberToWords, PRIORITY_CONFIG } from '@/lib/types'
+import { PRIORITY_CONFIG } from '@/lib/types'
 import { AlertTriangle, Clock, CheckCircle, Wrench } from 'lucide-react'
 
 export function StatusCards() {
@@ -69,7 +69,7 @@ export function StatusCards() {
                     {card.title}
                   </p>
                   <p className={`text-2xl lg:text-3xl font-bold mt-1 ${card.textColor}`}>
-                    {numberToWords(card.value)}
+                    {card.value}
                   </p>
                   <p className="text-xs text-muted-foreground mt-1">
                     {card.description}
