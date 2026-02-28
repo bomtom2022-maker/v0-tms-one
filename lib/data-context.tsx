@@ -151,6 +151,9 @@ const INITIAL_TICKETS: Ticket[] = [
   },
 ]
 
+// Callback para notificacoes
+type NotificationCallback = (title: string, message: string, type?: 'info' | 'warning' | 'success' | 'error') => void
+
 interface DataContextType {
   machines: Machine[]
   problems: Problem[]
@@ -179,6 +182,7 @@ interface DataContextType {
   getPartById: (id: string) => Part | undefined
   getMaintenanceStats: () => { machineId: string; machineName: string; totalDowntime: number; ticketCount: number }[]
   getLastTicketByUser: (userId: string) => Ticket | undefined
+  setNotificationCallback: (callback: NotificationCallback | null) => void
 }
 
 const DataContext = createContext<DataContextType | undefined>(undefined)
@@ -189,6 +193,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [parts, setParts] = useState<Part[]>(INITIAL_PARTS)
   const [tickets, setTickets] = useState<Ticket[]>(INITIAL_TICKETS)
   const [scheduledMaintenances, setScheduledMaintenances] = useState<ScheduledMaintenance[]>(INITIAL_SCHEDULED)
+  const [notifyCallback, setNotifyCallback] = useState<NotificationCallback | null>(null)
+
+  const setNotificationCallback = useCallback((callback: NotificationCallback | null) => {
+    setNotifyCallback(() => callback)
+  }, [])
 
   const addMachine = useCallback((name: string, sector: string, status: MachineStatus) => {
     const newMachine: Machine = {
@@ -250,7 +259,18 @@ export function DataProvider({ children }: { children: ReactNode }) {
       actions: [],
     }
     setTickets(prev => [newTicket, ...prev])
-  }, [])
+    
+    // Notificar sobre novo chamado
+    const machine = machines.find(m => m.id === ticketData.machineId)
+    const problem = problems.find(p => p.id === ticketData.problemId)
+    if (notifyCallback) {
+      notifyCallback(
+        'Novo Chamado Aberto',
+        `${machine?.name || 'Maquina'} - ${problem?.name || 'Problema'}`,
+        ticketData.priority === 'high' ? 'warning' : 'info'
+      )
+    }
+  }, [machines, problems, notifyCallback])
 
   const updateTicketObservation = useCallback((ticketId: string, observation: string) => {
     setTickets(prev => prev.map(ticket => 
@@ -287,21 +307,36 @@ export function DataProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const startMaintenance = useCallback((ticketId: string, operatorName: string) => {
-    setTickets(prev => prev.map(ticket => {
-      if (ticket.id !== ticketId) return ticket
-      const action: MaintenanceAction = {
-        type: 'start',
-        operatorName,
-        timestamp: new Date(),
+    setTickets(prev => {
+      const updated = prev.map(ticket => {
+        if (ticket.id !== ticketId) return ticket
+        const action: MaintenanceAction = {
+          type: 'start',
+          operatorName,
+          timestamp: new Date(),
+        }
+        return { 
+          ...ticket, 
+          status: 'in-progress' as const, 
+          startedAt: new Date(),
+          actions: [...ticket.actions, action],
+        }
+      })
+      
+      // Notificar
+      const ticket = prev.find(t => t.id === ticketId)
+      if (ticket && notifyCallback) {
+        const machine = machines.find(m => m.id === ticket.machineId)
+        notifyCallback(
+          'Manutencao Iniciada',
+          `${machine?.name || 'Maquina'} - por ${operatorName}`,
+          'info'
+        )
       }
-      return { 
-        ...ticket, 
-        status: 'in-progress' as const, 
-        startedAt: new Date(),
-        actions: [...ticket.actions, action],
-      }
-    }))
-  }, [])
+      
+      return updated
+    })
+  }, [machines, notifyCallback])
 
   const pauseMaintenance = useCallback((ticketId: string, operatorName: string, reason: string) => {
     setTickets(prev => prev.map(ticket => {
@@ -352,6 +387,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const completeMaintenance = useCallback((ticketId: string, usedParts: UsedPart[], operatorName: string, completionNotes?: string, resolved?: boolean) => {
+    // Buscar ticket antes de atualizar para notificacao
+    const ticketToComplete = tickets.find(t => t.id === ticketId)
+    
     setTickets(prev => prev.map(ticket => {
       if (ticket.id !== ticketId) return ticket
       
@@ -401,7 +439,17 @@ export function DataProvider({ children }: { children: ReactNode }) {
         resolved,
       }
     }))
-  }, [parts])
+    
+    // Notificar sobre manutencao concluida
+    if (ticketToComplete && notifyCallback) {
+      const machine = machines.find(m => m.id === ticketToComplete.machineId)
+      notifyCallback(
+        'Manutencao Finalizada',
+        `${machine?.name || 'Maquina'} - ${resolved ? 'Resolvido' : 'Nao Resolvido'}`,
+        resolved ? 'success' : 'warning'
+      )
+    }
+  }, [parts, tickets, machines, notifyCallback])
 
   const getTicketById = useCallback((id: string) => tickets.find(t => t.id === id), [tickets])
   const getMachineById = useCallback((id: string) => machines.find(m => m.id === id), [machines])
@@ -467,6 +515,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       getPartById,
       getMaintenanceStats,
       getLastTicketByUser,
+      setNotificationCallback,
     }}>
       {children}
     </DataContext.Provider>

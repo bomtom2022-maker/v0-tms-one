@@ -1,8 +1,9 @@
 'use client'
 
 import { useState, useCallback, useEffect } from 'react'
-import { DataProvider } from '@/lib/data-context'
+import { DataProvider, useData } from '@/lib/data-context'
 import { AuthProvider, useAuth } from '@/lib/auth-context'
+import { NotificationProvider, useNotification } from '@/lib/notification-context'
 import { Sidebar } from '@/components/sidebar'
 import { DashboardView } from '@/components/dashboard-view'
 import { NewTicketView } from '@/components/new-ticket-view'
@@ -14,13 +15,22 @@ import { ReportsView } from '@/components/reports-view'
 import { ScheduledView } from '@/components/scheduled-view'
 import { UsersView } from '@/components/users-view'
 import { LoginView } from '@/components/login-view'
+import { InstallPrompt } from '@/components/install-prompt'
 
 type View = 'dashboard' | 'new-ticket' | 'problems' | 'machines' | 'maintenance' | 'parts' | 'reports' | 'scheduled' | 'users'
 
 function TMSApp() {
   const { isAuthenticated, isManutentor, isLider } = useAuth()
+  const { setNotificationCallback } = useData()
+  const { notify } = useNotification()
   const [currentView, setCurrentView] = useState<View>('dashboard')
   const [selectedTicketId, setSelectedTicketId] = useState<string | null>(null)
+
+  // Integrar notificacoes do data-context com notification-context
+  useEffect(() => {
+    setNotificationCallback(notify)
+    return () => setNotificationCallback(null)
+  }, [setNotificationCallback, notify])
 
   // Redirecionar lider para views permitidas se tentar acessar algo restrito
   useEffect(() => {
@@ -106,6 +116,9 @@ function TMSApp() {
           {renderView()}
         </div>
       </main>
+      
+      {/* Prompt para instalar o app */}
+      <InstallPrompt />
     </div>
   )
 }
@@ -113,9 +126,11 @@ function TMSApp() {
 export default function Home() {
   return (
     <AuthProvider>
-      <DataProvider>
-        <TMSApp />
-      </DataProvider>
+      <NotificationProvider>
+        <DataProvider>
+          <TMSApp />
+        </DataProvider>
+      </NotificationProvider>
     </AuthProvider>
   )
 }
