@@ -12,6 +12,7 @@ export interface User {
   password: string
   role: UserRole
   createdAt: Date
+  isAdmin?: boolean // admin oculto com acesso total
 }
 
 export interface AuthSession {

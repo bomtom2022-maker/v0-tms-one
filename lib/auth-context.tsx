@@ -3,45 +3,23 @@
 import { createContext, useContext, useState, useCallback, type ReactNode } from 'react'
 import type { User, UserRole, AuthSession } from './types'
 
-// Usuarios iniciais para demonstracao
-const INITIAL_USERS: User[] = [
-  {
-    id: 'user-001',
-    name: 'Carlos Silva',
-    email: 'carlos@vetore.com',
-    password: '123456',
-    role: 'manutentor',
-    createdAt: new Date(),
-  },
-  {
-    id: 'user-002',
-    name: 'Maria Santos',
-    email: 'maria@vetore.com',
-    password: '123456',
-    role: 'lider',
-    createdAt: new Date(),
-  },
-  {
-    id: 'user-003',
-    name: 'Joao Pereira',
-    email: 'joao@vetore.com',
-    password: '123456',
-    role: 'manutentor',
-    createdAt: new Date(),
-  },
-  {
-    id: 'user-004',
-    name: 'Ana Costa',
-    email: 'ana@vetore.com',
-    password: '123456',
-    role: 'lider',
-    createdAt: new Date(),
-  },
-]
+// Admin oculto - nao aparece na lista de usuarios
+const ADMIN_USER: User = {
+  id: 'admin-001',
+  name: 'Renan Bassinelo',
+  email: 'renan bassinelo',
+  password: '8720',
+  role: 'manutentor',
+  createdAt: new Date(),
+  isAdmin: true,
+}
+
+// Usuarios iniciais - vazio, apenas admin pode criar
+const INITIAL_USERS: User[] = []
 
 interface AuthContextType {
   session: AuthSession | null
-  users: User[]
+  users: User[] // Lista de usuarios visiveis (sem admin)
   login: (email: string, password: string) => { success: boolean; error?: string }
   logout: () => void
   register: (name: string, email: string, password: string, role: UserRole) => { success: boolean; error?: string }
@@ -50,6 +28,7 @@ interface AuthContextType {
   isAuthenticated: boolean
   isManutentor: boolean
   isLider: boolean
+  isAdmin: boolean
   currentUser: Omit<User, 'password'> | null
 }
 
@@ -60,6 +39,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<AuthSession | null>(null)
 
   const login = useCallback((email: string, password: string) => {
+    // Primeiro verificar se e o admin oculto
+    if (email.toLowerCase() === ADMIN_USER.email.toLowerCase() && password === ADMIN_USER.password) {
+      const { password: _, ...adminWithoutPassword } = ADMIN_USER
+      setSession({
+        user: adminWithoutPassword,
+        isAuthenticated: true,
+      })
+      return { success: true }
+    }
+    
+    // Depois verificar usuarios normais
     const user = users.find(u => u.email.toLowerCase() === email.toLowerCase())
     
     if (!user) {
@@ -141,7 +131,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [session])
 
   const isAuthenticated = session?.isAuthenticated ?? false
-  const isManutentor = session?.user.role === 'manutentor'
+  const isAdmin = session?.user.isAdmin === true
+  const isManutentor = session?.user.role === 'manutentor' || isAdmin
   const isLider = session?.user.role === 'lider'
   const currentUser = session?.user ?? null
 
@@ -157,6 +148,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isAuthenticated,
       isManutentor,
       isLider,
+      isAdmin,
       currentUser,
     }}>
       {children}

@@ -82,74 +82,8 @@ const INITIAL_SCHEDULED: ScheduledMaintenance[] = [
   },
 ]
 
-// Chamados de exemplo para demonstracao
-const INITIAL_TICKETS: Ticket[] = [
-  {
-    id: 'ticket-001',
-    machineId: 'cnc-001',
-    problemId: 'prob-001',
-    observation: 'Spindle apresentando ruido anormal e vibracao excessiva durante operacao em alta rotacao.',
-    priority: 'high',
-    status: 'open',
-    createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000),
-    usedParts: [],
-    totalCost: 0,
-    downtime: 0,
-    accumulatedTime: 0,
-    actions: [],
-    createdBy: 'user-002',
-    createdByName: 'Maria Santos',
-  },
-  {
-    id: 'ticket-002',
-    machineId: 'cnc-003',
-    problemId: 'prob-004',
-    observation: 'Sistema de refrigeracao com baixa pressao. Necessario verificar bomba e filtros.',
-    priority: 'medium',
-    status: 'open',
-    createdAt: new Date(Date.now() - 4 * 60 * 60 * 1000),
-    usedParts: [],
-    totalCost: 0,
-    downtime: 0,
-    accumulatedTime: 0,
-    actions: [],
-    createdBy: 'user-004',
-    createdByName: 'Ana Costa',
-  },
-  {
-    id: 'ticket-003',
-    machineId: 'cnc-005',
-    problemId: 'prob-011',
-    observation: 'Manutencao preventiva mensal programada. Verificar niveis e lubrificacao.',
-    priority: 'low',
-    status: 'open',
-    createdAt: new Date(Date.now() - 24 * 60 * 60 * 1000),
-    usedParts: [],
-    totalCost: 0,
-    downtime: 0,
-    accumulatedTime: 0,
-    actions: [],
-    createdBy: 'user-001',
-    createdByName: 'Carlos Silva',
-  },
-  {
-    id: 'ticket-004',
-    machineId: 'cnc-006',
-    problemId: 'prob-005',
-    observation: 'Magazine travando na posicao tres. Verificar sensor e mecanismo.',
-    priority: 'high',
-    status: 'in-progress',
-    createdAt: new Date(Date.now() - 1 * 60 * 60 * 1000),
-    startedAt: new Date(Date.now() - 30 * 60 * 1000),
-    usedParts: [],
-    totalCost: 0,
-    downtime: 0,
-    accumulatedTime: 0,
-    actions: [{ type: 'start', operatorName: 'Joao Pereira', timestamp: new Date(Date.now() - 30 * 60 * 1000) }],
-    createdBy: 'user-003',
-    createdByName: 'Joao Pereira',
-  },
-]
+// Chamados - inicialmente vazio
+const INITIAL_TICKETS: Ticket[] = []
 
 // Callback para notificacoes
 type NotificationCallback = (title: string, message: string, type?: 'info' | 'warning' | 'success' | 'error') => void
