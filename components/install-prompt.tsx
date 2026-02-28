@@ -1,9 +1,15 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
-import { Download, X, Smartphone } from 'lucide-react'
+import { 
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { Download, Smartphone, Share, MoreVertical, CheckCircle2 } from 'lucide-react'
 
 // PWA Install Prompt Component
 
@@ -12,31 +18,53 @@ interface BeforeInstallPromptEvent extends Event {
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>
 }
 
+// Guardar o evento globalmente para poder usar depois
+let globalDeferredPrompt: BeforeInstallPromptEvent | null = null
+
 export function InstallPrompt() {
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null)
-  const [showPrompt, setShowPrompt] = useState(false)
+  const [showModal, setShowModal] = useState(false)
   const [isIOS, setIsIOS] = useState(false)
+  const [isAndroid, setIsAndroid] = useState(false)
   const [isStandalone, setIsStandalone] = useState(false)
+  const [isMobile, setIsMobile] = useState(false)
+  const [installing, setInstalling] = useState(false)
+  const [installed, setInstalled] = useState(false)
 
   useEffect(() => {
-    // Verificar se ja esta instalado
+    // Verificar se ja esta instalado (modo standalone)
     const isInStandaloneMode = window.matchMedia('(display-mode: standalone)').matches 
       || (window.navigator as Navigator & { standalone?: boolean }).standalone === true
     
     setIsStandalone(isInStandaloneMode)
     
-    if (isInStandaloneMode) return
+    if (isInStandaloneMode) {
+      setInstalled(true)
+      return
+    }
     
-    // Verificar se e iOS
-    const isIOSDevice = /iPad|iPhone|iPod/.test(navigator.userAgent)
+    // Detectar dispositivo
+    const userAgent = navigator.userAgent.toLowerCase()
+    const isIOSDevice = /iphone|ipad|ipod/.test(userAgent)
+    const isAndroidDevice = /android/.test(userAgent)
+    const isMobileDevice = isIOSDevice || isAndroidDevice || /mobile/.test(userAgent)
+    
     setIsIOS(isIOSDevice)
+    setIsAndroid(isAndroidDevice)
+    setIsMobile(isMobileDevice)
     
-    // Verificar se ja foi dispensado recentemente
+    // Verificar se ja foi instalado ou dispensado
+    const wasInstalled = localStorage.getItem('pwa-installed')
+    if (wasInstalled) {
+      setInstalled(true)
+      return
+    }
+    
     const dismissed = localStorage.getItem('pwa-install-dismissed')
     if (dismissed) {
       const dismissedTime = parseInt(dismissed)
-      // Mostrar novamente apos 7 dias
-      if (Date.now() - dismissedTime < 7 * 24 * 60 * 60 * 1000) {
+      // Mostrar novamente apos 1 dia
+      if (Date.now() - dismissedTime < 1 * 24 * 60 * 60 * 1000) {
         return
       }
     }
@@ -44,87 +72,190 @@ export function InstallPrompt() {
     // Para Android/Chrome - capturar o evento beforeinstallprompt
     const handleBeforeInstall = (e: Event) => {
       e.preventDefault()
+      globalDeferredPrompt = e as BeforeInstallPromptEvent
       setDeferredPrompt(e as BeforeInstallPromptEvent)
-      setShowPrompt(true)
     }
     
     window.addEventListener('beforeinstallprompt', handleBeforeInstall)
     
-    // Para iOS - mostrar instrucoes manuais
-    if (isIOSDevice) {
-      setTimeout(() => setShowPrompt(true), 3000)
+    // Verificar se ja tem o prompt salvo
+    if (globalDeferredPrompt) {
+      setDeferredPrompt(globalDeferredPrompt)
     }
+    
+    // Mostrar modal automaticamente apos 1.5 segundos em dispositivos moveis
+    if (isMobileDevice) {
+      setTimeout(() => setShowModal(true), 1500)
+    }
+    
+    // Detectar quando o app foi instalado
+    window.addEventListener('appinstalled', () => {
+      setInstalled(true)
+      setShowModal(false)
+      localStorage.setItem('pwa-installed', 'true')
+    })
     
     return () => {
       window.removeEventListener('beforeinstallprompt', handleBeforeInstall)
     }
   }, [])
 
-  const handleInstall = async () => {
-    if (!deferredPrompt) return
+  const handleInstall = useCallback(async () => {
+    const promptToUse = deferredPrompt || globalDeferredPrompt
     
-    await deferredPrompt.prompt()
-    const { outcome } = await deferredPrompt.userChoice
-    
-    if (outcome === 'accepted') {
-      setShowPrompt(false)
+    if (!promptToUse) {
+      // Se nao tem o prompt, mostrar instrucoes
+      return
     }
-    setDeferredPrompt(null)
-  }
+    
+    setInstalling(true)
+    
+    try {
+      await promptToUse.prompt()
+      const { outcome } = await promptToUse.userChoice
+      
+      if (outcome === 'accepted') {
+        setInstalled(true)
+        setShowModal(false)
+        localStorage.setItem('pwa-installed', 'true')
+      }
+    } catch (error) {
+      console.log('[v0] Erro ao instalar PWA:', error)
+    } finally {
+      setInstalling(false)
+      setDeferredPrompt(null)
+      globalDeferredPrompt = null
+    }
+  }, [deferredPrompt])
 
   const handleDismiss = () => {
-    setShowPrompt(false)
+    setShowModal(false)
     localStorage.setItem('pwa-install-dismissed', Date.now().toString())
   }
 
-  if (isStandalone || !showPrompt) return null
+  // Nao mostrar se ja instalado
+  if (isStandalone || installed) return null
+  
+  // Nao mostrar em desktop
+  if (!isMobile) return null
+
+  const canInstallDirectly = !!(deferredPrompt || globalDeferredPrompt)
 
   return (
-    <div className="fixed bottom-4 left-4 right-4 z-50 md:left-auto md:right-4 md:max-w-sm">
-      <Card className="bg-slate-800 border-slate-700 shadow-xl">
-        <CardContent className="p-4">
-          <div className="flex items-start gap-3">
-            <div className="w-12 h-12 bg-primary/20 rounded-xl flex items-center justify-center shrink-0">
-              <Smartphone className="w-6 h-6 text-primary" />
+    <Dialog open={showModal} onOpenChange={setShowModal}>
+      <DialogContent className="sm:max-w-md bg-slate-900 border-slate-700 text-white">
+        <DialogHeader className="text-center">
+          <div className="mx-auto w-20 h-20 bg-blue-500/20 rounded-3xl flex items-center justify-center mb-4">
+            <Smartphone className="w-10 h-10 text-blue-400" />
+          </div>
+          <DialogTitle className="text-2xl font-bold text-white">
+            Instalar TMS One
+          </DialogTitle>
+          <DialogDescription className="text-slate-400 text-base">
+            Tenha acesso rapido ao sistema direto do seu celular
+          </DialogDescription>
+        </DialogHeader>
+        
+        <div className="space-y-4 py-4">
+          {/* Beneficios */}
+          <div className="space-y-3">
+            <div className="flex items-center gap-3 text-sm text-slate-300">
+              <CheckCircle2 className="w-5 h-5 text-green-500 shrink-0" />
+              <span>Acesso rapido pela tela inicial</span>
             </div>
-            <div className="flex-1 min-w-0">
-              <h3 className="font-semibold text-white text-sm">Instalar TMS One</h3>
-              {isIOS ? (
-                <p className="text-xs text-slate-400 mt-1">
-                  Toque em <span className="inline-flex items-center px-1 bg-slate-700 rounded">
-                    <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M12 2L12 14M12 14L8 10M12 14L16 10M4 18L20 18"/>
-                    </svg>
-                  </span> e depois em &quot;Adicionar a Tela Inicial&quot;
-                </p>
+            <div className="flex items-center gap-3 text-sm text-slate-300">
+              <CheckCircle2 className="w-5 h-5 text-green-500 shrink-0" />
+              <span>Funciona em tela cheia</span>
+            </div>
+            <div className="flex items-center gap-3 text-sm text-slate-300">
+              <CheckCircle2 className="w-5 h-5 text-green-500 shrink-0" />
+              <span>Notificacoes com som e vibracao</span>
+            </div>
+            <div className="flex items-center gap-3 text-sm text-slate-300">
+              <CheckCircle2 className="w-5 h-5 text-green-500 shrink-0" />
+              <span>Login e dados salvos</span>
+            </div>
+          </div>
+
+          {/* Botao de instalacao direta (Android com suporte) */}
+          {canInstallDirectly && (
+            <Button 
+              onClick={handleInstall} 
+              disabled={installing}
+              className="w-full h-14 text-lg bg-blue-600 hover:bg-blue-700 mt-4"
+            >
+              {installing ? (
+                <>Instalando...</>
               ) : (
-                <p className="text-xs text-slate-400 mt-1">
-                  Acesse o sistema rapidamente pelo celular com todos os dados
-                </p>
+                <>
+                  <Download className="w-6 h-6 mr-3" />
+                  Baixar e Instalar
+                </>
               )}
-              <div className="flex gap-2 mt-3">
-                {!isIOS && (
-                  <Button size="sm" onClick={handleInstall} className="h-8 text-xs">
-                    <Download className="w-3 h-3 mr-1" />
-                    Instalar
-                  </Button>
-                )}
-                <Button size="sm" variant="ghost" onClick={handleDismiss} className="h-8 text-xs text-slate-400">
-                  {isIOS ? 'Fechar' : 'Agora nao'}
-                </Button>
+            </Button>
+          )}
+
+          {/* Instrucoes para iOS */}
+          {isIOS && (
+            <div className="bg-slate-800 rounded-xl p-4 space-y-3 mt-4">
+              <p className="text-sm font-medium text-white">
+                Como instalar no iPhone/iPad:
+              </p>
+              <div className="flex items-center gap-3 text-sm text-slate-300">
+                <div className="w-8 h-8 bg-slate-700 rounded-lg flex items-center justify-center shrink-0">
+                  <Share className="w-5 h-5 text-blue-400" />
+                </div>
+                <span>1. Toque no botao <strong className="text-white">Compartilhar</strong></span>
+              </div>
+              <div className="flex items-center gap-3 text-sm text-slate-300">
+                <div className="w-8 h-8 bg-slate-700 rounded-lg flex items-center justify-center shrink-0">
+                  <Download className="w-5 h-5 text-blue-400" />
+                </div>
+                <span>2. Selecione <strong className="text-white">Adicionar a Tela Inicial</strong></span>
               </div>
             </div>
+          )}
+
+          {/* Instrucoes para Android sem suporte direto */}
+          {isAndroid && !canInstallDirectly && (
+            <div className="bg-slate-800 rounded-xl p-4 space-y-3 mt-4">
+              <p className="text-sm font-medium text-white">
+                Como instalar no Android:
+              </p>
+              <div className="flex items-center gap-3 text-sm text-slate-300">
+                <div className="w-8 h-8 bg-slate-700 rounded-lg flex items-center justify-center shrink-0">
+                  <MoreVertical className="w-5 h-5 text-blue-400" />
+                </div>
+                <span>1. Toque no menu <strong className="text-white">&#8942;</strong> do navegador</span>
+              </div>
+              <div className="flex items-center gap-3 text-sm text-slate-300">
+                <div className="w-8 h-8 bg-slate-700 rounded-lg flex items-center justify-center shrink-0">
+                  <Download className="w-5 h-5 text-blue-400" />
+                </div>
+                <span>2. Selecione <strong className="text-white">Instalar app</strong></span>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="flex gap-3 mt-2">
+          <Button 
+            variant="outline" 
+            onClick={handleDismiss}
+            className="flex-1 h-12 border-slate-600 text-slate-300 hover:bg-slate-800"
+          >
+            Agora nao
+          </Button>
+          {!canInstallDirectly && (
             <Button 
-              size="icon" 
-              variant="ghost" 
               onClick={handleDismiss}
-              className="h-6 w-6 shrink-0 text-slate-500 hover:text-white"
+              className="flex-1 h-12 bg-blue-600 hover:bg-blue-700"
             >
-              <X className="w-4 h-4" />
+              Entendi
             </Button>
-          </div>
-        </CardContent>
-      </Card>
-    </div>
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
   )
 }

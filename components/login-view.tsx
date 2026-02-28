@@ -58,15 +58,15 @@ export function LoginView() {
             )}
 
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email">Usuario</Label>
               <Input
                 id="email"
-                type="email"
-                placeholder="seu@email.com"
+                type="text"
+                placeholder="Digite seu usuario"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                autoComplete="email"
+                autoComplete="username"
                 disabled={isLoading}
               />
             </div>
@@ -104,28 +104,6 @@ export function LoginView() {
               {isLoading ? 'Entrando...' : 'Entrar'}
             </Button>
           </form>
-
-          <div className="mt-6 pt-6 border-t">
-            <p className="text-sm text-muted-foreground text-center mb-3">
-              Usuarios de demonstracao:
-            </p>
-            <div className="grid gap-2 text-xs">
-              <div className="flex items-center justify-between bg-muted/50 rounded-lg px-3 py-2">
-                <div>
-                  <span className="font-medium">Manutentor:</span>
-                  <span className="text-muted-foreground ml-2">carlos@vetore.com</span>
-                </div>
-                <span className="text-muted-foreground">123456</span>
-              </div>
-              <div className="flex items-center justify-between bg-muted/50 rounded-lg px-3 py-2">
-                <div>
-                  <span className="font-medium">Lider:</span>
-                  <span className="text-muted-foreground ml-2">maria@vetore.com</span>
-                </div>
-                <span className="text-muted-foreground">123456</span>
-              </div>
-            </div>
-          </div>
 
           <p className="text-xs text-center text-muted-foreground mt-6">
             Desenvolvido por Vetore
