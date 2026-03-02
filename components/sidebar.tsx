@@ -3,6 +3,7 @@
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/lib/auth-context'
 import { NotificationBell } from '@/components/notification-bell'
+import Image from 'next/image'
 import { 
   LayoutDashboard, 
   Plus, 
@@ -11,7 +12,6 @@ import {
   BarChart3,
   Menu,
   X,
-  Settings,
   Cog,
   CalendarClock,
   Users,
@@ -77,8 +77,13 @@ export function Sidebar({ currentView, onViewChange }: SidebarProps) {
       <header className="lg:hidden fixed top-0 left-0 right-0 z-50 bg-sidebar border-b border-sidebar-border">
         <div className="flex items-center justify-between p-4">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-sidebar-primary rounded-lg flex items-center justify-center">
-              <Settings className="w-5 h-5 text-sidebar-primary-foreground" />
+            <div className="w-10 h-10 relative">
+              <Image
+                src="/logo-vetore.png"
+                alt="Vetore"
+                fill
+                className="object-contain"
+              />
             </div>
             <div>
               <h1 className="text-lg font-bold text-sidebar-foreground">TMS One</h1>
@@ -116,8 +121,13 @@ export function Sidebar({ currentView, onViewChange }: SidebarProps) {
         {/* Logo */}
         <div className="hidden lg:flex items-center justify-between p-6 border-b border-sidebar-border">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-sidebar-primary rounded-xl flex items-center justify-center">
-              <Settings className="w-6 h-6 text-sidebar-primary-foreground" />
+            <div className="w-12 h-12 relative">
+              <Image
+                src="/logo-vetore.png"
+                alt="Vetore"
+                fill
+                className="object-contain"
+              />
             </div>
             <div>
               <h1 className="text-xl font-bold text-sidebar-foreground">TMS One</h1>

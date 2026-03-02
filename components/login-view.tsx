@@ -7,7 +7,8 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { Wrench, AlertCircle, Eye, EyeOff } from 'lucide-react'
+import { AlertCircle, Eye, EyeOff } from 'lucide-react'
+import Image from 'next/image'
 
 export function LoginView() {
   const { login } = useAuth()
@@ -35,15 +36,22 @@ export function LoginView() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-muted/30 p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader className="text-center space-y-4">
-          <div className="mx-auto w-16 h-16 bg-primary rounded-xl flex items-center justify-center">
-            <Wrench className="w-8 h-8 text-primary-foreground" />
+    <div className="min-h-screen flex items-center justify-center bg-slate-900 p-4">
+      <Card className="w-full max-w-md bg-slate-800 border-slate-700">
+        <CardHeader className="text-center space-y-6 pb-2">
+          {/* Logo Vetore grande e visivel */}
+          <div className="mx-auto w-32 h-32 relative">
+            <Image
+              src="/logo-vetore.png"
+              alt="Vetore"
+              fill
+              className="object-contain"
+              priority
+            />
           </div>
           <div>
-            <CardTitle className="text-2xl font-bold">TMS One</CardTitle>
-            <CardDescription className="text-base mt-1">
+            <CardTitle className="text-3xl font-bold text-white">TMS One</CardTitle>
+            <CardDescription className="text-base mt-2 text-slate-400">
               Sistema de Gestao de Manutencao
             </CardDescription>
           </div>
@@ -51,14 +59,14 @@ export function LoginView() {
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             {error && (
-              <Alert variant="destructive">
+              <Alert variant="destructive" className="bg-red-900/50 border-red-800">
                 <AlertCircle className="h-4 w-4" />
                 <AlertDescription>{error}</AlertDescription>
               </Alert>
             )}
 
             <div className="space-y-2">
-              <Label htmlFor="email">Usuario</Label>
+              <Label htmlFor="email" className="text-slate-300">Usuario</Label>
               <Input
                 id="email"
                 type="text"
@@ -68,11 +76,12 @@ export function LoginView() {
                 required
                 autoComplete="username"
                 disabled={isLoading}
+                className="bg-slate-700 border-slate-600 text-white placeholder:text-slate-500"
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="password">Senha</Label>
+              <Label htmlFor="password" className="text-slate-300">Senha</Label>
               <div className="relative">
                 <Input
                   id="password"
@@ -83,12 +92,12 @@ export function LoginView() {
                   required
                   autoComplete="current-password"
                   disabled={isLoading}
-                  className="pr-10"
+                  className="pr-10 bg-slate-700 border-slate-600 text-white placeholder:text-slate-500"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white transition-colors"
                   tabIndex={-1}
                 >
                   {showPassword ? (
@@ -100,12 +109,12 @@ export function LoginView() {
               </div>
             </div>
 
-            <Button type="submit" className="w-full" disabled={isLoading}>
+            <Button type="submit" className="w-full bg-red-600 hover:bg-red-700 text-white" disabled={isLoading}>
               {isLoading ? 'Entrando...' : 'Entrar'}
             </Button>
           </form>
 
-          <p className="text-xs text-center text-muted-foreground mt-6">
+          <p className="text-xs text-center text-slate-500 mt-6">
             Desenvolvido por Vetore
           </p>
         </CardContent>
