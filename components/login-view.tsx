@@ -38,23 +38,20 @@ export function LoginView() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-slate-900 p-4">
       <Card className="w-full max-w-md bg-slate-800 border-slate-700">
-        <CardHeader className="text-center space-y-6 pb-2">
-          {/* Logo Vetore grande e visivel */}
-          <div className="mx-auto w-32 h-32 relative">
+        <CardHeader className="text-center space-y-4 pb-2">
+          {/* Logo TMS One em alta qualidade */}
+          <div className="mx-auto w-72 h-24 relative">
             <Image
-              src="/logo-vetore.png"
-              alt="Vetore"
+              src="/logo-tms-one.png"
+              alt="TMS One"
               fill
               className="object-contain"
               priority
             />
           </div>
-          <div>
-            <CardTitle className="text-3xl font-bold text-white">TMS One</CardTitle>
-            <CardDescription className="text-base mt-2 text-slate-400">
-              Sistema de Gestao de Manutencao
-            </CardDescription>
-          </div>
+          <CardDescription className="text-base text-slate-400">
+            Sistema de Gestao de Manutencao
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">

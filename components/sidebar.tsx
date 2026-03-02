@@ -76,18 +76,14 @@ export function Sidebar({ currentView, onViewChange }: SidebarProps) {
       {/* Mobile Header */}
       <header className="lg:hidden fixed top-0 left-0 right-0 z-50 bg-sidebar border-b border-sidebar-border">
         <div className="flex items-center justify-between p-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 relative">
+          <div className="flex items-center gap-2">
+            <div className="w-36 h-10 relative">
               <Image
-                src="/logo-vetore.png"
-                alt="Vetore"
+                src="/logo-tms-one.png"
+                alt="TMS One"
                 fill
-                className="object-contain"
+                className="object-contain object-left"
               />
-            </div>
-            <div>
-              <h1 className="text-lg font-bold text-sidebar-foreground">TMS One</h1>
-              <p className="text-xs text-sidebar-foreground/60">Vetore</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -119,20 +115,14 @@ export function Sidebar({ currentView, onViewChange }: SidebarProps) {
         mobileOpen ? "translate-x-0" : "-translate-x-full"
       )}>
         {/* Logo */}
-        <div className="hidden lg:flex items-center justify-between p-6 border-b border-sidebar-border">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 relative">
-              <Image
-                src="/logo-vetore.png"
-                alt="Vetore"
-                fill
-                className="object-contain"
-              />
-            </div>
-            <div>
-              <h1 className="text-xl font-bold text-sidebar-foreground">TMS One</h1>
-              <p className="text-xs text-sidebar-foreground/60">Vetore Industrial</p>
-            </div>
+        <div className="hidden lg:flex items-center justify-between p-4 border-b border-sidebar-border">
+          <div className="w-40 h-12 relative">
+            <Image
+              src="/logo-tms-one.png"
+              alt="TMS One"
+              fill
+              className="object-contain object-left"
+            />
           </div>
           <NotificationBell />
         </div>
