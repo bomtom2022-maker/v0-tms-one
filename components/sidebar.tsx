@@ -75,17 +75,12 @@ export function Sidebar({ currentView, onViewChange }: SidebarProps) {
     <>
       {/* Mobile Header */}
       <header className="lg:hidden fixed top-0 left-0 right-0 z-50 bg-sidebar border-b border-sidebar-border">
-        <div className="flex items-center justify-between p-4">
-          <div className="flex items-center gap-2">
-            <div className="w-36 h-10 relative">
-              <Image
-                src="/logo-tms-one.png"
-                alt="TMS One"
-                fill
-                className="object-contain object-left"
-              />
-            </div>
-          </div>
+        <div className="flex items-center justify-between p-3">
+          <img
+            src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/ChatGPT%20Image%202%20de%20mar.%20de%202026%2C%2013_11_48-RrCf3eyWj6sUssa7VG99IQZ08JBMkZ.png"
+            alt="TMS One"
+            className="h-9 w-auto"
+          />
           <div className="flex items-center gap-2">
             <NotificationBell />
             <Button 
@@ -116,14 +111,11 @@ export function Sidebar({ currentView, onViewChange }: SidebarProps) {
       )}>
         {/* Logo */}
         <div className="hidden lg:flex items-center justify-between p-4 border-b border-sidebar-border">
-          <div className="w-40 h-12 relative">
-            <Image
-              src="/logo-tms-one.png"
-              alt="TMS One"
-              fill
-              className="object-contain object-left"
-            />
-          </div>
+          <img
+            src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/ChatGPT%20Image%202%20de%20mar.%20de%202026%2C%2013_11_48-RrCf3eyWj6sUssa7VG99IQZ08JBMkZ.png"
+            alt="TMS One"
+            className="h-10 w-auto"
+          />
           <NotificationBell />
         </div>
 

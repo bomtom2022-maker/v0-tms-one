@@ -8,7 +8,6 @@ import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { AlertCircle, Eye, EyeOff } from 'lucide-react'
-import Image from 'next/image'
 
 export function LoginView() {
   const { login } = useAuth()
@@ -38,18 +37,16 @@ export function LoginView() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-slate-900 p-4">
       <Card className="w-full max-w-md bg-slate-800 border-slate-700">
-        <CardHeader className="text-center space-y-4 pb-2">
-          {/* Logo TMS One em alta qualidade */}
-          <div className="mx-auto w-72 h-24 relative">
-            <Image
-              src="/logo-tms-one.png"
+        <CardHeader className="text-center space-y-6 pb-4">
+          {/* Logo TMS One */}
+          <div className="mx-auto">
+            <img
+              src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/ChatGPT%20Image%202%20de%20mar.%20de%202026%2C%2013_11_48-RrCf3eyWj6sUssa7VG99IQZ08JBMkZ.png"
               alt="TMS One"
-              fill
-              className="object-contain"
-              priority
+              className="h-20 w-auto mx-auto"
             />
           </div>
-          <CardDescription className="text-base text-slate-400">
+          <CardDescription className="text-lg text-slate-300">
             Sistema de Gestao de Manutencao
           </CardDescription>
         </CardHeader>
