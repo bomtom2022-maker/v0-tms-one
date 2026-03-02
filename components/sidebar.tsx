@@ -3,7 +3,6 @@
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/lib/auth-context'
 import { NotificationBell } from '@/components/notification-bell'
-import Image from 'next/image'
 import { 
   LayoutDashboard, 
   Plus, 
@@ -12,6 +11,7 @@ import {
   BarChart3,
   Menu,
   X,
+  Settings,
   Cog,
   CalendarClock,
   Users,
@@ -75,12 +75,16 @@ export function Sidebar({ currentView, onViewChange }: SidebarProps) {
     <>
       {/* Mobile Header */}
       <header className="lg:hidden fixed top-0 left-0 right-0 z-50 bg-sidebar border-b border-sidebar-border">
-        <div className="flex items-center justify-between p-3">
-          <img
-            src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/ChatGPT%20Image%202%20de%20mar.%20de%202026%2C%2013_11_48-RrCf3eyWj6sUssa7VG99IQZ08JBMkZ.png"
-            alt="TMS One"
-            className="h-9 w-auto"
-          />
+        <div className="flex items-center justify-between p-4">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 bg-sidebar-primary rounded-lg flex items-center justify-center">
+              <Settings className="w-5 h-5 text-sidebar-primary-foreground" />
+            </div>
+            <div>
+              <h1 className="text-lg font-bold text-sidebar-foreground">TMS One</h1>
+              <p className="text-xs text-sidebar-foreground/60">Vetore</p>
+            </div>
+          </div>
           <div className="flex items-center gap-2">
             <NotificationBell />
             <Button 
@@ -110,12 +114,16 @@ export function Sidebar({ currentView, onViewChange }: SidebarProps) {
         mobileOpen ? "translate-x-0" : "-translate-x-full"
       )}>
         {/* Logo */}
-        <div className="hidden lg:flex items-center justify-between p-4 border-b border-sidebar-border">
-          <img
-            src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/ChatGPT%20Image%202%20de%20mar.%20de%202026%2C%2013_11_48-RrCf3eyWj6sUssa7VG99IQZ08JBMkZ.png"
-            alt="TMS One"
-            className="h-10 w-auto"
-          />
+        <div className="hidden lg:flex items-center justify-between p-6 border-b border-sidebar-border">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-sidebar-primary rounded-xl flex items-center justify-center">
+              <Settings className="w-6 h-6 text-sidebar-primary-foreground" />
+            </div>
+            <div>
+              <h1 className="text-xl font-bold text-sidebar-foreground">TMS One</h1>
+              <p className="text-xs text-sidebar-foreground/60">Vetore Industrial</p>
+            </div>
+          </div>
           <NotificationBell />
         </div>
 
