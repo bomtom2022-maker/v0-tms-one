@@ -52,7 +52,7 @@ export function NewTicketView({ onSuccess }: NewTicketViewProps) {
     }
   }, [problemId, manualPriority, getProblemById])
 
-  // Se maquina parada, automaticamente definir prioridade alta
+  // Se máquina parada, automaticamente definir prioridade alta
   useEffect(() => {
     if (machineStopped && !manualPriority) {
       setPriority('high')
@@ -65,7 +65,7 @@ export function NewTicketView({ onSuccess }: NewTicketViewProps) {
 
   const handleManualPriorityChange = (checked: boolean) => {
     const problem = getProblemById(problemId)
-    // Se o problema requer prioridade manual, nao permite desativar
+    // Se o problema requer prioridade manual, não permite desativar
     if (!checked && problem?.requiresManualPriority) {
       return
     }
@@ -124,7 +124,7 @@ export function NewTicketView({ onSuccess }: NewTicketViewProps) {
 
   const selectedProblem = problemId ? getProblemById(problemId) : null
   
-  // Verifica se e o problema "Outros" (requer observacao obrigatoria)
+  // Verifica se é o problema "Outros" (requer observação obrigatória)
   const isOtherProblem = selectedProblem?.name.toLowerCase() === 'outros' || selectedProblem?.name.toLowerCase() === 'outro'
   const isObservationRequired = isOtherProblem
   const isFormValid = machineId && problemId && (!isObservationRequired || observation.trim().length > 0)
@@ -204,7 +204,7 @@ export function NewTicketView({ onSuccess }: NewTicketViewProps) {
           </CardContent>
         </Card>
 
-        {/* Selecao de Problema */}
+        {/* Seleção de Problema */}
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-base">Tipo de Problema</CardTitle>

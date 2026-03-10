@@ -1705,7 +1705,7 @@ export function ReportsView() {
 
       {/* Tabs de Relatórios */}
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as ReportType)}>
-        <TabsList className="grid grid-cols-3 sm:grid-cols-6 w-full h-auto gap-1 p-1">
+        <TabsList className="grid grid-cols-3 sm:grid-cols-5 w-full h-auto gap-1 p-1">
           <TabsTrigger value="general" className="text-[10px] sm:text-xs px-1 py-2">
             <FileText className="w-3 h-3 sm:w-4 sm:h-4 mr-0.5 sm:mr-1" />
             <span className="hidden xs:inline">Geral</span>
@@ -1713,27 +1713,22 @@ export function ReportsView() {
           </TabsTrigger>
           <TabsTrigger value="machines" className="text-[10px] sm:text-xs px-1 py-2">
             <Settings className="w-3 h-3 sm:w-4 sm:h-4 mr-0.5 sm:mr-1" />
-            <span className="hidden sm:inline">Maquinas</span>
+            <span className="hidden sm:inline">Máquinas</span>
             <span className="sm:hidden">Maq.</span>
           </TabsTrigger>
           <TabsTrigger value="users" className="text-[10px] sm:text-xs px-1 py-2">
             <User className="w-3 h-3 sm:w-4 sm:h-4 mr-0.5 sm:mr-1" />
-            <span className="hidden sm:inline">Usuarios</span>
+            <span className="hidden sm:inline">Usuários</span>
             <span className="sm:hidden">User</span>
           </TabsTrigger>
           <TabsTrigger value="parts" className="text-[10px] sm:text-xs px-1 py-2">
             <Package className="w-3 h-3 sm:w-4 sm:h-4 mr-0.5 sm:mr-1" />
-            <span className="hidden sm:inline">Pecas</span>
+            <span className="hidden sm:inline">Peças</span>
             <span className="sm:hidden">Pec.</span>
-          </TabsTrigger>
-          <TabsTrigger value="audit" className="text-[10px] sm:text-xs px-1 py-2">
-            <History className="w-3 h-3 sm:w-4 sm:h-4 mr-0.5 sm:mr-1" />
-            <span className="hidden sm:inline">Auditoria</span>
-            <span className="sm:hidden">Audit.</span>
           </TabsTrigger>
           <TabsTrigger value="daily" className="text-[10px] sm:text-xs px-1 py-2">
             <Shield className="w-3 h-3 sm:w-4 sm:h-4 mr-0.5 sm:mr-1" />
-            <span className="hidden sm:inline">Diario</span>
+            <span className="hidden sm:inline">Diário</span>
             <span className="sm:hidden">TISAX</span>
           </TabsTrigger>
         </TabsList>
@@ -1744,7 +1739,7 @@ export function ReportsView() {
             <CardHeader>
               <CardTitle>Lista de Manutenções</CardTitle>
               <CardDescription>
-                {filteredTickets.length} manutencoes encontradas
+                {filteredTickets.length} manutenções encontradas
               </CardDescription>
             </CardHeader>
             <CardContent className="p-0">
@@ -1753,7 +1748,7 @@ export function ReportsView() {
                   <thead className="bg-muted">
                     <tr>
                       <th className="p-2 sm:p-3 text-left font-medium text-[10px] sm:text-xs">Data</th>
-                      <th className="p-2 sm:p-3 text-left font-medium text-[10px] sm:text-xs">Maquina</th>
+                      <th className="p-2 sm:p-3 text-left font-medium text-[10px] sm:text-xs">Máquina</th>
                       <th className="p-2 sm:p-3 text-left font-medium text-[10px] sm:text-xs hidden sm:table-cell">Problema</th>
                       <th className="p-2 sm:p-3 text-center font-medium text-[10px] sm:text-xs">Status</th>
                       <th className="p-2 sm:p-3 text-right font-medium text-[10px] sm:text-xs">Tempo</th>
@@ -1907,7 +1902,7 @@ export function ReportsView() {
         <TabsContent value="parts" className="mt-4">
           <Card>
             <CardHeader>
-              <CardTitle>Pecas Utilizadas</CardTitle>
+              <CardTitle>Peças Utilizadas</CardTitle>
               <CardDescription>
                 Ordenado por valor total (maior para menor)
               </CardDescription>
@@ -1917,9 +1912,9 @@ export function ReportsView() {
                 <table className="w-full text-sm">
                   <thead className="bg-muted">
                     <tr>
-                      <th className="p-3 text-left font-medium">Peca</th>
+                      <th className="p-3 text-left font-medium">Peça</th>
                       <th className="p-3 text-center font-medium">Quantidade</th>
-                      <th className="p-3 text-right font-medium">Preco Unit.</th>
+                      <th className="p-3 text-right font-medium">Preço Unit.</th>
                       <th className="p-3 text-right font-medium">Total</th>
                     </tr>
                   </thead>
@@ -1948,56 +1943,7 @@ export function ReportsView() {
                 </table>
                 {partsData.length === 0 && (
                   <div className="p-8 text-center text-muted-foreground">
-                    Nenhuma peca utilizada no periodo selecionado.
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* Tab Auditoria */}
-        <TabsContent value="audit" className="mt-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Log de Auditoria</CardTitle>
-              <CardDescription>
-                Histórico de todas as alterações no sistema ({filteredLogs.length} registros)
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="p-0">
-              <div className="divide-y max-h-[600px] overflow-y-auto">
-                {filteredLogs.slice(0, 100).map((log) => (
-                  <div key={log.id} className="p-4 hover:bg-muted/50">
-                    <div className="flex items-start gap-3">
-                      <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center shrink-0">
-                        <History className="w-4 h-4 text-muted-foreground" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="font-medium">{log.userName}</span>
-                          <Badge variant="outline" className="text-xs">
-                            {getActionLabel(log.action)}
-                          </Badge>
-                        </div>
-                        <p className="text-sm text-muted-foreground mt-1">
-                          {log.details}
-                        </p>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          {format(log.timestamp, "dd/MM/yyyy 'as' HH:mm:ss", { locale: ptBR })}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-                {filteredLogs.length === 0 && (
-                  <div className="p-8 text-center text-muted-foreground">
-                    Nenhum registro de auditoria encontrado.
-                  </div>
-                )}
-                {filteredLogs.length > 100 && (
-                  <div className="p-4 text-center text-muted-foreground text-sm border-t">
-                    Mostrando 100 de {filteredLogs.length} registros. Gere o PDF para ver todos.
+                    Nenhuma peça utilizada no período selecionado.
                   </div>
                 )}
               </div>
@@ -2029,8 +1975,8 @@ export function ReportsView() {
                     <p className="font-medium text-blue-900">Preparado para TISAX</p>
                     <p className="text-blue-700 mt-1">
                       Este relatório foi desenvolvido para atender aos requisitos de auditoria e rastreabilidade 
-                      exigidos pela certificacao TISAX (Trusted Information Security Assessment Exchange) 
-                      da industria automotiva.
+                      exigidos pela certificação TISAX (Trusted Information Security Assessment Exchange) 
+                      da indústria automotiva.
                     </p>
                   </div>
                 </div>

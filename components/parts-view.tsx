@@ -71,15 +71,15 @@ export function PartsView() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl lg:text-3xl font-bold text-foreground">
-            Gestao de Pecas
+            Gestão de Peças
           </h1>
           <p className="text-muted-foreground mt-1">
-            Cadastre e gerencie as pecas do estoque
+            Cadastre e gerencie as peças do estoque
           </p>
         </div>
         <Button onClick={() => setShowForm(!showForm)}>
           <Plus className="w-4 h-4 mr-2" />
-          Nova Peca
+          Nova Peça
         </Button>
       </div>
 
@@ -121,17 +121,17 @@ export function PartsView() {
               {showSuccess ? (
                 <>
                   <CheckCircle className="w-5 h-5 text-green-600" />
-                  Peca Cadastrada!
+                  Peça Cadastrada!
                 </>
               ) : (
                 <>
                   <Plus className="w-5 h-5" />
-                  Cadastrar Nova Peca
+                  Cadastrar Nova Peça
                 </>
               )}
             </CardTitle>
             {!showSuccess && (
-              <CardDescription>Preencha os dados da nova peca</CardDescription>
+              <CardDescription>Preencha os dados da nova peça</CardDescription>
             )}
           </CardHeader>
           {!showSuccess && (
@@ -139,7 +139,7 @@ export function PartsView() {
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
-                    <Label htmlFor="partName">Nome da Peca</Label>
+                    <Label htmlFor="partName">Nome da Peça</Label>
                     <Input
                       id="partName"
                       value={newPartName}
@@ -148,7 +148,7 @@ export function PartsView() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="partPrice">Preco Unitario (R$)</Label>
+                    <Label htmlFor="partPrice">Preço Unitário (R$)</Label>
                     <Input
                       id="partPrice"
                       type="number"
@@ -161,7 +161,7 @@ export function PartsView() {
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="partDescription">Descricao (opcional)</Label>
+                  <Label htmlFor="partDescription">Descrição (opcional)</Label>
                   <Textarea
                     id="partDescription"
                     value={newPartDescription}
@@ -172,7 +172,7 @@ export function PartsView() {
                 </div>
                 <div className="flex gap-3">
                   <Button type="submit" disabled={!newPartName.trim() || !newPartPrice}>
-                    Cadastrar Peca
+                    Cadastrar Peça
                   </Button>
                   <Button type="button" variant="outline" onClick={() => setShowForm(false)}>
                     Cancelar
@@ -188,16 +188,16 @@ export function PartsView() {
       <Dialog open={!!editingPart} onOpenChange={(open) => !open && setEditingPart(null)}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Editar Peca</DialogTitle>
+            <DialogTitle>Editar Peça</DialogTitle>
             <DialogDescription>
-              Altere os dados da peca.
+              Altere os dados da peça.
             </DialogDescription>
           </DialogHeader>
           
           {editingPart && (
             <div className="space-y-4 py-4">
               <div className="space-y-2">
-                <Label htmlFor="edit-part-name">Nome da Peca</Label>
+                <Label htmlFor="edit-part-name">Nome da Peça</Label>
                 <Input
                   id="edit-part-name"
                   value={editingPart.name}
@@ -205,7 +205,7 @@ export function PartsView() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="edit-part-price">Preco Unitario (R$)</Label>
+                <Label htmlFor="edit-part-price">Preço Unitário (R$)</Label>
                 <Input
                   id="edit-part-price"
                   type="number"
@@ -216,7 +216,7 @@ export function PartsView() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="edit-part-description">Descricao (opcional)</Label>
+                <Label htmlFor="edit-part-description">Descrição (opcional)</Label>
                 <Textarea
                   id="edit-part-description"
                   value={editingPart.description || ''}
@@ -241,8 +241,8 @@ export function PartsView() {
       {/* Parts Table */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">Lista de Pecas</CardTitle>
-          <CardDescription>Todas as pecas cadastradas no sistema</CardDescription>
+          <CardTitle className="text-lg">Lista de Peças</CardTitle>
+          <CardDescription>Todas as peças cadastradas no sistema</CardDescription>
         </CardHeader>
         <CardContent className="p-0">
           <div className="overflow-x-auto">
@@ -250,10 +250,10 @@ export function PartsView() {
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-16">#</TableHead>
-                  <TableHead>Nome da Peca</TableHead>
-                  <TableHead>Descricao</TableHead>
-                  <TableHead className="text-right">Preco Unitario</TableHead>
-                  <TableHead className="w-16">Acoes</TableHead>
+                  <TableHead>Nome da Peça</TableHead>
+                  <TableHead>Descrição</TableHead>
+                  <TableHead className="text-right">Preço Unitário</TableHead>
+                  <TableHead className="w-16">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>

@@ -74,10 +74,10 @@ export function MachinesView() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl lg:text-3xl font-bold text-foreground">
-            Gestao de Maquinas
+            Gestão de Máquinas
           </h1>
           <p className="text-muted-foreground mt-1">
-            Cadastre e gerencie as maquinas e seus niveis de atencao
+            Cadastre e gerencie as máquinas e seus níveis de atenção
           </p>
         </div>
         
@@ -85,20 +85,20 @@ export function MachinesView() {
           <DialogTrigger asChild>
             <Button>
               <Plus className="w-4 h-4 mr-2" />
-              Nova Maquina
+              Nova Máquina
             </Button>
           </DialogTrigger>
           <DialogContent className="sm:max-w-md">
             <DialogHeader>
-              <DialogTitle>Cadastrar Nova Maquina</DialogTitle>
+              <DialogTitle>Cadastrar Nova Máquina</DialogTitle>
               <DialogDescription>
-                Defina o nome, setor e nivel de atencao da maquina.
+                Defina o nome, setor e nível de atenção da máquina.
               </DialogDescription>
             </DialogHeader>
             
             <div className="space-y-4 py-4">
               <div className="space-y-2">
-                <Label htmlFor="machine-name">Nome da Maquina</Label>
+                <Label htmlFor="machine-name">Nome da Máquina</Label>
                 <Input
                   id="machine-name"
                   placeholder="Ex: CNC Torno Romi GL-240"
@@ -118,7 +118,7 @@ export function MachinesView() {
               </div>
               
               <div className="space-y-2">
-                <Label>Nivel de Atencao</Label>
+                <Label>Nível de Atenção</Label>
                 <Select value={newMachineStatus} onValueChange={(v) => setNewMachineStatus(v as MachineStatus)}>
                   <SelectTrigger>
                     <SelectValue />
@@ -162,16 +162,16 @@ export function MachinesView() {
       <Dialog open={!!editingMachine} onOpenChange={(open) => !open && setEditingMachine(null)}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Editar Maquina</DialogTitle>
+            <DialogTitle>Editar Máquina</DialogTitle>
             <DialogDescription>
-              Altere os dados e o nivel de atencao da maquina.
+              Altere os dados e o nível de atenção da máquina.
             </DialogDescription>
           </DialogHeader>
           
           {editingMachine && (
             <div className="space-y-4 py-4">
               <div className="space-y-2">
-                <Label htmlFor="edit-machine-name">Nome da Maquina</Label>
+                <Label htmlFor="edit-machine-name">Nome da Máquina</Label>
                 <Input
                   id="edit-machine-name"
                   value={editingMachine.name}
@@ -189,7 +189,7 @@ export function MachinesView() {
               </div>
               
               <div className="space-y-2">
-                <Label>Nivel de Atencao</Label>
+                <Label>Nível de Atenção</Label>
                 <Select 
                   value={editingMachine.status} 
                   onValueChange={(v) => setEditingMachine({ ...editingMachine, status: v as MachineStatus })}
@@ -262,10 +262,10 @@ export function MachinesView() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Settings className="w-5 h-5" />
-            Maquinas Cadastradas
+            Máquinas Cadastradas
           </CardTitle>
           <CardDescription>
-            Lista de todas as maquinas com seus niveis de atencao
+            Lista de todas as máquinas com seus níveis de atenção
           </CardDescription>
         </CardHeader>
         <CardContent>

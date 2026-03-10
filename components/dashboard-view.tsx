@@ -43,12 +43,12 @@ export function DashboardView({ onSelectTicket }: DashboardViewProps) {
   const [completedDateFilter, setCompletedDateFilter] = useState<Date>(new Date())
   const [calendarOpen, setCalendarOpen] = useState(false)
 
-  // Estatisticas dos cards
+  // Estatísticas dos cards
   const dashboardStats = useMemo(() => {
     // Chamados em Aberto (status open)
     const openTickets = tickets.filter(t => t.status === 'open').length
     
-    // Em Manutencao (status in-progress ou paused)
+    // Em Manutenção (status in-progress ou paused)
     const inMaintenanceTickets = tickets.filter(t => t.status === 'in-progress' || t.status === 'paused').length
     
     // Finalizadas no dia selecionado
@@ -83,7 +83,7 @@ export function DashboardView({ onSelectTicket }: DashboardViewProps) {
           if (!matchMachine && !matchProblem && !matchObservation) return false
         }
         
-        // Filtro de maquina
+        // Filtro de máquina
         if (filterMachine !== 'all' && t.machineId !== filterMachine) return false
         
         // Filtro de problema
@@ -141,7 +141,7 @@ export function DashboardView({ onSelectTicket }: DashboardViewProps) {
               </div>
             </div>
             <p className="text-xs text-muted-foreground mt-2">
-              Aguardando atendimento
+              Aguardando Atendimento
             </p>
           </CardContent>
         </Card>
