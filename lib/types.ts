@@ -97,7 +97,7 @@ export interface Ticket {
   problemId: string
   observation: string
   priority: Priority
-  status: 'open' | 'in-progress' | 'paused' | 'completed' | 'cancelled'
+  status: 'open' | 'in-progress' | 'paused' | 'completed' | 'cancelled' | 'unresolved'
   createdAt: Date
   startedAt?: Date
   completedAt?: Date

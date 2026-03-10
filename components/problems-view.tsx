@@ -330,23 +330,31 @@ export function ProblemsView() {
                     <span className="font-medium">{problem.name}</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Badge 
-                      variant="secondary"
-                      className={cn(config.bgLight, config.textColor, "text-xs")}
-                    >
-                      {config.label}
-                    </Badge>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => setEditingProblem({ 
-                        id: problem.id, 
-                        name: problem.name, 
-                        defaultPriority: problem.defaultPriority 
-                      })}
-                    >
-                      <Pencil className="w-4 h-4" />
-                    </Button>
+                    {problem.requiresManualPriority ? (
+                      <Badge variant="outline" className="text-xs text-muted-foreground">
+                        Prioridade definida pelo líder
+                      </Badge>
+                    ) : (
+                      <Badge 
+                        variant="secondary"
+                        className={cn(config.bgLight, config.textColor, "text-xs")}
+                      >
+                        {config.label}
+                      </Badge>
+                    )}
+                    {!problem.requiresManualPriority && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => setEditingProblem({ 
+                          id: problem.id, 
+                          name: problem.name, 
+                          defaultPriority: problem.defaultPriority 
+                        })}
+                      >
+                        <Pencil className="w-4 h-4" />
+                      </Button>
+                    )}
                   </div>
                 </div>
               )

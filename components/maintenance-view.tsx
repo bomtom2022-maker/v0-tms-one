@@ -63,7 +63,7 @@ export function MaintenanceView({ ticketId, onBack, onComplete }: MaintenanceVie
   // Timer effect
   useEffect(() => {
     if (!ticket || ticket.status !== 'in-progress') {
-      if (ticket?.status === 'paused') {
+      if (ticket?.status === 'paused' || ticket?.status === 'unresolved') {
         setElapsedTime(ticket.accumulatedTime)
       }
       return
@@ -155,13 +155,28 @@ export function MaintenanceView({ ticketId, onBack, onComplete }: MaintenanceVie
 
   // Success screen
   if (showSuccess) {
+    const wasResolved = problemResolved === true
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh]">
-        <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mb-4 animate-in zoom-in duration-300">
-          <CheckCircle className="w-10 h-10 text-green-600" />
+        <div className={cn(
+          "w-20 h-20 rounded-full flex items-center justify-center mb-4 animate-in zoom-in duration-300",
+          wasResolved ? "bg-green-100" : "bg-orange-100"
+        )}>
+          {wasResolved ? (
+            <CheckCircle className="w-10 h-10 text-green-600" />
+          ) : (
+            <AlertTriangle className="w-10 h-10 text-orange-600" />
+          )}
         </div>
-        <h2 className="text-xl font-semibold text-foreground">Manutenção Finalizada!</h2>
+        <h2 className="text-xl font-semibold text-foreground">
+          {wasResolved ? 'Manutenção Finalizada!' : 'Chamado Retornado'}
+        </h2>
         <p className="text-muted-foreground mt-2">Tempo total registrado: {formatDuration(elapsedTime)}</p>
+        {!wasResolved && (
+          <p className="text-orange-600 text-sm mt-2">
+            O chamado voltou para a lista para outro manutentor continuar
+          </p>
+        )}
       </div>
     )
   }
@@ -381,6 +396,36 @@ export function MaintenanceView({ ticketId, onBack, onComplete }: MaintenanceVie
               >
                 <Square className="w-5 h-5 mr-2" />
                 Finalizar
+              </Button>
+            </div>
+          )}
+
+          {/* Ticket não resolvido - permitir continuidade */}
+          {ticket.status === 'unresolved' && (
+            <div className="space-y-4">
+              <div className="p-4 rounded-lg bg-orange-50 border border-orange-200 dark:bg-orange-950 dark:border-orange-800">
+                <div className="flex items-start gap-3">
+                  <AlertTriangle className="w-5 h-5 text-orange-600 mt-0.5" />
+                  <div>
+                    <h4 className="font-medium text-orange-800 dark:text-orange-200">Problema Não Finalizado</h4>
+                    <p className="text-sm text-orange-700 dark:text-orange-300 mt-1">
+                      Este chamado foi marcado como não resolvido anteriormente. Você pode continuar a manutenção para tentar resolver o problema.
+                    </p>
+                    {ticket.completionNotes && (
+                      <p className="text-sm text-orange-600 dark:text-orange-400 mt-2">
+                        <strong>Observação anterior:</strong> {ticket.completionNotes}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+              <Button 
+                size="lg" 
+                className="w-full bg-orange-600 hover:bg-orange-700 text-white"
+                onClick={() => handleAction('start')}
+              >
+                <Play className="w-5 h-5 mr-2" />
+                Continuar Manutenção
               </Button>
             </div>
           )}

@@ -70,6 +70,12 @@ export function DashboardView({ onSelectTicket }: DashboardViewProps) {
   const activeTickets = useMemo(() => {
     return tickets
       .filter(t => t.status !== 'completed' && t.status !== 'cancelled')
+      // Ordenar para que tickets não resolvidos apareçam primeiro
+      .sort((a, b) => {
+        if (a.status === 'unresolved' && b.status !== 'unresolved') return -1
+        if (b.status === 'unresolved' && a.status !== 'unresolved') return 1
+        return 0
+      })
       .filter(t => {
         const machine = getMachineById(t.machineId)
         const problem = getProblemById(t.problemId)
@@ -307,13 +313,17 @@ export function DashboardView({ onSelectTicket }: DashboardViewProps) {
                   ? 'Em Manutenção' 
                   : ticket.status === 'paused'
                     ? 'Pausado'
-                    : 'Aguardando'
+                    : ticket.status === 'unresolved'
+                      ? 'Problema Não Finalizado'
+                      : 'Aguardando'
 
                 const statusColor = ticket.status === 'in-progress'
                   ? 'bg-blue-50 text-blue-600 border-blue-200 dark:bg-blue-950 dark:text-blue-400'
                   : ticket.status === 'paused'
                     ? 'bg-yellow-50 text-yellow-600 border-yellow-200 dark:bg-yellow-950 dark:text-yellow-400'
-                    : 'bg-gray-50 text-gray-600 border-gray-200 dark:bg-gray-800 dark:text-gray-400'
+                    : ticket.status === 'unresolved'
+                      ? 'bg-orange-100 text-orange-700 border-orange-300 dark:bg-orange-950 dark:text-orange-400'
+                      : 'bg-gray-50 text-gray-600 border-gray-200 dark:bg-gray-800 dark:text-gray-400'
 
                 return (
                   <div
@@ -338,6 +348,7 @@ export function DashboardView({ onSelectTicket }: DashboardViewProps) {
                           <Badge variant="outline" className={cn("text-xs", statusColor)}>
                             {ticket.status === 'in-progress' && <Play className="w-3 h-3 mr-1" />}
                             {ticket.status === 'paused' && <Pause className="w-3 h-3 mr-1" />}
+                            {ticket.status === 'unresolved' && <AlertCircle className="w-3 h-3 mr-1" />}
                             {statusLabel}
                           </Badge>
                           {ticket.machineStopped && (
@@ -376,11 +387,12 @@ export function DashboardView({ onSelectTicket }: DashboardViewProps) {
                       {isManutentor && (
                         <div className="shrink-0">
                           <Button 
-                            variant="default" 
+                            variant={ticket.status === 'unresolved' ? 'outline' : 'default'}
                             size="sm"
+                            className={ticket.status === 'unresolved' ? 'border-orange-500 text-orange-600 hover:bg-orange-50' : ''}
                             onClick={() => onSelectTicket(ticket.id)}
                           >
-                            {ticket.status === 'open' ? 'Iniciar' : 'Gerenciar'}
+                            {ticket.status === 'open' ? 'Iniciar' : ticket.status === 'unresolved' ? 'Continuar' : 'Gerenciar'}
                             <ArrowRight className="w-4 h-4 ml-1" />
                           </Button>
                         </div>

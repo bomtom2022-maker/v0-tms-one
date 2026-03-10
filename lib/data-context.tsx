@@ -466,23 +466,25 @@ export function DataProvider({ children }: { children: ReactNode }) {
     const ticket = tickets.find(t => t.id === ticketId)
     const machine = ticket ? machines.find(m => m.id === ticket.machineId) : null
     
-    setTickets(prev => {
-      const updated = prev.map(t => {
-        if (t.id !== ticketId) return t
-        const action: MaintenanceAction = {
-          type: 'start',
-          operatorName,
-          timestamp: new Date(),
-        }
-        return { 
-          ...t, 
-          status: 'in-progress' as const, 
-          startedAt: new Date(),
-          actions: [...t.actions, action],
-        }
-      })
-      return updated
+setTickets(prev => {
+    const updated = prev.map(t => {
+      if (t.id !== ticketId) return t
+      const action: MaintenanceAction = {
+        type: 'start',
+        operatorName,
+        timestamp: new Date(),
+      }
+      return {
+        ...t,
+        status: 'in-progress' as const,
+        startedAt: t.startedAt || new Date(), // Manter data original se existir
+        actions: [...t.actions, action],
+        // Resetar resolved se estava como unresolved (permitir nova tentativa)
+        resolved: t.status === 'unresolved' ? undefined : t.resolved,
+      }
     })
+    return updated
+  })
     
     // Log de auditoria
     addAuditLog({
@@ -630,8 +632,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
       return {
         ...ticket,
-        status: 'completed' as const,
-        completedAt: now,
+        // Se não foi resolvido, usar status 'unresolved' para permitir continuidade
+        status: resolved === false ? 'unresolved' as const : 'completed' as const,
+        completedAt: resolved === false ? undefined : now,
         usedParts,
         totalCost: calculatedCost,
         downtime: calculatedDowntime,

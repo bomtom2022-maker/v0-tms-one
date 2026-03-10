@@ -7,13 +7,6 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
-import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -32,25 +25,24 @@ export function MachinesView() {
   const { machines, addMachine, updateMachine } = useData()
   const { currentUser } = useAuth()
   const [isOpen, setIsOpen] = useState(false)
-  const [editingMachine, setEditingMachine] = useState<{ id: string; name: string; sector: string; status: MachineStatus } | null>(null)
+  const [editingMachine, setEditingMachine] = useState<{ id: string; name: string; sector: string } | null>(null)
   const [newMachineName, setNewMachineName] = useState('')
   const [newMachineSector, setNewMachineSector] = useState('')
-  const [newMachineStatus, setNewMachineStatus] = useState<MachineStatus>('ok')
 
   const handleAddMachine = () => {
     if (!newMachineName.trim() || !newMachineSector.trim()) return
     
-    addMachine(newMachineName.trim(), newMachineSector.trim(), newMachineStatus, currentUser?.id || '', currentUser?.name || '')
+    addMachine(newMachineName.trim(), newMachineSector.trim(), 'ok', currentUser?.id || '', currentUser?.name || '')
     setNewMachineName('')
     setNewMachineSector('')
-    setNewMachineStatus('ok')
     setIsOpen(false)
   }
 
   const handleEditMachine = () => {
     if (!editingMachine || !editingMachine.name.trim() || !editingMachine.sector.trim()) return
     
-    updateMachine(editingMachine.id, editingMachine.name.trim(), editingMachine.sector.trim(), editingMachine.status, currentUser?.id || '', currentUser?.name || '')
+    const machine = machines.find(m => m.id === editingMachine.id)
+    updateMachine(editingMachine.id, editingMachine.name.trim(), editingMachine.sector.trim(), machine?.status || 'ok', currentUser?.id || '', currentUser?.name || '')
     setEditingMachine(null)
   }
 
@@ -62,12 +54,6 @@ export function MachinesView() {
     }
   }
 
-  const statusCounts = {
-    critical: machines.filter(m => m.status === 'critical').length,
-    attention: machines.filter(m => m.status === 'attention').length,
-    ok: machines.filter(m => m.status === 'ok').length,
-  }
-
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -77,7 +63,7 @@ export function MachinesView() {
             Gestão de Máquinas
           </h1>
           <p className="text-muted-foreground mt-1">
-            Cadastre e gerencie as máquinas e seus níveis de atenção
+            Cadastre e gerencie as máquinas do sistema
           </p>
         </div>
         
@@ -92,7 +78,7 @@ export function MachinesView() {
             <DialogHeader>
               <DialogTitle>Cadastrar Nova Máquina</DialogTitle>
               <DialogDescription>
-                Defina o nome, setor e nível de atenção da máquina.
+                Defina o nome e o setor da máquina.
               </DialogDescription>
             </DialogHeader>
             
@@ -116,34 +102,6 @@ export function MachinesView() {
                   onChange={(e) => setNewMachineSector(e.target.value)}
                 />
               </div>
-              
-              <div className="space-y-2">
-                <Label>Nível de Atenção</Label>
-                <Select value={newMachineStatus} onValueChange={(v) => setNewMachineStatus(v as MachineStatus)}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {(Object.keys(MACHINE_STATUS_CONFIG) as MachineStatus[]).map((s) => {
-                      const config = MACHINE_STATUS_CONFIG[s]
-                      const Icon = getStatusIcon(s)
-                      return (
-                        <SelectItem key={s} value={s}>
-                          <div className="flex items-center gap-2">
-                            <div className={cn("p-1 rounded", config.color)}>
-                              <Icon className="w-3 h-3 text-white" />
-                            </div>
-                            <div>
-                              <span className="font-medium">{config.label}</span>
-                              <span className="text-muted-foreground ml-2 text-xs">- {config.description}</span>
-                            </div>
-                          </div>
-                        </SelectItem>
-                      )
-                    })}
-                  </SelectContent>
-                </Select>
-              </div>
             </div>
             
             <DialogFooter>
@@ -164,7 +122,7 @@ export function MachinesView() {
           <DialogHeader>
             <DialogTitle>Editar Máquina</DialogTitle>
             <DialogDescription>
-              Altere os dados e o nível de atenção da máquina.
+              Altere os dados da máquina.
             </DialogDescription>
           </DialogHeader>
           
@@ -187,37 +145,6 @@ export function MachinesView() {
                   onChange={(e) => setEditingMachine({ ...editingMachine, sector: e.target.value })}
                 />
               </div>
-              
-              <div className="space-y-2">
-                <Label>Nível de Atenção</Label>
-                <Select 
-                  value={editingMachine.status} 
-                  onValueChange={(v) => setEditingMachine({ ...editingMachine, status: v as MachineStatus })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {(Object.keys(MACHINE_STATUS_CONFIG) as MachineStatus[]).map((s) => {
-                      const config = MACHINE_STATUS_CONFIG[s]
-                      const Icon = getStatusIcon(s)
-                      return (
-                        <SelectItem key={s} value={s}>
-                          <div className="flex items-center gap-2">
-                            <div className={cn("p-1 rounded", config.color)}>
-                              <Icon className="w-3 h-3 text-white" />
-                            </div>
-                            <div>
-                              <span className="font-medium">{config.label}</span>
-                              <span className="text-muted-foreground ml-2 text-xs">- {config.description}</span>
-                            </div>
-                          </div>
-                        </SelectItem>
-                      )
-                    })}
-                  </SelectContent>
-                </Select>
-              </div>
             </div>
           )}
           
@@ -232,31 +159,6 @@ export function MachinesView() {
         </DialogContent>
       </Dialog>
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-3 gap-4">
-        {(Object.keys(MACHINE_STATUS_CONFIG) as MachineStatus[]).map((status) => {
-          const config = MACHINE_STATUS_CONFIG[status]
-          const Icon = getStatusIcon(status)
-          const count = statusCounts[status]
-          
-          return (
-            <Card key={status}>
-              <CardContent className="p-4">
-                <div className="flex items-center gap-3">
-                  <div className={cn("p-2 rounded-lg", config.bgLight)}>
-                    <Icon className={cn("w-5 h-5", config.textColor)} />
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground">{config.label}</p>
-                    <p className="text-xl font-bold">{count}</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          )
-        })}
-      </div>
-
       {/* Machines List */}
       <Card>
         <CardHeader>
@@ -265,7 +167,7 @@ export function MachinesView() {
             Máquinas Cadastradas
           </CardTitle>
           <CardDescription>
-            Lista de todas as máquinas com seus níveis de atenção
+            Lista de todas as máquinas cadastradas no sistema
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -305,8 +207,7 @@ export function MachinesView() {
                       onClick={() => setEditingMachine({ 
                         id: machine.id, 
                         name: machine.name, 
-                        sector: machine.sector,
-                        status: machine.status 
+                        sector: machine.sector
                       })}
                     >
                       <Pencil className="w-4 h-4" />
