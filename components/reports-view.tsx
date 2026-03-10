@@ -1,16 +1,11 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
+import { Label } from '@/components/ui/label'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   Select,
   SelectContent,
@@ -18,8 +13,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover'
+import { Calendar } from '@/components/ui/calendar'
 import { useData } from '@/lib/data-context'
-import { formatDuration, formatCurrency, PRIORITY_CONFIG } from '@/lib/types'
+import { useAuth } from '@/lib/auth-context'
+import { formatDuration, formatCurrency, PRIORITY_CONFIG, type AuditLog } from '@/lib/types'
 import { 
   FileText, 
   Clock, 
@@ -27,92 +29,930 @@ import {
   Wrench, 
   TrendingUp, 
   Download,
-  X,
-  Calendar,
+  Calendar as CalendarIcon,
   User,
   AlertTriangle,
   CheckCircle,
-  XCircle
+  XCircle,
+  Filter,
+  X,
+  Package,
+  Settings,
+  History,
+  Printer
 } from 'lucide-react'
-import { format } from 'date-fns'
+import { format, startOfDay, endOfDay, isWithinInterval, startOfMonth, endOfMonth, subDays } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
+import { cn } from '@/lib/utils'
+import type { DateRange } from 'react-day-picker'
 
-type FilterType = 'downtime' | 'cost'
+type ReportType = 'general' | 'machines' | 'users' | 'parts' | 'audit'
+type DatePreset = 'today' | 'week' | 'month' | 'custom'
+
+interface FilterState {
+  dateRange: DateRange | undefined
+  datePreset: DatePreset
+  machineId: string
+  userId: string
+  partId: string
+  resolved: string
+  priority: string
+}
+
+// Funcao para gerar PDF profissional
+function generatePDF(
+  title: string,
+  subtitle: string,
+  data: Array<Record<string, string | number | boolean | undefined>>,
+  columns: { key: string; label: string; align?: 'left' | 'center' | 'right' }[],
+  summary?: { label: string; value: string }[]
+) {
+  // Criar janela de impressao
+  const printWindow = window.open('', '_blank')
+  if (!printWindow) {
+    alert('Permita pop-ups para gerar o PDF')
+    return
+  }
+
+  const currentDate = format(new Date(), "dd/MM/yyyy 'as' HH:mm", { locale: ptBR })
+
+  // Calcular larguras das colunas baseado no conteudo
+  const getAlignment = (align?: string) => {
+    switch (align) {
+      case 'right': return 'text-align: right;'
+      case 'center': return 'text-align: center;'
+      default: return 'text-align: left;'
+    }
+  }
+
+  const html = `
+    <!DOCTYPE html>
+    <html lang="pt-BR">
+    <head>
+      <meta charset="UTF-8">
+      <title>${title} - TMS ONE</title>
+      <style>
+        * {
+          margin: 0;
+          padding: 0;
+          box-sizing: border-box;
+        }
+        
+        @page {
+          size: A4;
+          margin: 15mm 10mm;
+        }
+        
+        body {
+          font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+          font-size: 10pt;
+          line-height: 1.4;
+          color: #1a1a1a;
+          background: white;
+        }
+        
+        .page {
+          max-width: 100%;
+          margin: 0 auto;
+        }
+        
+        .header {
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-start;
+          padding-bottom: 15px;
+          border-bottom: 2px solid #1a1a1a;
+          margin-bottom: 20px;
+        }
+        
+        .header-left h1 {
+          font-size: 18pt;
+          font-weight: bold;
+          color: #1a1a1a;
+          margin-bottom: 4px;
+        }
+        
+        .header-left p {
+          font-size: 9pt;
+          color: #666;
+        }
+        
+        .header-right {
+          text-align: right;
+          font-size: 8pt;
+          color: #666;
+        }
+        
+        .header-right .brand {
+          font-size: 12pt;
+          font-weight: bold;
+          color: #1a1a1a;
+        }
+        
+        .subtitle {
+          font-size: 11pt;
+          color: #444;
+          margin-bottom: 20px;
+          padding: 10px;
+          background: #f5f5f5;
+          border-radius: 4px;
+        }
+        
+        .summary {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 15px;
+          margin-bottom: 20px;
+          padding: 15px;
+          background: #f8f9fa;
+          border-radius: 4px;
+        }
+        
+        .summary-item {
+          flex: 1;
+          min-width: 120px;
+          padding: 10px;
+          background: white;
+          border-radius: 4px;
+          border: 1px solid #e0e0e0;
+        }
+        
+        .summary-item .label {
+          font-size: 8pt;
+          color: #666;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+        }
+        
+        .summary-item .value {
+          font-size: 14pt;
+          font-weight: bold;
+          color: #1a1a1a;
+          margin-top: 4px;
+        }
+        
+        table {
+          width: 100%;
+          border-collapse: collapse;
+          margin-bottom: 20px;
+          font-size: 9pt;
+        }
+        
+        th {
+          background: #1a1a1a;
+          color: white;
+          padding: 10px 8px;
+          font-weight: 600;
+          text-transform: uppercase;
+          font-size: 8pt;
+          letter-spacing: 0.5px;
+        }
+        
+        td {
+          padding: 8px;
+          border-bottom: 1px solid #e0e0e0;
+          vertical-align: top;
+        }
+        
+        tr:nth-child(even) {
+          background: #f9f9f9;
+        }
+        
+        tr:hover {
+          background: #f0f0f0;
+        }
+        
+        .section-title {
+          font-size: 12pt;
+          font-weight: bold;
+          color: #1a1a1a;
+          margin: 25px 0 15px 0;
+          padding-bottom: 8px;
+          border-bottom: 1px solid #ddd;
+        }
+        
+        .footer {
+          margin-top: 30px;
+          padding-top: 15px;
+          border-top: 1px solid #ddd;
+          font-size: 8pt;
+          color: #666;
+          display: flex;
+          justify-content: space-between;
+        }
+        
+        .badge {
+          display: inline-block;
+          padding: 2px 8px;
+          border-radius: 4px;
+          font-size: 8pt;
+          font-weight: 500;
+        }
+        
+        .badge-success { background: #d4edda; color: #155724; }
+        .badge-warning { background: #fff3cd; color: #856404; }
+        .badge-danger { background: #f8d7da; color: #721c24; }
+        .badge-info { background: #d1ecf1; color: #0c5460; }
+        
+        .text-muted { color: #666; }
+        .text-success { color: #28a745; }
+        .text-danger { color: #dc3545; }
+        .text-warning { color: #ffc107; }
+        
+        .machine-section {
+          margin-bottom: 30px;
+          page-break-inside: avoid;
+        }
+        
+        .machine-header {
+          background: #f0f0f0;
+          padding: 12px;
+          margin-bottom: 10px;
+          border-radius: 4px;
+          border-left: 4px solid #1a1a1a;
+        }
+        
+        .machine-header h3 {
+          font-size: 11pt;
+          margin-bottom: 4px;
+        }
+        
+        .machine-header p {
+          font-size: 9pt;
+          color: #666;
+        }
+        
+        @media print {
+          body { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+          .page { page-break-after: auto; }
+          .machine-section { page-break-inside: avoid; }
+          tr { page-break-inside: avoid; }
+        }
+      </style>
+    </head>
+    <body>
+      <div class="page">
+        <div class="header">
+          <div class="header-left">
+            <h1>${title}</h1>
+            <p>Relatorio gerado automaticamente pelo sistema</p>
+          </div>
+          <div class="header-right">
+            <div class="brand">TMS ONE</div>
+            <div>Tool Manager System</div>
+            <div style="margin-top: 8px;">${currentDate}</div>
+          </div>
+        </div>
+        
+        <div class="subtitle">${subtitle}</div>
+        
+        ${summary ? `
+          <div class="summary">
+            ${summary.map(s => `
+              <div class="summary-item">
+                <div class="label">${s.label}</div>
+                <div class="value">${s.value}</div>
+              </div>
+            `).join('')}
+          </div>
+        ` : ''}
+        
+        ${data.length > 0 ? `
+          <table>
+            <thead>
+              <tr>
+                ${columns.map(col => `<th style="${getAlignment(col.align)}">${col.label}</th>`).join('')}
+              </tr>
+            </thead>
+            <tbody>
+              ${data.map(row => `
+                <tr>
+                  ${columns.map(col => `<td style="${getAlignment(col.align)}">${row[col.key] ?? '-'}</td>`).join('')}
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        ` : '<p style="text-align: center; padding: 40px; color: #666;">Nenhum dado encontrado para os filtros selecionados.</p>'}
+        
+        <div class="footer">
+          <div>TMS ONE - Tool Manager System | Todos os direitos reservados</div>
+          <div>Pagina 1</div>
+        </div>
+      </div>
+      
+      <script>
+        window.onload = function() {
+          window.print();
+        }
+      </script>
+    </body>
+    </html>
+  `
+
+  printWindow.document.write(html)
+  printWindow.document.close()
+}
+
+// Funcao para gerar PDF por maquina (formato detalhado)
+function generateMachineDetailPDF(
+  machineData: Array<{
+    machineName: string
+    sector: string
+    totalDowntime: number
+    totalCost: number
+    tickets: Array<{
+      date: string
+      problem: string
+      priority: string
+      resolved: boolean
+      downtime: number
+      cost: number
+      operator: string
+      notes: string
+      parts: string
+    }>
+  }>
+) {
+  const printWindow = window.open('', '_blank')
+  if (!printWindow) {
+    alert('Permita pop-ups para gerar o PDF')
+    return
+  }
+
+  const currentDate = format(new Date(), "dd/MM/yyyy 'as' HH:mm", { locale: ptBR })
+
+  const html = `
+    <!DOCTYPE html>
+    <html lang="pt-BR">
+    <head>
+      <meta charset="UTF-8">
+      <title>Relatorio por Maquina - TMS ONE</title>
+      <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        @page { size: A4; margin: 15mm 10mm; }
+        body {
+          font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+          font-size: 10pt;
+          line-height: 1.4;
+          color: #1a1a1a;
+        }
+        .header {
+          display: flex;
+          justify-content: space-between;
+          padding-bottom: 15px;
+          border-bottom: 2px solid #1a1a1a;
+          margin-bottom: 20px;
+        }
+        .header h1 { font-size: 18pt; }
+        .header-right { text-align: right; font-size: 8pt; color: #666; }
+        .header-right .brand { font-size: 12pt; font-weight: bold; color: #1a1a1a; }
+        .machine-section {
+          margin-bottom: 30px;
+          page-break-inside: avoid;
+        }
+        .machine-header {
+          background: #1a1a1a;
+          color: white;
+          padding: 12px;
+          margin-bottom: 10px;
+        }
+        .machine-header h3 { font-size: 12pt; margin-bottom: 4px; }
+        .machine-header p { font-size: 9pt; opacity: 0.8; }
+        .machine-stats {
+          display: flex;
+          gap: 15px;
+          margin-bottom: 15px;
+          padding: 10px;
+          background: #f5f5f5;
+        }
+        .machine-stats div {
+          flex: 1;
+          text-align: center;
+        }
+        .machine-stats .label { font-size: 8pt; color: #666; }
+        .machine-stats .value { font-size: 12pt; font-weight: bold; }
+        table { width: 100%; border-collapse: collapse; font-size: 8pt; }
+        th { background: #f0f0f0; padding: 8px; text-align: left; font-weight: 600; }
+        td { padding: 8px; border-bottom: 1px solid #e0e0e0; vertical-align: top; }
+        .badge { display: inline-block; padding: 2px 6px; border-radius: 3px; font-size: 7pt; }
+        .badge-success { background: #d4edda; color: #155724; }
+        .badge-warning { background: #fff3cd; color: #856404; }
+        .footer {
+          margin-top: 30px;
+          padding-top: 15px;
+          border-top: 1px solid #ddd;
+          font-size: 8pt;
+          color: #666;
+        }
+        @media print {
+          .machine-section { page-break-inside: avoid; }
+        }
+      </style>
+    </head>
+    <body>
+      <div class="header">
+        <div>
+          <h1>Relatorio Detalhado por Maquina</h1>
+          <p style="font-size: 9pt; color: #666; margin-top: 4px;">Historico completo de manutencoes</p>
+        </div>
+        <div class="header-right">
+          <div class="brand">TMS ONE</div>
+          <div>Tool Manager System</div>
+          <div style="margin-top: 8px;">${currentDate}</div>
+        </div>
+      </div>
+      
+      ${machineData.map(machine => `
+        <div class="machine-section">
+          <div class="machine-header">
+            <h3>${machine.machineName}</h3>
+            <p>${machine.sector}</p>
+          </div>
+          <div class="machine-stats">
+            <div>
+              <div class="label">Total de Chamados</div>
+              <div class="value">${machine.tickets.length}</div>
+            </div>
+            <div>
+              <div class="label">Tempo Parado</div>
+              <div class="value">${formatDuration(machine.totalDowntime)}</div>
+            </div>
+            <div>
+              <div class="label">Custo Total</div>
+              <div class="value">${formatCurrency(machine.totalCost)}</div>
+            </div>
+          </div>
+          ${machine.tickets.length > 0 ? `
+            <table>
+              <thead>
+                <tr>
+                  <th>Data</th>
+                  <th>Problema</th>
+                  <th>Status</th>
+                  <th>Tempo</th>
+                  <th>Custo</th>
+                  <th>Operador</th>
+                  <th>Pecas</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${machine.tickets.map(t => `
+                  <tr>
+                    <td>${t.date}</td>
+                    <td>${t.problem}</td>
+                    <td><span class="badge ${t.resolved ? 'badge-success' : 'badge-warning'}">${t.resolved ? 'Resolvido' : 'Nao Resolvido'}</span></td>
+                    <td>${formatDuration(t.downtime)}</td>
+                    <td>${formatCurrency(t.cost)}</td>
+                    <td>${t.operator}</td>
+                    <td>${t.parts || '-'}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          ` : '<p style="padding: 20px; text-align: center; color: #666;">Nenhuma manutencao registrada</p>'}
+        </div>
+      `).join('')}
+      
+      <div class="footer">
+        TMS ONE - Tool Manager System | Todos os direitos reservados
+      </div>
+      
+      <script>window.onload = function() { window.print(); }</script>
+    </body>
+    </html>
+  `
+
+  printWindow.document.write(html)
+  printWindow.document.close()
+}
 
 export function ReportsView() {
-  const { tickets, machines, getMaintenanceStats, getMachineById, getProblemById, getPartById } = useData()
-  const [filterType, setFilterType] = useState<FilterType>('downtime')
-  const [selectedMachineId, setSelectedMachineId] = useState<string | null>(null)
+  const { tickets, machines, parts, auditLogs, getMachineById, getProblemById, getPartById } = useData()
+  const { users } = useAuth()
+  
+  const [activeTab, setActiveTab] = useState<ReportType>('general')
+  const [filters, setFilters] = useState<FilterState>({
+    dateRange: {
+      from: subDays(new Date(), 30),
+      to: new Date()
+    },
+    datePreset: 'month',
+    machineId: 'all',
+    userId: 'all',
+    partId: 'all',
+    resolved: 'all',
+    priority: 'all'
+  })
+  const [calendarOpen, setCalendarOpen] = useState(false)
 
-  const completedTickets = tickets.filter(t => t.status === 'completed')
-  const totalDowntime = completedTickets.reduce((sum, t) => sum + t.downtime, 0)
-  const totalCost = completedTickets.reduce((sum, t) => sum + t.totalCost, 0)
+  // Aplicar preset de data
+  const handleDatePreset = (preset: DatePreset) => {
+    const today = new Date()
+    let from: Date
+    let to: Date = today
 
-  // Calcular stats completas com custo por maquina
-  const machineStats = useMemo(() => {
-    const stats = new Map<string, { totalDowntime: number; ticketCount: number; totalCost: number }>()
-    
-    completedTickets.forEach(ticket => {
-      const current = stats.get(ticket.machineId) || { totalDowntime: 0, ticketCount: 0, totalCost: 0 }
-      stats.set(ticket.machineId, {
+    switch (preset) {
+      case 'today':
+        from = startOfDay(today)
+        to = endOfDay(today)
+        break
+      case 'week':
+        from = subDays(today, 7)
+        break
+      case 'month':
+        from = startOfMonth(today)
+        to = endOfMonth(today)
+        break
+      default:
+        return
+    }
+
+    setFilters(prev => ({
+      ...prev,
+      datePreset: preset,
+      dateRange: { from, to }
+    }))
+  }
+
+  // Limpar filtros
+  const clearFilters = () => {
+    setFilters({
+      dateRange: {
+        from: subDays(new Date(), 30),
+        to: new Date()
+      },
+      datePreset: 'month',
+      machineId: 'all',
+      userId: 'all',
+      partId: 'all',
+      resolved: 'all',
+      priority: 'all'
+    })
+  }
+
+  const hasActiveFilters = 
+    filters.machineId !== 'all' || 
+    filters.userId !== 'all' || 
+    filters.partId !== 'all' ||
+    filters.resolved !== 'all' ||
+    filters.priority !== 'all'
+
+  // Filtrar tickets completados
+  const filteredTickets = useMemo(() => {
+    return tickets.filter(t => {
+      if (t.status !== 'completed' || !t.completedAt) return false
+
+      // Filtro de data
+      if (filters.dateRange?.from && filters.dateRange?.to) {
+        const ticketDate = new Date(t.completedAt)
+        if (!isWithinInterval(ticketDate, {
+          start: startOfDay(filters.dateRange.from),
+          end: endOfDay(filters.dateRange.to)
+        })) return false
+      }
+
+      // Filtro de maquina
+      if (filters.machineId !== 'all' && t.machineId !== filters.machineId) return false
+
+      // Filtro de usuario (quem finalizou)
+      if (filters.userId !== 'all') {
+        const lastAction = t.actions[t.actions.length - 1]
+        const operatorMatch = lastAction?.operatorName === users.find(u => u.id === filters.userId)?.name
+        if (!operatorMatch) return false
+      }
+
+      // Filtro de pecas
+      if (filters.partId !== 'all') {
+        const hasPart = t.usedParts.some(up => up.partId === filters.partId)
+        if (!hasPart) return false
+      }
+
+      // Filtro de resolvido
+      if (filters.resolved !== 'all') {
+        if (filters.resolved === 'yes' && !t.resolved) return false
+        if (filters.resolved === 'no' && t.resolved) return false
+      }
+
+      // Filtro de prioridade
+      if (filters.priority !== 'all' && t.priority !== filters.priority) return false
+
+      return true
+    })
+  }, [tickets, filters, users])
+
+  // Estatisticas gerais
+  const stats = useMemo(() => {
+    const totalDowntime = filteredTickets.reduce((sum, t) => sum + t.downtime, 0)
+    const totalCost = filteredTickets.reduce((sum, t) => sum + t.totalCost, 0)
+    const resolved = filteredTickets.filter(t => t.resolved).length
+    const notResolved = filteredTickets.filter(t => !t.resolved).length
+    const uniqueMachines = new Set(filteredTickets.map(t => t.machineId)).size
+
+    return {
+      total: filteredTickets.length,
+      totalDowntime,
+      totalCost,
+      resolved,
+      notResolved,
+      uniqueMachines
+    }
+  }, [filteredTickets])
+
+  // Dados por maquina
+  const machineData = useMemo(() => {
+    const data = new Map<string, { 
+      totalDowntime: number
+      totalCost: number
+      ticketCount: number
+      tickets: typeof filteredTickets
+    }>()
+
+    filteredTickets.forEach(ticket => {
+      const current = data.get(ticket.machineId) || { 
+        totalDowntime: 0, 
+        totalCost: 0, 
+        ticketCount: 0,
+        tickets: []
+      }
+      data.set(ticket.machineId, {
         totalDowntime: current.totalDowntime + ticket.downtime,
-        ticketCount: current.ticketCount + 1,
         totalCost: current.totalCost + ticket.totalCost,
+        ticketCount: current.ticketCount + 1,
+        tickets: [...current.tickets, ticket]
       })
     })
 
-    return Array.from(stats.entries())
-      .map(([machineId, data]) => ({
-        machineId,
-        machineName: machines.find(m => m.id === machineId)?.name || machineId,
-        sector: machines.find(m => m.id === machineId)?.sector || '',
-        ...data,
-      }))
-  }, [completedTickets, machines])
-
-  // Top 10 ordenado pelo filtro selecionado
-  const top10 = useMemo(() => {
-    return [...machineStats]
-      .sort((a, b) => {
-        if (filterType === 'downtime') {
-          return b.totalDowntime - a.totalDowntime
+    return Array.from(data.entries())
+      .map(([machineId, d]) => {
+        const machine = getMachineById(machineId)
+        return {
+          machineId,
+          machineName: machine?.name || 'Desconhecida',
+          sector: machine?.sector || '',
+          ...d
         }
-        return b.totalCost - a.totalCost
       })
-      .slice(0, 10)
-  }, [machineStats, filterType])
+      .sort((a, b) => b.totalDowntime - a.totalDowntime)
+  }, [filteredTickets, getMachineById])
 
-  // Dados da maquina selecionada
-  const selectedMachineData = useMemo(() => {
-    if (!selectedMachineId) return null
-    
-    const machine = getMachineById(selectedMachineId)
-    const machineTickets = completedTickets.filter(t => t.machineId === selectedMachineId)
-    const stats = machineStats.find(s => s.machineId === selectedMachineId)
-    
-    return {
-      machine,
-      tickets: machineTickets,
-      stats,
-    }
-  }, [selectedMachineId, completedTickets, machineStats, getMachineById])
+  // Dados por usuario
+  const userData = useMemo(() => {
+    const data = new Map<string, {
+      ticketCount: number
+      totalDowntime: number
+      totalCost: number
+      resolvedCount: number
+    }>()
 
+    filteredTickets.forEach(ticket => {
+      const lastAction = ticket.actions[ticket.actions.length - 1]
+      if (!lastAction) return
+
+      const operatorName = lastAction.operatorName
+      const current = data.get(operatorName) || {
+        ticketCount: 0,
+        totalDowntime: 0,
+        totalCost: 0,
+        resolvedCount: 0
+      }
+
+      data.set(operatorName, {
+        ticketCount: current.ticketCount + 1,
+        totalDowntime: current.totalDowntime + ticket.downtime,
+        totalCost: current.totalCost + ticket.totalCost,
+        resolvedCount: current.resolvedCount + (ticket.resolved ? 1 : 0)
+      })
+    })
+
+    return Array.from(data.entries())
+      .map(([userName, d]) => ({ userName, ...d }))
+      .sort((a, b) => b.ticketCount - a.ticketCount)
+  }, [filteredTickets])
+
+  // Dados por peca
+  const partsData = useMemo(() => {
+    const data = new Map<string, { quantity: number; totalValue: number }>()
+
+    filteredTickets.forEach(ticket => {
+      ticket.usedParts.forEach(up => {
+        const part = getPartById(up.partId)
+        if (!part) return
+
+        const current = data.get(up.partId) || { quantity: 0, totalValue: 0 }
+        data.set(up.partId, {
+          quantity: current.quantity + up.quantity,
+          totalValue: current.totalValue + (part.price * up.quantity)
+        })
+      })
+    })
+
+    return Array.from(data.entries())
+      .map(([partId, d]) => {
+        const part = getPartById(partId)
+        return {
+          partId,
+          partName: part?.name || 'Desconhecida',
+          unitPrice: part?.price || 0,
+          ...d
+        }
+      })
+      .sort((a, b) => b.totalValue - a.totalValue)
+  }, [filteredTickets, getPartById])
+
+  // Filtrar logs de auditoria
+  const filteredLogs = useMemo(() => {
+    return auditLogs.filter(log => {
+      if (filters.dateRange?.from && filters.dateRange?.to) {
+        const logDate = new Date(log.timestamp)
+        if (!isWithinInterval(logDate, {
+          start: startOfDay(filters.dateRange.from),
+          end: endOfDay(filters.dateRange.to)
+        })) return false
+      }
+
+      if (filters.userId !== 'all' && log.userId !== filters.userId) return false
+
+      return true
+    })
+  }, [auditLogs, filters])
+
+  // Gerar PDF baseado na aba ativa
   const handleGeneratePDF = () => {
-    alert('Funcionalidade de geracao de PDF sera implementada com integracao ao backend.')
-  }
+    const dateLabel = filters.dateRange?.from && filters.dateRange?.to
+      ? `${format(filters.dateRange.from, 'dd/MM/yyyy', { locale: ptBR })} ate ${format(filters.dateRange.to, 'dd/MM/yyyy', { locale: ptBR })}`
+      : 'Todos os periodos'
 
-  const getPositionStyle = (position: number) => {
-    if (position === 1) return 'bg-amber-500 text-white'
-    if (position === 2) return 'bg-amber-400 text-white'
-    if (position === 3) return 'bg-amber-300 text-slate-900'
-    return 'bg-slate-500 text-white'
-  }
+    switch (activeTab) {
+      case 'general':
+        generatePDF(
+          'Relatorio Geral de Manutencoes',
+          `Periodo: ${dateLabel}`,
+          filteredTickets.map(t => {
+            const machine = getMachineById(t.machineId)
+            const problem = getProblemById(t.problemId)
+            const lastAction = t.actions[t.actions.length - 1]
+            return {
+              data: format(t.completedAt!, 'dd/MM/yyyy HH:mm', { locale: ptBR }),
+              maquina: machine?.name || '-',
+              problema: problem?.name || '-',
+              prioridade: PRIORITY_CONFIG[t.priority].label,
+              status: t.resolved ? 'Resolvido' : 'Nao Resolvido',
+              tempo: formatDuration(t.downtime),
+              custo: formatCurrency(t.totalCost),
+              operador: lastAction?.operatorName || '-'
+            }
+          }),
+          [
+            { key: 'data', label: 'Data' },
+            { key: 'maquina', label: 'Maquina' },
+            { key: 'problema', label: 'Problema' },
+            { key: 'prioridade', label: 'Prioridade', align: 'center' },
+            { key: 'status', label: 'Status', align: 'center' },
+            { key: 'tempo', label: 'Tempo', align: 'right' },
+            { key: 'custo', label: 'Custo', align: 'right' },
+            { key: 'operador', label: 'Operador' }
+          ],
+          [
+            { label: 'Total de Manutencoes', value: String(stats.total) },
+            { label: 'Tempo Total Parado', value: formatDuration(stats.totalDowntime) },
+            { label: 'Custo Total', value: formatCurrency(stats.totalCost) },
+            { label: 'Resolvidos', value: `${stats.resolved} (${stats.total > 0 ? Math.round(stats.resolved / stats.total * 100) : 0}%)` }
+          ]
+        )
+        break
 
-  const getValue = (stat: typeof top10[0]) => {
-    if (filterType === 'downtime') {
-      return formatDuration(stat.totalDowntime)
+      case 'machines':
+        // Gera PDF detalhado por maquina
+        generateMachineDetailPDF(
+          machineData.map(m => ({
+            machineName: m.machineName,
+            sector: m.sector,
+            totalDowntime: m.totalDowntime,
+            totalCost: m.totalCost,
+            tickets: m.tickets.map(t => {
+              const problem = getProblemById(t.problemId)
+              const lastAction = t.actions[t.actions.length - 1]
+              const partsUsed = t.usedParts.map(up => {
+                const part = getPartById(up.partId)
+                return `${part?.name} (x${up.quantity})`
+              }).join(', ')
+
+              return {
+                date: format(t.completedAt!, 'dd/MM/yyyy', { locale: ptBR }),
+                problem: problem?.name || '-',
+                priority: PRIORITY_CONFIG[t.priority].label,
+                resolved: t.resolved ?? true,
+                downtime: t.downtime,
+                cost: t.totalCost,
+                operator: lastAction?.operatorName || '-',
+                notes: t.completionNotes || '',
+                parts: partsUsed
+              }
+            })
+          }))
+        )
+        break
+
+      case 'users':
+        generatePDF(
+          'Relatorio por Manutentor',
+          `Periodo: ${dateLabel}`,
+          userData.map(u => ({
+            nome: u.userName,
+            chamados: String(u.ticketCount),
+            resolvidos: `${u.resolvedCount} (${Math.round(u.resolvedCount / u.ticketCount * 100)}%)`,
+            tempo: formatDuration(u.totalDowntime),
+            custo: formatCurrency(u.totalCost),
+            media: formatDuration(Math.round(u.totalDowntime / u.ticketCount))
+          })),
+          [
+            { key: 'nome', label: 'Manutentor' },
+            { key: 'chamados', label: 'Chamados', align: 'center' },
+            { key: 'resolvidos', label: 'Resolvidos', align: 'center' },
+            { key: 'tempo', label: 'Tempo Total', align: 'right' },
+            { key: 'custo', label: 'Custo Total', align: 'right' },
+            { key: 'media', label: 'Media/Chamado', align: 'right' }
+          ],
+          [
+            { label: 'Total de Manutentores', value: String(userData.length) },
+            { label: 'Total de Chamados', value: String(stats.total) }
+          ]
+        )
+        break
+
+      case 'parts':
+        generatePDF(
+          'Relatorio de Pecas Utilizadas',
+          `Periodo: ${dateLabel}`,
+          partsData.map(p => ({
+            peca: p.partName,
+            quantidade: String(p.quantity),
+            precoUnit: formatCurrency(p.unitPrice),
+            total: formatCurrency(p.totalValue)
+          })),
+          [
+            { key: 'peca', label: 'Peca' },
+            { key: 'quantidade', label: 'Quantidade', align: 'center' },
+            { key: 'precoUnit', label: 'Preco Unit.', align: 'right' },
+            { key: 'total', label: 'Total', align: 'right' }
+          ],
+          [
+            { label: 'Total de Tipos', value: String(partsData.length) },
+            { label: 'Custo Total', value: formatCurrency(partsData.reduce((s, p) => s + p.totalValue, 0)) }
+          ]
+        )
+        break
+
+      case 'audit':
+        generatePDF(
+          'Log de Auditoria',
+          `Periodo: ${dateLabel}`,
+          filteredLogs.slice(0, 100).map(log => ({
+            data: format(log.timestamp, 'dd/MM/yyyy HH:mm', { locale: ptBR }),
+            usuario: log.userName,
+            acao: log.action.replace(/_/g, ' ').toUpperCase(),
+            entidade: log.entityName,
+            detalhes: log.details.substring(0, 80) + (log.details.length > 80 ? '...' : '')
+          })),
+          [
+            { key: 'data', label: 'Data/Hora' },
+            { key: 'usuario', label: 'Usuario' },
+            { key: 'acao', label: 'Acao' },
+            { key: 'entidade', label: 'Entidade' },
+            { key: 'detalhes', label: 'Detalhes' }
+          ],
+          [
+            { label: 'Total de Registros', value: String(filteredLogs.length) }
+          ]
+        )
+        break
     }
-    return formatCurrency(stat.totalCost)
+  }
+
+  const getActionLabel = (action: string) => {
+    const labels: Record<string, string> = {
+      'ticket_created': 'Chamado Criado',
+      'ticket_started': 'Manutencao Iniciada',
+      'ticket_paused': 'Manutencao Pausada',
+      'ticket_resumed': 'Manutencao Retomada',
+      'ticket_completed': 'Manutencao Finalizada',
+      'ticket_cancelled': 'Chamado Cancelado',
+      'ticket_edited': 'Chamado Editado',
+      'machine_created': 'Maquina Criada',
+      'machine_updated': 'Maquina Atualizada',
+      'part_created': 'Peca Criada',
+      'part_updated': 'Peca Atualizada',
+      'problem_created': 'Problema Criado',
+      'problem_updated': 'Problema Atualizado',
+      'user_created': 'Usuario Criado',
+      'user_updated': 'Usuario Atualizado',
+      'user_deleted': 'Usuario Excluido',
+      'scheduled_created': 'Programada Criada',
+      'scheduled_updated': 'Programada Atualizada',
+      'scheduled_deleted': 'Programada Excluida',
+      'scheduled_completed': 'Programada Concluida',
+    }
+    return labels[action] || action
   }
 
   return (
@@ -124,20 +964,151 @@ export function ReportsView() {
             Relatorios e Performance
           </h1>
           <p className="text-muted-foreground mt-1">
-            Analise de manutencoes e indicadores
+            Analise completa de manutencoes e auditoria
           </p>
         </div>
-        <div className="flex gap-2">
-          <Button onClick={handleGeneratePDF} variant="outline">
-            <FileText className="w-4 h-4 mr-2" />
-            PDF
-          </Button>
-          <Button onClick={handleGeneratePDF} variant="outline">
-            <Download className="w-4 h-4 mr-2" />
-            CSV
-          </Button>
-        </div>
+        <Button onClick={handleGeneratePDF}>
+          <Printer className="w-4 h-4 mr-2" />
+          Gerar PDF
+        </Button>
       </div>
+
+      {/* Filtros Globais */}
+      <Card>
+        <CardHeader className="pb-4">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Filter className="w-4 h-4" />
+              Filtros
+            </CardTitle>
+            {hasActiveFilters && (
+              <Button variant="ghost" size="sm" onClick={clearFilters}>
+                <X className="w-4 h-4 mr-1" />
+                Limpar Filtros
+              </Button>
+            )}
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* Periodo */}
+            <div className="space-y-2">
+              <Label className="text-xs">Periodo</Label>
+              <div className="flex gap-1">
+                <Button 
+                  variant={filters.datePreset === 'today' ? 'default' : 'outline'} 
+                  size="sm"
+                  onClick={() => handleDatePreset('today')}
+                  className="flex-1 text-xs"
+                >
+                  Hoje
+                </Button>
+                <Button 
+                  variant={filters.datePreset === 'week' ? 'default' : 'outline'} 
+                  size="sm"
+                  onClick={() => handleDatePreset('week')}
+                  className="flex-1 text-xs"
+                >
+                  7 dias
+                </Button>
+                <Button 
+                  variant={filters.datePreset === 'month' ? 'default' : 'outline'} 
+                  size="sm"
+                  onClick={() => handleDatePreset('month')}
+                  className="flex-1 text-xs"
+                >
+                  Mes
+                </Button>
+              </div>
+              <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" size="sm" className="w-full justify-start text-xs">
+                    <CalendarIcon className="w-3 h-3 mr-2" />
+                    {filters.dateRange?.from ? (
+                      filters.dateRange.to ? (
+                        <>
+                          {format(filters.dateRange.from, 'dd/MM/yy', { locale: ptBR })} - {format(filters.dateRange.to, 'dd/MM/yy', { locale: ptBR })}
+                        </>
+                      ) : (
+                        format(filters.dateRange.from, 'dd/MM/yy', { locale: ptBR })
+                      )
+                    ) : (
+                      'Selecionar datas'
+                    )}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="range"
+                    selected={filters.dateRange}
+                    onSelect={(range) => {
+                      setFilters(prev => ({ ...prev, dateRange: range, datePreset: 'custom' }))
+                    }}
+                    numberOfMonths={2}
+                    locale={ptBR}
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+
+            {/* Maquina */}
+            <div className="space-y-2">
+              <Label className="text-xs">Maquina</Label>
+              <Select 
+                value={filters.machineId} 
+                onValueChange={(v) => setFilters(prev => ({ ...prev, machineId: v }))}
+              >
+                <SelectTrigger className="h-9">
+                  <SelectValue placeholder="Todas" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas as Maquinas</SelectItem>
+                  {machines.map((m) => (
+                    <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Usuario/Manutentor */}
+            <div className="space-y-2">
+              <Label className="text-xs">Manutentor</Label>
+              <Select 
+                value={filters.userId} 
+                onValueChange={(v) => setFilters(prev => ({ ...prev, userId: v }))}
+              >
+                <SelectTrigger className="h-9">
+                  <SelectValue placeholder="Todos" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos os Manutentores</SelectItem>
+                  {users.filter(u => u.role === 'manutentor').map((u) => (
+                    <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Status Resolvido */}
+            <div className="space-y-2">
+              <Label className="text-xs">Status</Label>
+              <Select 
+                value={filters.resolved} 
+                onValueChange={(v) => setFilters(prev => ({ ...prev, resolved: v }))}
+              >
+                <SelectTrigger className="h-9">
+                  <SelectValue placeholder="Todos" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos os Status</SelectItem>
+                  <SelectItem value="yes">Resolvidos</SelectItem>
+                  <SelectItem value="no">Nao Resolvidos</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Summary Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -148,8 +1119,8 @@ export function ReportsView() {
                 <Wrench className="w-4 h-4 text-primary-foreground" />
               </div>
               <div>
-                <p className="text-xs text-muted-foreground">Total de Manutencoes</p>
-                <p className="text-xl font-bold">{completedTickets.length}</p>
+                <p className="text-xs text-muted-foreground">Total Manutencoes</p>
+                <p className="text-xl font-bold">{stats.total}</p>
               </div>
             </div>
           </CardContent>
@@ -162,8 +1133,8 @@ export function ReportsView() {
                 <Clock className="w-4 h-4 text-white" />
               </div>
               <div>
-                <p className="text-xs text-muted-foreground">Tempo Total Parado</p>
-                <p className="text-xl font-bold">{formatDuration(totalDowntime)}</p>
+                <p className="text-xs text-muted-foreground">Tempo Parado</p>
+                <p className="text-xl font-bold">{formatDuration(stats.totalDowntime)}</p>
               </div>
             </div>
           </CardContent>
@@ -177,7 +1148,7 @@ export function ReportsView() {
               </div>
               <div>
                 <p className="text-xs text-muted-foreground">Custo em Pecas</p>
-                <p className="text-xl font-bold">{formatCurrency(totalCost)}</p>
+                <p className="text-xl font-bold">{formatCurrency(stats.totalCost)}</p>
               </div>
             </div>
           </CardContent>
@@ -186,234 +1157,312 @@ export function ReportsView() {
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-orange-500">
-                <TrendingUp className="w-4 h-4 text-white" />
+              <div className="p-2 rounded-lg bg-blue-500">
+                <CheckCircle className="w-4 h-4 text-white" />
               </div>
               <div>
-                <p className="text-xs text-muted-foreground">Maquinas Afetadas</p>
-                <p className="text-xl font-bold">{machineStats.length}</p>
+                <p className="text-xs text-muted-foreground">Taxa Resolucao</p>
+                <p className="text-xl font-bold">
+                  {stats.total > 0 ? Math.round(stats.resolved / stats.total * 100) : 0}%
+                </p>
               </div>
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Top 10 Ranking */}
-      <Card className="bg-slate-800 border-slate-700">
-        <CardHeader className="pb-4">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div>
-              <CardTitle className="flex items-center gap-2 text-white">
-                <TrendingUp className="w-5 h-5" />
-                Top 10 Maquinas
-              </CardTitle>
-              <CardDescription className="text-slate-400 mt-1">
-                {filterType === 'downtime' 
-                  ? 'Maquinas que mais ficaram paradas no periodo' 
-                  : 'Maquinas que mais geraram custos no periodo'
-                }
+      {/* Tabs de Relatorios */}
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as ReportType)}>
+        <TabsList className="grid grid-cols-5 w-full">
+          <TabsTrigger value="general" className="text-xs sm:text-sm">
+            <FileText className="w-4 h-4 mr-1 hidden sm:inline" />
+            Geral
+          </TabsTrigger>
+          <TabsTrigger value="machines" className="text-xs sm:text-sm">
+            <Settings className="w-4 h-4 mr-1 hidden sm:inline" />
+            Maquinas
+          </TabsTrigger>
+          <TabsTrigger value="users" className="text-xs sm:text-sm">
+            <User className="w-4 h-4 mr-1 hidden sm:inline" />
+            Usuarios
+          </TabsTrigger>
+          <TabsTrigger value="parts" className="text-xs sm:text-sm">
+            <Package className="w-4 h-4 mr-1 hidden sm:inline" />
+            Pecas
+          </TabsTrigger>
+          <TabsTrigger value="audit" className="text-xs sm:text-sm">
+            <History className="w-4 h-4 mr-1 hidden sm:inline" />
+            Auditoria
+          </TabsTrigger>
+        </TabsList>
+
+        {/* Tab Geral */}
+        <TabsContent value="general" className="mt-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Lista de Manutencoes</CardTitle>
+              <CardDescription>
+                {filteredTickets.length} manutencoes encontradas
               </CardDescription>
-            </div>
-            <Select value={filterType} onValueChange={(v) => setFilterType(v as FilterType)}>
-              <SelectTrigger className="w-[200px] bg-slate-700 border-slate-600 text-white">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="downtime">
-                  <span className="flex items-center gap-2">
-                    <Clock className="w-4 h-4" />
-                    Tempo Parado
-                  </span>
-                </SelectItem>
-                <SelectItem value="cost">
-                  <span className="flex items-center gap-2">
-                    <DollarSign className="w-4 h-4" />
-                    Custo em Pecas
-                  </span>
-                </SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </CardHeader>
-        <CardContent>
-          {top10.length > 0 ? (
-            <div className="space-y-2">
-              {top10.map((stat, index) => {
-                const position = index + 1
-                
-                return (
-                  <button
-                    key={stat.machineId}
-                    onClick={() => setSelectedMachineId(stat.machineId)}
-                    className="w-full flex items-center gap-4 p-3 rounded-lg bg-slate-700/50 hover:bg-slate-700 transition-colors text-left"
-                  >
-                    <div className={`w-8 h-8 rounded-full ${getPositionStyle(position)} flex items-center justify-center font-bold text-sm shrink-0`}>
-                      {position}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium text-white truncate">{stat.machineName}</p>
-                      <p className="text-xs text-slate-400 truncate">{stat.sector}</p>
-                    </div>
-                    <div className="text-right shrink-0">
-                      <p className="font-bold text-white">{getValue(stat)}</p>
-                      <p className="text-xs text-slate-400">{stat.ticketCount} chamados</p>
-                    </div>
-                  </button>
-                )
-              })}
-            </div>
-          ) : (
-            <div className="h-64 flex items-center justify-center text-slate-400">
-              <p>Nenhuma manutencao finalizada para exibir estatisticas.</p>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Modal de Detalhes da Maquina */}
-      <Dialog open={!!selectedMachineId} onOpenChange={() => setSelectedMachineId(null)}>
-        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Wrench className="w-5 h-5" />
-              {selectedMachineData?.machine?.name || 'Detalhes da Maquina'}
-            </DialogTitle>
-            <DialogDescription>
-              {selectedMachineData?.machine?.sector}
-            </DialogDescription>
-          </DialogHeader>
-
-          {selectedMachineData && (
-            <div className="space-y-6 py-4">
-              {/* Resumo */}
-              <div className="grid grid-cols-3 gap-4">
-                <div className="p-4 rounded-lg bg-muted text-center">
-                  <p className="text-2xl font-bold">{selectedMachineData.stats?.ticketCount || 0}</p>
-                  <p className="text-xs text-muted-foreground">Chamados</p>
-                </div>
-                <div className="p-4 rounded-lg bg-red-50 text-center">
-                  <p className="text-2xl font-bold text-red-600">
-                    {formatDuration(selectedMachineData.stats?.totalDowntime || 0)}
-                  </p>
-                  <p className="text-xs text-muted-foreground">Tempo Parado</p>
-                </div>
-                <div className="p-4 rounded-lg bg-green-50 text-center">
-                  <p className="text-2xl font-bold text-green-600">
-                    {formatCurrency(selectedMachineData.stats?.totalCost || 0)}
-                  </p>
-                  <p className="text-xs text-muted-foreground">Custo Total</p>
-                </div>
-              </div>
-
-              {/* Historico de Manutencoes */}
-              <div>
-                <h4 className="font-semibold mb-3 flex items-center gap-2">
-                  <Calendar className="w-4 h-4" />
-                  Historico de Manutencoes
-                </h4>
-                <div className="space-y-3 max-h-[300px] overflow-y-auto">
-                  {selectedMachineData.tickets.length > 0 ? (
-                    selectedMachineData.tickets
-                      .sort((a, b) => new Date(b.completedAt!).getTime() - new Date(a.completedAt!).getTime())
-                      .map(ticket => {
-                        const problem = getProblemById(ticket.problemId)
-                        const priorityConfig = PRIORITY_CONFIG[ticket.priority]
-                        const lastAction = ticket.actions[ticket.actions.length - 1]
-                        
-                        return (
-                          <div 
-                            key={ticket.id}
-                            className="p-4 rounded-lg border bg-card"
-                          >
-                            <div className="flex items-start justify-between gap-3">
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-2 flex-wrap">
-                                  <p className="font-medium">{problem?.name || 'Problema'}</p>
-                                  <Badge 
-                                    variant="outline" 
-                                    className={`text-xs ${priorityConfig.color} bg-opacity-10`}
-                                  >
-                                    {priorityConfig.label}
-                                  </Badge>
-                                  {ticket.resolved ? (
-                                    <Badge variant="outline" className="text-xs bg-green-50 text-green-600 border-green-200">
-                                      <CheckCircle className="w-3 h-3 mr-1" />
-                                      Resolvido
-                                    </Badge>
-                                  ) : (
-                                    <Badge variant="outline" className="text-xs bg-amber-50 text-amber-600 border-amber-200">
-                                      <AlertTriangle className="w-3 h-3 mr-1" />
-                                      Nao Resolvido
-                                    </Badge>
-                                  )}
-                                </div>
-                                {ticket.observation && (
-                                  <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
-                                    {ticket.observation}
-                                  </p>
-                                )}
-                              </div>
-                            </div>
-
-                            <div className="flex flex-wrap items-center gap-4 mt-3 text-xs text-muted-foreground">
-                              <span className="flex items-center gap-1">
-                                <Calendar className="w-3 h-3" />
-                                {ticket.completedAt && format(new Date(ticket.completedAt), "dd/MM/yyyy 'as' HH:mm", { locale: ptBR })}
-                              </span>
-                              <span className="flex items-center gap-1">
-                                <Clock className="w-3 h-3" />
-                                {formatDuration(ticket.downtime)}
-                              </span>
-                              <span className="flex items-center gap-1">
-                                <DollarSign className="w-3 h-3" />
-                                {formatCurrency(ticket.totalCost)}
-                              </span>
-                              {lastAction && (
-                                <span className="flex items-center gap-1">
-                                  <User className="w-3 h-3" />
-                                  {lastAction.operatorName}
-                                </span>
+            </CardHeader>
+            <CardContent className="p-0">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-muted">
+                    <tr>
+                      <th className="p-3 text-left font-medium">Data</th>
+                      <th className="p-3 text-left font-medium">Maquina</th>
+                      <th className="p-3 text-left font-medium">Problema</th>
+                      <th className="p-3 text-center font-medium">Status</th>
+                      <th className="p-3 text-right font-medium">Tempo</th>
+                      <th className="p-3 text-right font-medium">Custo</th>
+                      <th className="p-3 text-left font-medium">Operador</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y">
+                    {filteredTickets.slice(0, 50).map((ticket) => {
+                      const machine = getMachineById(ticket.machineId)
+                      const problem = getProblemById(ticket.problemId)
+                      const lastAction = ticket.actions[ticket.actions.length - 1]
+                      
+                      return (
+                        <tr key={ticket.id} className="hover:bg-muted/50">
+                          <td className="p-3 whitespace-nowrap">
+                            {format(ticket.completedAt!, 'dd/MM/yy HH:mm', { locale: ptBR })}
+                          </td>
+                          <td className="p-3">{machine?.name || '-'}</td>
+                          <td className="p-3">{problem?.name || '-'}</td>
+                          <td className="p-3 text-center">
+                            <Badge 
+                              variant="outline" 
+                              className={cn(
+                                "text-xs",
+                                ticket.resolved 
+                                  ? "bg-green-50 text-green-600 border-green-200" 
+                                  : "bg-orange-50 text-orange-600 border-orange-200"
                               )}
-                            </div>
-
-                            {/* Pecas utilizadas */}
-                            {ticket.usedParts.length > 0 && (
-                              <div className="mt-3 pt-3 border-t">
-                                <p className="text-xs font-medium mb-2">Pecas utilizadas:</p>
-                                <div className="flex flex-wrap gap-2">
-                                  {ticket.usedParts.map((up, idx) => {
-                                    const part = getPartById(up.partId)
-                                    return (
-                                      <Badge key={idx} variant="secondary" className="text-xs">
-                                        {part?.name} x{up.quantity}
-                                      </Badge>
-                                    )
-                                  })}
-                                </div>
-                              </div>
-                            )}
-
-                            {/* Notas de finalizacao */}
-                            {ticket.completionNotes && (
-                              <div className="mt-3 pt-3 border-t">
-                                <p className="text-xs font-medium mb-1">Observacoes da finalizacao:</p>
-                                <p className="text-sm text-muted-foreground">{ticket.completionNotes}</p>
-                              </div>
-                            )}
-                          </div>
-                        )
-                      })
-                  ) : (
-                    <p className="text-center text-muted-foreground py-8">
-                      Nenhuma manutencao finalizada para esta maquina.
-                    </p>
-                  )}
-                </div>
+                            >
+                              {ticket.resolved ? 'Resolvido' : 'Nao Resolvido'}
+                            </Badge>
+                          </td>
+                          <td className="p-3 text-right font-mono">
+                            {formatDuration(ticket.downtime)}
+                          </td>
+                          <td className="p-3 text-right font-mono">
+                            {formatCurrency(ticket.totalCost)}
+                          </td>
+                          <td className="p-3">{lastAction?.operatorName || '-'}</td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+                {filteredTickets.length === 0 && (
+                  <div className="p-8 text-center text-muted-foreground">
+                    Nenhuma manutencao encontrada para os filtros selecionados.
+                  </div>
+                )}
+                {filteredTickets.length > 50 && (
+                  <div className="p-4 text-center text-muted-foreground text-sm border-t">
+                    Mostrando 50 de {filteredTickets.length} registros. Gere o PDF para ver todos.
+                  </div>
+                )}
               </div>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Tab Maquinas */}
+        <TabsContent value="machines" className="mt-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Ranking por Maquina</CardTitle>
+              <CardDescription>
+                Ordenado por tempo parado (maior para menor)
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="p-0">
+              <div className="divide-y">
+                {machineData.map((m, index) => (
+                  <div key={m.machineId} className="p-4 hover:bg-muted/50">
+                    <div className="flex items-center gap-4">
+                      <div className={cn(
+                        "w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm shrink-0",
+                        index < 3 ? "bg-orange-500 text-white" : "bg-muted text-muted-foreground"
+                      )}>
+                        {index + 1}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium truncate">{m.machineName}</p>
+                        <p className="text-xs text-muted-foreground">{m.sector}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-bold">{formatDuration(m.totalDowntime)}</p>
+                        <p className="text-xs text-muted-foreground">{m.ticketCount} chamados</p>
+                      </div>
+                      <div className="text-right hidden sm:block">
+                        <p className="font-medium text-green-600">{formatCurrency(m.totalCost)}</p>
+                        <p className="text-xs text-muted-foreground">em pecas</p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                {machineData.length === 0 && (
+                  <div className="p-8 text-center text-muted-foreground">
+                    Nenhum dado encontrado para os filtros selecionados.
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Tab Usuarios */}
+        <TabsContent value="users" className="mt-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Performance por Manutentor</CardTitle>
+              <CardDescription>
+                Ordenado por quantidade de chamados
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="p-0">
+              <div className="divide-y">
+                {userData.map((u) => (
+                  <div key={u.userName} className="p-4 hover:bg-muted/50">
+                    <div className="flex items-center gap-4">
+                      <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                        <User className="w-5 h-5 text-primary" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium">{u.userName}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {u.resolvedCount} de {u.ticketCount} resolvidos ({Math.round(u.resolvedCount / u.ticketCount * 100)}%)
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-bold">{u.ticketCount}</p>
+                        <p className="text-xs text-muted-foreground">chamados</p>
+                      </div>
+                      <div className="text-right hidden sm:block">
+                        <p className="font-medium">{formatDuration(u.totalDowntime)}</p>
+                        <p className="text-xs text-muted-foreground">tempo total</p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                {userData.length === 0 && (
+                  <div className="p-8 text-center text-muted-foreground">
+                    Nenhum dado encontrado para os filtros selecionados.
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Tab Pecas */}
+        <TabsContent value="parts" className="mt-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Pecas Utilizadas</CardTitle>
+              <CardDescription>
+                Ordenado por valor total (maior para menor)
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="p-0">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-muted">
+                    <tr>
+                      <th className="p-3 text-left font-medium">Peca</th>
+                      <th className="p-3 text-center font-medium">Quantidade</th>
+                      <th className="p-3 text-right font-medium">Preco Unit.</th>
+                      <th className="p-3 text-right font-medium">Total</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y">
+                    {partsData.map((p) => (
+                      <tr key={p.partId} className="hover:bg-muted/50">
+                        <td className="p-3 font-medium">{p.partName}</td>
+                        <td className="p-3 text-center">{p.quantity}</td>
+                        <td className="p-3 text-right font-mono">{formatCurrency(p.unitPrice)}</td>
+                        <td className="p-3 text-right font-mono font-bold text-green-600">
+                          {formatCurrency(p.totalValue)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  {partsData.length > 0 && (
+                    <tfoot className="bg-muted/50">
+                      <tr>
+                        <td colSpan={3} className="p-3 text-right font-medium">Total Geral:</td>
+                        <td className="p-3 text-right font-mono font-bold">
+                          {formatCurrency(partsData.reduce((s, p) => s + p.totalValue, 0))}
+                        </td>
+                      </tr>
+                    </tfoot>
+                  )}
+                </table>
+                {partsData.length === 0 && (
+                  <div className="p-8 text-center text-muted-foreground">
+                    Nenhuma peca utilizada no periodo selecionado.
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Tab Auditoria */}
+        <TabsContent value="audit" className="mt-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Log de Auditoria</CardTitle>
+              <CardDescription>
+                Historico de todas as alteracoes no sistema ({filteredLogs.length} registros)
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="p-0">
+              <div className="divide-y max-h-[600px] overflow-y-auto">
+                {filteredLogs.slice(0, 100).map((log) => (
+                  <div key={log.id} className="p-4 hover:bg-muted/50">
+                    <div className="flex items-start gap-3">
+                      <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center shrink-0">
+                        <History className="w-4 h-4 text-muted-foreground" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-medium">{log.userName}</span>
+                          <Badge variant="outline" className="text-xs">
+                            {getActionLabel(log.action)}
+                          </Badge>
+                        </div>
+                        <p className="text-sm text-muted-foreground mt-1">
+                          {log.details}
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {format(log.timestamp, "dd/MM/yyyy 'as' HH:mm:ss", { locale: ptBR })}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                {filteredLogs.length === 0 && (
+                  <div className="p-8 text-center text-muted-foreground">
+                    Nenhum registro de auditoria encontrado.
+                  </div>
+                )}
+                {filteredLogs.length > 100 && (
+                  <div className="p-4 text-center text-muted-foreground text-sm border-t">
+                    Mostrando 100 de {filteredLogs.length} registros. Gere o PDF para ver todos.
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }

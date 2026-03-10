@@ -23,12 +23,14 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog'
 import { useData } from '@/lib/data-context'
+import { useAuth } from '@/lib/auth-context'
 import { MACHINE_STATUS_CONFIG, type MachineStatus } from '@/lib/types'
 import { Plus, Settings, AlertTriangle, AlertCircle, CheckCircle, Pencil } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 export function MachinesView() {
   const { machines, addMachine, updateMachine } = useData()
+  const { currentUser } = useAuth()
   const [isOpen, setIsOpen] = useState(false)
   const [editingMachine, setEditingMachine] = useState<{ id: string; name: string; sector: string; status: MachineStatus } | null>(null)
   const [newMachineName, setNewMachineName] = useState('')
@@ -38,7 +40,7 @@ export function MachinesView() {
   const handleAddMachine = () => {
     if (!newMachineName.trim() || !newMachineSector.trim()) return
     
-    addMachine(newMachineName.trim(), newMachineSector.trim(), newMachineStatus)
+    addMachine(newMachineName.trim(), newMachineSector.trim(), newMachineStatus, currentUser?.id || '', currentUser?.name || '')
     setNewMachineName('')
     setNewMachineSector('')
     setNewMachineStatus('ok')
@@ -48,7 +50,7 @@ export function MachinesView() {
   const handleEditMachine = () => {
     if (!editingMachine || !editingMachine.name.trim() || !editingMachine.sector.trim()) return
     
-    updateMachine(editingMachine.id, editingMachine.name.trim(), editingMachine.sector.trim(), editingMachine.status)
+    updateMachine(editingMachine.id, editingMachine.name.trim(), editingMachine.sector.trim(), editingMachine.status, currentUser?.id || '', currentUser?.name || '')
     setEditingMachine(null)
   }
 

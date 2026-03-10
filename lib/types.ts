@@ -5,6 +5,44 @@ export type MachineStatus = 'critical' | 'attention' | 'ok'
 // Tipos de Usuario
 export type UserRole = 'manutentor' | 'lider'
 
+// Tipos de Log de Auditoria
+export type AuditLogAction = 
+  | 'ticket_created'
+  | 'ticket_started'
+  | 'ticket_paused'
+  | 'ticket_resumed'
+  | 'ticket_completed'
+  | 'ticket_cancelled'
+  | 'ticket_edited'
+  | 'machine_created'
+  | 'machine_updated'
+  | 'part_created'
+  | 'part_updated'
+  | 'problem_created'
+  | 'problem_updated'
+  | 'user_created'
+  | 'user_updated'
+  | 'user_deleted'
+  | 'scheduled_created'
+  | 'scheduled_updated'
+  | 'scheduled_deleted'
+  | 'scheduled_completed'
+
+export interface AuditLog {
+  id: string
+  action: AuditLogAction
+  userId: string
+  userName: string
+  timestamp: Date
+  entityType: 'ticket' | 'machine' | 'part' | 'problem' | 'user' | 'scheduled'
+  entityId: string
+  entityName: string
+  details: string
+  previousValue?: string
+  newValue?: string
+  metadata?: Record<string, unknown>
+}
+
 export interface User {
   id: string
   name: string
