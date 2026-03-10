@@ -106,7 +106,7 @@ export function LoginView() {
           </form>
 
           <p className="text-xs text-center text-muted-foreground mt-6">
-            Desenvolvido por Vetore
+            Desenvolvido por TMS ONE
           </p>
         </CardContent>
       </Card>
