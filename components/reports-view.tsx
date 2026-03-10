@@ -101,143 +101,148 @@ function generatePDF(
         }
         
         @page {
-          size: A4;
-          margin: 15mm 10mm;
+          size: A4 portrait;
+          margin: 10mm 8mm 10mm 8mm;
         }
         
         body {
-          font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-          font-size: 10pt;
-          line-height: 1.4;
+          font-family: Arial, Helvetica, sans-serif;
+          font-size: 8pt;
+          line-height: 1.3;
           color: #1a1a1a;
           background: white;
+          width: 100%;
+          max-width: 190mm;
+          margin: 0 auto;
         }
         
         .page {
-          max-width: 100%;
-          margin: 0 auto;
+          width: 100%;
+          max-width: 190mm;
         }
         
         .header {
           display: flex;
           justify-content: space-between;
           align-items: flex-start;
-          padding-bottom: 15px;
+          padding-bottom: 8px;
           border-bottom: 2px solid #1a1a1a;
-          margin-bottom: 20px;
+          margin-bottom: 12px;
         }
         
         .header-left h1 {
-          font-size: 18pt;
+          font-size: 14pt;
           font-weight: bold;
           color: #1a1a1a;
-          margin-bottom: 4px;
+          margin-bottom: 2px;
         }
         
         .header-left p {
-          font-size: 9pt;
+          font-size: 7pt;
           color: #666;
         }
         
         .header-right {
           text-align: right;
-          font-size: 8pt;
+          font-size: 7pt;
           color: #666;
         }
         
         .header-right .brand {
-          font-size: 12pt;
+          font-size: 10pt;
           font-weight: bold;
           color: #1a1a1a;
         }
         
         .subtitle {
-          font-size: 11pt;
+          font-size: 8pt;
           color: #444;
-          margin-bottom: 20px;
-          padding: 10px;
+          margin-bottom: 12px;
+          padding: 6px 8px;
           background: #f5f5f5;
-          border-radius: 4px;
+          border-radius: 2px;
         }
         
         .summary {
           display: flex;
           flex-wrap: wrap;
-          gap: 15px;
-          margin-bottom: 20px;
-          padding: 15px;
+          gap: 8px;
+          margin-bottom: 12px;
+          padding: 8px;
           background: #f8f9fa;
-          border-radius: 4px;
+          border-radius: 2px;
         }
         
         .summary-item {
           flex: 1;
-          min-width: 120px;
-          padding: 10px;
+          min-width: 80px;
+          padding: 6px;
           background: white;
-          border-radius: 4px;
+          border-radius: 2px;
           border: 1px solid #e0e0e0;
+          text-align: center;
         }
         
         .summary-item .label {
-          font-size: 8pt;
+          font-size: 6pt;
           color: #666;
           text-transform: uppercase;
-          letter-spacing: 0.5px;
         }
         
         .summary-item .value {
-          font-size: 14pt;
+          font-size: 10pt;
           font-weight: bold;
           color: #1a1a1a;
-          margin-top: 4px;
+          margin-top: 2px;
         }
         
         table {
           width: 100%;
           border-collapse: collapse;
-          margin-bottom: 20px;
-          font-size: 9pt;
+          margin-bottom: 12px;
+          font-size: 7pt;
+          table-layout: fixed;
         }
         
         th {
           background: #1a1a1a;
           color: white;
-          padding: 10px 8px;
+          padding: 5px 4px;
           font-weight: 600;
           text-transform: uppercase;
-          font-size: 8pt;
-          letter-spacing: 0.5px;
+          font-size: 6pt;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
         }
         
         td {
-          padding: 8px;
+          padding: 4px;
           border-bottom: 1px solid #e0e0e0;
           vertical-align: top;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          word-wrap: break-word;
         }
         
         tr:nth-child(even) {
           background: #f9f9f9;
         }
         
-        tr:hover {
-          background: #f0f0f0;
-        }
-        
         .section-title {
-          font-size: 12pt;
+          font-size: 9pt;
           font-weight: bold;
           color: #1a1a1a;
-          margin: 25px 0 15px 0;
-          padding-bottom: 8px;
+          margin: 15px 0 8px 0;
+          padding-bottom: 4px;
           border-bottom: 1px solid #ddd;
         }
         
         .footer {
-          margin-top: 30px;
-          padding-top: 15px;
+          margin-top: 15px;
+          padding-top: 8px;
           border-top: 1px solid #ddd;
-          font-size: 8pt;
+          font-size: 6pt;
           color: #666;
           display: flex;
           justify-content: space-between;
@@ -245,9 +250,9 @@ function generatePDF(
         
         .badge {
           display: inline-block;
-          padding: 2px 8px;
-          border-radius: 4px;
-          font-size: 8pt;
+          padding: 1px 4px;
+          border-radius: 2px;
+          font-size: 6pt;
           font-weight: 500;
         }
         
@@ -262,33 +267,41 @@ function generatePDF(
         .text-warning { color: #ffc107; }
         
         .machine-section {
-          margin-bottom: 30px;
+          margin-bottom: 15px;
           page-break-inside: avoid;
         }
         
         .machine-header {
           background: #f0f0f0;
-          padding: 12px;
-          margin-bottom: 10px;
-          border-radius: 4px;
-          border-left: 4px solid #1a1a1a;
+          padding: 6px 8px;
+          margin-bottom: 6px;
+          border-radius: 2px;
+          border-left: 3px solid #1a1a1a;
         }
         
         .machine-header h3 {
-          font-size: 11pt;
-          margin-bottom: 4px;
+          font-size: 9pt;
+          margin-bottom: 2px;
         }
         
         .machine-header p {
-          font-size: 9pt;
+          font-size: 7pt;
           color: #666;
         }
         
         @media print {
-          body { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+          body { 
+            print-color-adjust: exact; 
+            -webkit-print-color-adjust: exact;
+            width: 100%;
+            max-width: 100%;
+          }
           .page { page-break-after: auto; }
           .machine-section { page-break-inside: avoid; }
           tr { page-break-inside: avoid; }
+          table { page-break-inside: auto; }
+          thead { display: table-header-group; }
+          tfoot { display: table-footer-group; }
         }
       </style>
     </head>
@@ -409,73 +422,72 @@ function generateDailyPDF(
       <title>Relatorio Diario TISAX - ${formattedDate} - TMS ONE</title>
       <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        @page { size: A4; margin: 12mm 10mm; }
+        @page { size: A4 portrait; margin: 8mm 6mm; }
         body {
-          font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-          font-size: 9pt;
-          line-height: 1.3;
+          font-family: Arial, Helvetica, sans-serif;
+          font-size: 7pt;
+          line-height: 1.2;
           color: #1a1a1a;
+          width: 100%;
+          max-width: 198mm;
+          margin: 0 auto;
         }
         .header {
           display: flex;
           justify-content: space-between;
-          padding-bottom: 12px;
-          border-bottom: 3px solid #1a1a1a;
-          margin-bottom: 15px;
+          padding-bottom: 6px;
+          border-bottom: 2px solid #1a1a1a;
+          margin-bottom: 8px;
         }
-        .header-left h1 { font-size: 16pt; margin-bottom: 2px; }
-        .header-left .subtitle { font-size: 10pt; color: #444; }
+        .header-left h1 { font-size: 12pt; margin-bottom: 1px; }
+        .header-left .subtitle { font-size: 8pt; color: #444; }
         .header-left .tisax { 
-          font-size: 8pt; 
+          font-size: 6pt; 
           color: #0066cc; 
-          margin-top: 4px;
-          display: flex;
-          align-items: center;
-          gap: 4px;
+          margin-top: 2px;
         }
-        .header-right { text-align: right; font-size: 8pt; color: #666; }
-        .header-right .brand { font-size: 11pt; font-weight: bold; color: #1a1a1a; }
+        .header-right { text-align: right; font-size: 6pt; color: #666; }
+        .header-right .brand { font-size: 9pt; font-weight: bold; color: #1a1a1a; }
         
         .summary-box {
           display: flex;
-          gap: 10px;
-          margin-bottom: 15px;
-          padding: 12px;
+          gap: 6px;
+          margin-bottom: 8px;
+          padding: 6px;
           background: #f5f5f5;
-          border-radius: 4px;
+          border-radius: 2px;
         }
         .summary-item {
           flex: 1;
           text-align: center;
-          padding: 8px;
+          padding: 4px;
           background: white;
-          border-radius: 4px;
+          border-radius: 2px;
           border: 1px solid #e0e0e0;
         }
-        .summary-item .label { font-size: 7pt; color: #666; text-transform: uppercase; }
-        .summary-item .value { font-size: 12pt; font-weight: bold; margin-top: 2px; }
+        .summary-item .label { font-size: 5pt; color: #666; text-transform: uppercase; }
+        .summary-item .value { font-size: 9pt; font-weight: bold; margin-top: 1px; }
         
-        .section { margin-bottom: 15px; page-break-inside: avoid; }
+        .section { margin-bottom: 8px; page-break-inside: avoid; }
         .section-header {
           background: #1a1a1a;
           color: white;
-          padding: 8px 12px;
-          font-size: 10pt;
+          padding: 4px 6px;
+          font-size: 7pt;
           font-weight: bold;
-          margin-bottom: 8px;
+          margin-bottom: 4px;
         }
-        .section-content { padding: 0 5px; }
+        .section-content { padding: 0 2px; }
         
-        table { width: 100%; border-collapse: collapse; font-size: 8pt; margin-bottom: 5px; }
-        th { background: #f0f0f0; padding: 6px 8px; text-align: left; font-weight: 600; border-bottom: 1px solid #ddd; }
-        td { padding: 5px 8px; border-bottom: 1px solid #eee; vertical-align: top; }
-        tr:hover { background: #fafafa; }
+        table { width: 100%; border-collapse: collapse; font-size: 6pt; margin-bottom: 3px; table-layout: fixed; }
+        th { background: #f0f0f0; padding: 3px 4px; text-align: left; font-weight: 600; border-bottom: 1px solid #ddd; font-size: 6pt; overflow: hidden; text-overflow: ellipsis; }
+        td { padding: 3px 4px; border-bottom: 1px solid #eee; vertical-align: top; overflow: hidden; text-overflow: ellipsis; word-wrap: break-word; }
         
         .badge { 
           display: inline-block; 
-          padding: 1px 6px; 
-          border-radius: 3px; 
-          font-size: 7pt; 
+          padding: 1px 3px; 
+          border-radius: 2px; 
+          font-size: 5pt; 
           font-weight: 500;
         }
         .badge-success { background: #d4edda; color: #155724; }
@@ -484,27 +496,31 @@ function generateDailyPDF(
         .badge-info { background: #cce5ff; color: #004085; }
         
         .footer {
-          margin-top: 20px;
-          padding-top: 10px;
-          border-top: 2px solid #1a1a1a;
-          font-size: 7pt;
+          margin-top: 10px;
+          padding-top: 6px;
+          border-top: 1px solid #1a1a1a;
+          font-size: 5pt;
           color: #666;
           display: flex;
           justify-content: space-between;
         }
         .footer-center {
           text-align: center;
-          font-size: 8pt;
+          font-size: 6pt;
           color: #0066cc;
         }
         
-        .audit-log { background: #fafafa; padding: 8px; margin-top: 10px; border-radius: 4px; }
-        .audit-log h4 { font-size: 9pt; margin-bottom: 8px; color: #333; }
-        
         @media print {
-          body { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+          body { 
+            print-color-adjust: exact; 
+            -webkit-print-color-adjust: exact;
+            width: 100%;
+            max-width: 100%;
+          }
           .section { page-break-inside: avoid; }
           tr { page-break-inside: avoid; }
+          table { page-break-inside: auto; }
+          thead { display: table-header-group; }
         }
       </style>
     </head>
@@ -1626,30 +1642,36 @@ export function ReportsView() {
 
       {/* Tabs de Relatorios */}
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as ReportType)}>
-        <TabsList className="grid grid-cols-6 w-full">
-          <TabsTrigger value="general" className="text-xs sm:text-sm">
-            <FileText className="w-4 h-4 mr-1 hidden sm:inline" />
-            Geral
+        <TabsList className="grid grid-cols-3 sm:grid-cols-6 w-full h-auto gap-1 p-1">
+          <TabsTrigger value="general" className="text-[10px] sm:text-xs px-1 py-2">
+            <FileText className="w-3 h-3 sm:w-4 sm:h-4 mr-0.5 sm:mr-1" />
+            <span className="hidden xs:inline">Geral</span>
+            <span className="xs:hidden">Geral</span>
           </TabsTrigger>
-          <TabsTrigger value="machines" className="text-xs sm:text-sm">
-            <Settings className="w-4 h-4 mr-1 hidden sm:inline" />
-            Maquinas
+          <TabsTrigger value="machines" className="text-[10px] sm:text-xs px-1 py-2">
+            <Settings className="w-3 h-3 sm:w-4 sm:h-4 mr-0.5 sm:mr-1" />
+            <span className="hidden sm:inline">Maquinas</span>
+            <span className="sm:hidden">Maq.</span>
           </TabsTrigger>
-          <TabsTrigger value="users" className="text-xs sm:text-sm">
-            <User className="w-4 h-4 mr-1 hidden sm:inline" />
-            Usuarios
+          <TabsTrigger value="users" className="text-[10px] sm:text-xs px-1 py-2">
+            <User className="w-3 h-3 sm:w-4 sm:h-4 mr-0.5 sm:mr-1" />
+            <span className="hidden sm:inline">Usuarios</span>
+            <span className="sm:hidden">User</span>
           </TabsTrigger>
-          <TabsTrigger value="parts" className="text-xs sm:text-sm">
-            <Package className="w-4 h-4 mr-1 hidden sm:inline" />
-            Pecas
+          <TabsTrigger value="parts" className="text-[10px] sm:text-xs px-1 py-2">
+            <Package className="w-3 h-3 sm:w-4 sm:h-4 mr-0.5 sm:mr-1" />
+            <span className="hidden sm:inline">Pecas</span>
+            <span className="sm:hidden">Pec.</span>
           </TabsTrigger>
-          <TabsTrigger value="audit" className="text-xs sm:text-sm">
-            <History className="w-4 h-4 mr-1 hidden sm:inline" />
-            Auditoria
+          <TabsTrigger value="audit" className="text-[10px] sm:text-xs px-1 py-2">
+            <History className="w-3 h-3 sm:w-4 sm:h-4 mr-0.5 sm:mr-1" />
+            <span className="hidden sm:inline">Auditoria</span>
+            <span className="sm:hidden">Audit.</span>
           </TabsTrigger>
-          <TabsTrigger value="daily" className="text-xs sm:text-sm">
-            <Shield className="w-4 h-4 mr-1 hidden sm:inline" />
-            Diario
+          <TabsTrigger value="daily" className="text-[10px] sm:text-xs px-1 py-2">
+            <Shield className="w-3 h-3 sm:w-4 sm:h-4 mr-0.5 sm:mr-1" />
+            <span className="hidden sm:inline">Diario</span>
+            <span className="sm:hidden">TISAX</span>
           </TabsTrigger>
         </TabsList>
 
@@ -1663,17 +1685,17 @@ export function ReportsView() {
               </CardDescription>
             </CardHeader>
             <CardContent className="p-0">
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
+              <div className="overflow-x-auto -mx-4 sm:mx-0">
+                <table className="w-full text-xs sm:text-sm min-w-[600px]">
                   <thead className="bg-muted">
                     <tr>
-                      <th className="p-3 text-left font-medium">Data</th>
-                      <th className="p-3 text-left font-medium">Maquina</th>
-                      <th className="p-3 text-left font-medium">Problema</th>
-                      <th className="p-3 text-center font-medium">Status</th>
-                      <th className="p-3 text-right font-medium">Tempo</th>
-                      <th className="p-3 text-right font-medium">Custo</th>
-                      <th className="p-3 text-left font-medium">Operador</th>
+                      <th className="p-2 sm:p-3 text-left font-medium text-[10px] sm:text-xs">Data</th>
+                      <th className="p-2 sm:p-3 text-left font-medium text-[10px] sm:text-xs">Maquina</th>
+                      <th className="p-2 sm:p-3 text-left font-medium text-[10px] sm:text-xs hidden sm:table-cell">Problema</th>
+                      <th className="p-2 sm:p-3 text-center font-medium text-[10px] sm:text-xs">Status</th>
+                      <th className="p-2 sm:p-3 text-right font-medium text-[10px] sm:text-xs">Tempo</th>
+                      <th className="p-2 sm:p-3 text-right font-medium text-[10px] sm:text-xs">Custo</th>
+                      <th className="p-2 sm:p-3 text-left font-medium text-[10px] sm:text-xs hidden md:table-cell">Operador</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y">
@@ -1684,31 +1706,31 @@ export function ReportsView() {
                       
                       return (
                         <tr key={ticket.id} className="hover:bg-muted/50">
-                          <td className="p-3 whitespace-nowrap">
+                          <td className="p-2 sm:p-3 whitespace-nowrap text-[10px] sm:text-xs">
                             {format(ticket.completedAt!, 'dd/MM/yy HH:mm', { locale: ptBR })}
                           </td>
-                          <td className="p-3">{machine?.name || '-'}</td>
-                          <td className="p-3">{problem?.name || '-'}</td>
-                          <td className="p-3 text-center">
+                          <td className="p-2 sm:p-3 text-[10px] sm:text-xs max-w-[100px] truncate">{machine?.name || '-'}</td>
+                          <td className="p-2 sm:p-3 text-[10px] sm:text-xs hidden sm:table-cell max-w-[120px] truncate">{problem?.name || '-'}</td>
+                          <td className="p-2 sm:p-3 text-center">
                             <Badge 
                               variant="outline" 
                               className={cn(
-                                "text-xs",
+                                "text-[9px] sm:text-xs px-1 sm:px-2",
                                 ticket.resolved 
                                   ? "bg-green-50 text-green-600 border-green-200" 
                                   : "bg-orange-50 text-orange-600 border-orange-200"
                               )}
                             >
-                              {ticket.resolved ? 'Resolvido' : 'Nao Resolvido'}
+                              {ticket.resolved ? 'OK' : 'Pendente'}
                             </Badge>
                           </td>
-                          <td className="p-3 text-right font-mono">
+                          <td className="p-2 sm:p-3 text-right font-mono text-[10px] sm:text-xs">
                             {formatDuration(ticket.downtime)}
                           </td>
-                          <td className="p-3 text-right font-mono">
+                          <td className="p-2 sm:p-3 text-right font-mono text-[10px] sm:text-xs">
                             {formatCurrency(ticket.totalCost)}
                           </td>
-                          <td className="p-3">{lastAction?.operatorName || '-'}</td>
+                          <td className="p-2 sm:p-3 text-[10px] sm:text-xs hidden md:table-cell max-w-[80px] truncate">{lastAction?.operatorName || '-'}</td>
                         </tr>
                       )
                     })}
