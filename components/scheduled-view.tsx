@@ -23,6 +23,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { useData } from '@/lib/data-context'
+import { useAuth } from '@/lib/auth-context'
 import { MAINTENANCE_TYPE_CONFIG, type ScheduledMaintenance } from '@/lib/types'
 import { Calendar, Plus, Pencil, Trash2, CheckCircle, XCircle, Clock } from 'lucide-react'
 import { format, isBefore, isToday, addDays } from 'date-fns'
@@ -38,6 +39,7 @@ export function ScheduledView() {
     deleteScheduledMaintenance,
     getMachineById 
   } = useData()
+  const { currentUser } = useAuth()
 
   const [showForm, setShowForm] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -89,25 +91,25 @@ export function ScheduledView() {
     }
 
     if (editingId) {
-      updateScheduledMaintenance(editingId, data)
+      updateScheduledMaintenance(editingId, data, currentUser?.id || '', currentUser?.name || '')
     } else {
-      addScheduledMaintenance(data)
+      addScheduledMaintenance(data, currentUser?.id || '', currentUser?.name || '')
     }
 
     resetForm()
   }
 
   const handleDelete = (id: string) => {
-    deleteScheduledMaintenance(id)
+    deleteScheduledMaintenance(id, currentUser?.id || '', currentUser?.name || '')
     setShowDeleteConfirm(null)
   }
 
   const handleMarkComplete = (id: string) => {
-    updateScheduledMaintenance(id, { status: 'completed' })
+    updateScheduledMaintenance(id, { status: 'completed' }, currentUser?.id || '', currentUser?.name || '')
   }
 
   const handleMarkCancelled = (id: string) => {
-    updateScheduledMaintenance(id, { status: 'cancelled' })
+    updateScheduledMaintenance(id, { status: 'cancelled' }, currentUser?.id || '', currentUser?.name || '')
   }
 
   // Ordenar por data

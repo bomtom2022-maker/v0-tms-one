@@ -1,7 +1,7 @@
 {
-  "name": "TMS One - Gestao de Manutencao",
-  "short_name": "TMS One",
-  "description": "Sistema de Gestao de Manutencao Industrial - Vetore",
+  "name": "TMS ONE - Tool Manager System",
+  "short_name": "TMS ONE",
+  "description": "Sistema de Gestao de Manutencao Industrial para CNC - Desenvolvido por TMS ONE",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0f172a",
@@ -66,14 +66,14 @@
       "sizes": "1280x720",
       "type": "image/png",
       "form_factor": "wide",
-      "label": "Dashboard do TMS One"
+      "label": "Dashboard TMS ONE"
     },
     {
       "src": "/screenshots/mobile.png",
       "sizes": "750x1334",
       "type": "image/png",
       "form_factor": "narrow",
-      "label": "TMS One no celular"
+      "label": "TMS ONE no celular"
     }
   ],
   "shortcuts": [

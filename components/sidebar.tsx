@@ -81,8 +81,8 @@ export function Sidebar({ currentView, onViewChange }: SidebarProps) {
               <Settings className="w-5 h-5 text-sidebar-primary-foreground" />
             </div>
             <div>
-              <h1 className="text-lg font-bold text-sidebar-foreground">TMS One</h1>
-              <p className="text-xs text-sidebar-foreground/60">Vetore</p>
+              <h1 className="text-lg font-bold text-sidebar-foreground">TMS ONE</h1>
+              <p className="text-xs text-sidebar-foreground/60">TOOL MANAGER SYSTEM</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -120,8 +120,8 @@ export function Sidebar({ currentView, onViewChange }: SidebarProps) {
               <Settings className="w-6 h-6 text-sidebar-primary-foreground" />
             </div>
             <div>
-              <h1 className="text-xl font-bold text-sidebar-foreground">TMS One</h1>
-              <p className="text-xs text-sidebar-foreground/60">Vetore Industrial</p>
+              <h1 className="text-xl font-bold text-sidebar-foreground">TMS ONE</h1>
+              <p className="text-xs text-sidebar-foreground/60">TOOL MANAGER SYSTEM</p>
             </div>
           </div>
           <NotificationBell />
@@ -196,9 +196,17 @@ export function Sidebar({ currentView, onViewChange }: SidebarProps) {
 
         {/* Footer */}
         <div className="p-4 border-t border-sidebar-border">
-          <p className="text-xs text-sidebar-foreground/50 text-center">
-            Tool Manager System v1.0
-          </p>
+          <div className="text-center space-y-1">
+            <p className="text-xs text-sidebar-foreground/50">
+              TMS ONE v1.0
+            </p>
+            <p className="text-[10px] text-sidebar-foreground/40">
+              Desenvolvido por TMS ONE
+            </p>
+            <p className="text-[10px] text-sidebar-foreground/40">
+              Todos os direitos reservados
+            </p>
+          </div>
         </div>
       </aside>
     </>

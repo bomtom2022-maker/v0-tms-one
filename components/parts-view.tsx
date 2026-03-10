@@ -23,11 +23,13 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { useData } from '@/lib/data-context'
+import { useAuth } from '@/lib/auth-context'
 import { formatCurrency } from '@/lib/types'
 import { Plus, Package, DollarSign, CheckCircle, Pencil } from 'lucide-react'
 
 export function PartsView() {
   const { parts, addPart, updatePart } = useData()
+  const { currentUser } = useAuth()
   const [showForm, setShowForm] = useState(false)
   const [newPartName, setNewPartName] = useState('')
   const [newPartPrice, setNewPartPrice] = useState('')
@@ -42,7 +44,7 @@ export function PartsView() {
     
     if (!newPartName.trim() || !newPartPrice) return
 
-    addPart(newPartName.trim(), parseFloat(newPartPrice), newPartDescription.trim() || undefined)
+    addPart(newPartName.trim(), parseFloat(newPartPrice), newPartDescription.trim() || undefined, currentUser?.id || '', currentUser?.name || '')
     
     setNewPartName('')
     setNewPartPrice('')
@@ -58,7 +60,8 @@ export function PartsView() {
   const handleEditPart = () => {
     if (!editingPart || !editingPart.name.trim()) return
     
-    updatePart(editingPart.id, editingPart.name.trim(), editingPart.price, editingPart.description?.trim() || undefined)
+    const oldPart = parts.find(p => p.id === editingPart.id)
+    updatePart(editingPart.id, editingPart.name.trim(), editingPart.price, editingPart.description?.trim() || undefined, currentUser?.id || '', currentUser?.name || '', oldPart?.price)
     setEditingPart(null)
   }
 

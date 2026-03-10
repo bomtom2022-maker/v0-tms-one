@@ -23,12 +23,14 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog'
 import { useData } from '@/lib/data-context'
+import { useAuth } from '@/lib/auth-context'
 import { PRIORITY_CONFIG, type Priority } from '@/lib/types'
 import { Plus, AlertTriangle, Clock, AlertCircle, Pencil, Search, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 export function ProblemsView() {
   const { problems, addProblem, updateProblem } = useData()
+  const { currentUser } = useAuth()
   const [isOpen, setIsOpen] = useState(false)
   const [editingProblem, setEditingProblem] = useState<{ id: string; name: string; defaultPriority: Priority } | null>(null)
   const [newProblemName, setNewProblemName] = useState('')
@@ -57,7 +59,7 @@ export function ProblemsView() {
   const handleAddProblem = () => {
     if (!newProblemName.trim()) return
     
-    addProblem(newProblemName.trim(), newProblemPriority)
+    addProblem(newProblemName.trim(), newProblemPriority, currentUser?.id || '', currentUser?.name || '')
     setNewProblemName('')
     setNewProblemPriority('medium')
     setIsOpen(false)
@@ -66,7 +68,7 @@ export function ProblemsView() {
   const handleEditProblem = () => {
     if (!editingProblem || !editingProblem.name.trim()) return
     
-    updateProblem(editingProblem.id, editingProblem.name.trim(), editingProblem.defaultPriority)
+    updateProblem(editingProblem.id, editingProblem.name.trim(), editingProblem.defaultPriority, currentUser?.id || '', currentUser?.name || '')
     setEditingProblem(null)
   }
 

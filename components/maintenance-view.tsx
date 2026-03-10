@@ -104,17 +104,17 @@ export function MaintenanceView({ ticketId, onBack, onComplete }: MaintenanceVie
 
     switch (pendingAction) {
       case 'start':
-        startMaintenance(ticketId, operatorName)
+        startMaintenance(ticketId, operatorName, currentUser?.id || '')
         break
       case 'resume':
-        resumeMaintenance(ticketId, operatorName)
+        resumeMaintenance(ticketId, operatorName, currentUser?.id || '')
         break
       case 'complete':
         const usedParts: UsedPart[] = Object.entries(selectedParts)
           .filter(([, qty]) => qty > 0)
           .map(([partId, quantity]) => ({ partId, quantity }))
         
-        completeMaintenance(ticketId, usedParts, operatorName, completionNotes.trim() || undefined, problemResolved ?? true)
+        completeMaintenance(ticketId, usedParts, operatorName, completionNotes.trim() || undefined, problemResolved ?? true, currentUser?.id || '')
         setShowSuccess(true)
         
         setTimeout(() => {
@@ -135,10 +135,10 @@ export function MaintenanceView({ ticketId, onBack, onComplete }: MaintenanceVie
   const confirmPause = useCallback(() => {
     if (!ticketId || !pauseReason.trim()) return
     
-    pauseMaintenance(ticketId, operatorName, pauseReason.trim())
+    pauseMaintenance(ticketId, operatorName, pauseReason.trim(), currentUser?.id || '')
     setShowPauseDialog(false)
     setPauseReason('')
-  }, [ticketId, operatorName, pauseReason, pauseMaintenance])
+  }, [ticketId, operatorName, pauseReason, pauseMaintenance, currentUser])
 
   const totalCost = Object.entries(selectedParts).reduce((sum, [partId, qty]) => {
     const part = parts.find(p => p.id === partId)
