@@ -201,9 +201,6 @@ export function Sidebar({ currentView, onViewChange }: SidebarProps) {
               TMS ONE v1.0
             </p>
             <p className="text-[10px] text-sidebar-foreground/40">
-              Desenvolvido por TMS ONE
-            </p>
-            <p className="text-[10px] text-sidebar-foreground/40">
               Todos os direitos reservados
             </p>
           </div>
