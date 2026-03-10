@@ -182,15 +182,15 @@ export const MACHINE_STATUS_CONFIG = {
 export const PRIORITY_CONFIG = {
   high: {
     label: 'Prioridade Alta',
-    description: 'Maquina Parada',
+    description: 'Máquina Parada',
     color: 'bg-red-500',
     textColor: 'text-red-500',
     borderColor: 'border-red-500',
     bgLight: 'bg-red-50',
   },
   medium: {
-    label: 'Prioridade Media',
-    description: 'Atencao Necessaria',
+    label: 'Prioridade Média',
+    description: 'Atenção Necessária',
     color: 'bg-orange-500',
     textColor: 'text-orange-500',
     borderColor: 'border-orange-500',

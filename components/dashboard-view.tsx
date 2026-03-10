@@ -118,7 +118,7 @@ export function DashboardView({ onSelectTicket }: DashboardViewProps) {
       <div className="flex items-start justify-between">
         <div>
           <h1 className="text-2xl lg:text-3xl font-bold text-foreground">
-            Dashboard de Gestao
+            Dashboard de Gestão
           </h1>
           <p className="text-muted-foreground mt-1">
             {totalActive} chamados ativos
@@ -146,12 +146,12 @@ export function DashboardView({ onSelectTicket }: DashboardViewProps) {
           </CardContent>
         </Card>
 
-        {/* Em Manutencao */}
+        {/* Em Manutenção */}
         <Card className="border-l-4 border-l-orange-500">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">Em Manutencao</p>
+                <p className="text-sm text-muted-foreground">Em Manutenção</p>
                 <p className="text-3xl font-bold text-orange-500">{dashboardStats.inMaintenance}</p>
               </div>
               <div className="p-3 bg-orange-50 dark:bg-orange-950 rounded-full">
@@ -159,7 +159,7 @@ export function DashboardView({ onSelectTicket }: DashboardViewProps) {
               </div>
             </div>
             <p className="text-xs text-muted-foreground mt-2">
-              Mecanicos atuando
+              Mecânicos atuando
             </p>
           </CardContent>
         </Card>
@@ -237,10 +237,10 @@ export function DashboardView({ onSelectTicket }: DashboardViewProps) {
             {/* Machine Filter */}
             <Select value={filterMachine} onValueChange={setFilterMachine}>
               <SelectTrigger>
-                <SelectValue placeholder="Todas as Maquinas" />
+                <SelectValue placeholder="Todas as Máquinas" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Todas as Maquinas</SelectItem>
+                <SelectItem value="all">Todas as Máquinas</SelectItem>
                 {machines.map((machine) => (
                   <SelectItem key={machine.id} value={machine.id}>
                     {machine.name}
@@ -285,7 +285,7 @@ export function DashboardView({ onSelectTicket }: DashboardViewProps) {
       {/* Reported Tickets Section - Somente Visualizacao */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">Manutencoes Reportadas</CardTitle>
+          <CardTitle className="text-lg">Manutenções Reportadas</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
           {activeTickets.length === 0 ? (
@@ -304,7 +304,7 @@ export function DashboardView({ onSelectTicket }: DashboardViewProps) {
                 const priorityConfig = PRIORITY_CONFIG[ticket.priority]
                 
                 const statusLabel = ticket.status === 'in-progress' 
-                  ? 'Em Manutencao' 
+                  ? 'Em Manutenção' 
                   : ticket.status === 'paused'
                     ? 'Pausado'
                     : 'Aguardando'
@@ -327,7 +327,7 @@ export function DashboardView({ onSelectTicket }: DashboardViewProps) {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
                           <h3 className="font-semibold text-foreground truncate">
-                            {machine?.name || 'Maquina Desconhecida'}
+                            {machine?.name || 'Máquina Desconhecida'}
                           </h3>
                           <Badge 
                             variant="secondary"
@@ -343,12 +343,12 @@ export function DashboardView({ onSelectTicket }: DashboardViewProps) {
                           {ticket.machineStopped && (
                             <Badge variant="destructive" className="text-xs animate-pulse">
                               <AlertCircle className="w-3 h-3 mr-1" />
-                              Maquina Parada
+                              Máquina Parada
                             </Badge>
                           )}
                         </div>
                         <p className="text-sm text-muted-foreground mt-1">
-                          {problem?.name || 'Problema nao especificado'}
+                          {problem?.name || 'Problema não especificado'}
                         </p>
                         {ticket.observation && (
                           <p className="text-sm text-foreground/80 mt-2 line-clamp-2">
