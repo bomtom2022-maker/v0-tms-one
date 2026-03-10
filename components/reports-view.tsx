@@ -96,7 +96,7 @@ function generatePDF(
       <style>
         @page {
           size: A4;
-          margin: 20mm;
+          margin: 0;
         }
         
         * {
@@ -105,23 +105,33 @@ function generatePDF(
           box-sizing: border-box;
         }
         
+        html, body {
+          width: 100%;
+          height: 100%;
+          margin: 0;
+          padding: 0;
+        }
+        
         body {
           font-family: 'Segoe UI', Arial, sans-serif;
           font-size: 12pt;
           line-height: 1.5;
           color: #222;
           background: #fff;
-          width: 210mm;
-          min-height: 297mm;
+        }
+        
+        .page-container {
+          width: 100%;
+          max-width: 100%;
+          padding: 40px 50px;
           margin: 0 auto;
-          padding: 20mm;
         }
         
         .header {
           width: 100%;
           border-bottom: 3px solid #222;
           padding-bottom: 15px;
-          margin-bottom: 20px;
+          margin-bottom: 25px;
         }
         
         .header-content {
@@ -131,14 +141,14 @@ function generatePDF(
         }
         
         .header-left h1 {
-          font-size: 22pt;
+          font-size: 24pt;
           font-weight: bold;
           color: #111;
           margin-bottom: 5px;
         }
         
         .header-left p {
-          font-size: 10pt;
+          font-size: 11pt;
           color: #666;
         }
         
@@ -147,52 +157,52 @@ function generatePDF(
         }
         
         .header-right .brand {
-          font-size: 16pt;
+          font-size: 18pt;
           font-weight: bold;
           color: #111;
         }
         
         .header-right .info {
-          font-size: 9pt;
+          font-size: 10pt;
           color: #666;
           margin-top: 3px;
         }
         
         .subtitle {
-          font-size: 11pt;
+          font-size: 12pt;
           color: #333;
-          margin-bottom: 20px;
-          padding: 12px 15px;
+          margin-bottom: 25px;
+          padding: 15px 20px;
           background: #f5f5f5;
           border-left: 5px solid #333;
         }
         
         .summary {
           display: flex;
-          gap: 15px;
-          margin-bottom: 25px;
+          gap: 20px;
+          margin-bottom: 30px;
         }
         
         .summary-item {
           flex: 1;
-          padding: 15px;
+          padding: 20px;
           text-align: center;
           background: #fafafa;
           border: 1px solid #ddd;
-          border-radius: 4px;
+          border-radius: 6px;
         }
         
         .summary-item .label {
-          font-size: 9pt;
+          font-size: 10pt;
           color: #666;
           text-transform: uppercase;
           letter-spacing: 0.5px;
           display: block;
-          margin-bottom: 5px;
+          margin-bottom: 8px;
         }
         
         .summary-item .value {
-          font-size: 18pt;
+          font-size: 20pt;
           font-weight: bold;
           color: #111;
         }
@@ -200,23 +210,23 @@ function generatePDF(
         table {
           width: 100%;
           border-collapse: collapse;
-          margin-bottom: 20px;
-          font-size: 10pt;
+          margin-bottom: 25px;
+          font-size: 11pt;
         }
         
         th {
           background: #333;
           color: #fff;
-          padding: 12px 10px;
+          padding: 14px 12px;
           font-weight: 600;
           text-align: left;
-          font-size: 9pt;
+          font-size: 10pt;
           text-transform: uppercase;
           letter-spacing: 0.5px;
         }
         
         td {
-          padding: 10px;
+          padding: 12px;
           border-bottom: 1px solid #ddd;
           vertical-align: middle;
         }
@@ -226,88 +236,94 @@ function generatePDF(
         }
         
         .footer {
-          margin-top: 30px;
-          padding-top: 15px;
+          margin-top: 40px;
+          padding-top: 20px;
           border-top: 2px solid #222;
-          font-size: 9pt;
+          font-size: 10pt;
           color: #666;
           display: flex;
           justify-content: space-between;
         }
         
         .empty-message {
-          padding: 50px;
+          padding: 60px;
           text-align: center;
           color: #888;
-          font-size: 12pt;
+          font-size: 14pt;
           font-style: italic;
           background: #f9f9f9;
           border: 1px dashed #ddd;
         }
         
         @media print {
+          @page {
+            size: A4;
+            margin: 0;
+          }
           html, body { 
-            width: 210mm !important;
-            min-height: 297mm !important;
+            width: 100% !important;
+            height: 100% !important;
             margin: 0 !important;
-            padding: 15mm !important;
+            padding: 0 !important;
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
           }
-          .header { margin-bottom: 15px; }
-          .summary { gap: 10px; }
-          .summary-item { padding: 10px; }
+          .page-container {
+            padding: 40px 50px;
+          }
         }
       </style>
     </head>
     <body>
-      <div class="header">
-        <div class="header-content">
-          <div class="header-left">
-            <h1>${title}</h1>
-            <p>Relatorio gerado automaticamente pelo sistema</p>
-          </div>
-          <div class="header-right">
-            <div class="brand">TMS ONE</div>
-            <div class="info">Tool Manager System</div>
-            <div class="info">${currentDate}</div>
+      <div class="page-container">
+        <div class="header">
+          <div class="header-content">
+            <div class="header-left">
+              <h1>${title}</h1>
+              <p>Relatorio gerado automaticamente pelo sistema</p>
+            </div>
+            <div class="header-right">
+              <div class="brand">TMS ONE</div>
+              <div class="info">Tool Manager System</div>
+              <div class="info">${currentDate}</div>
+            </div>
           </div>
         </div>
-      </div>
       
       <div class="subtitle">${subtitle}</div>
       
       ${summary ? `
-        <div class="summary">
-          ${summary.map(s => `
-            <div class="summary-item">
-              <span class="label">${s.label}</span>
-              <span class="value">${s.value}</span>
-            </div>
-          `).join('')}
-        </div>
-      ` : ''}
-      
-      ${data.length > 0 ? `
-        <table>
-          <thead>
-            <tr>
-              ${columns.map(col => `<th style="${getAlignment(col.align)}">${col.label}</th>`).join('')}
-            </tr>
-          </thead>
-          <tbody>
-            ${data.map(row => `
-              <tr>
-                ${columns.map(col => `<td style="${getAlignment(col.align)}">${row[col.key] ?? '-'}</td>`).join('')}
-              </tr>
+          <div class="summary">
+            ${summary.map(s => `
+              <div class="summary-item">
+                <span class="label">${s.label}</span>
+                <span class="value">${s.value}</span>
+              </div>
             `).join('')}
-          </tbody>
-        </table>
-      ` : '<div class="empty-message">Nenhum dado encontrado para os filtros selecionados.</div>'}
-      
-      <div class="footer">
-        <div>TMS ONE - Tool Manager System | Todos os direitos reservados</div>
-        <div>Pagina 1</div>
+          </div>
+        ` : ''}
+        
+        ${data.length > 0 ? `
+          <table>
+            <thead>
+              <tr>
+                ${columns.map(col => `<th style="${getAlignment(col.align)}">${col.label}</th>`).join('')}
+              </tr>
+            </thead>
+            <tbody>
+              ${data.map(row => `
+                <tr>
+                  ${columns.map(col => `<td style="${getAlignment(col.align)}">${row[col.key] ?? '-'}</td>`).join('')}
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        ` : '<div class="empty-message">Nenhum dado encontrado para os filtros selecionados.</div>'}
+        
+        <div class="footer">
+          <div>TMS ONE - Tool Manager System | Todos os direitos reservados</div>
+          <div>Pagina 1</div>
+        </div>
       </div>
       
       <script>
@@ -378,10 +394,17 @@ function generateDailyPDF(
       <style>
         @page {
           size: A4;
-          margin: 20mm;
+          margin: 0;
         }
         
         * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        html, body {
+          width: 100%;
+          height: 100%;
+          margin: 0;
+          padding: 0;
+        }
         
         body {
           font-family: 'Segoe UI', Arial, sans-serif;
@@ -389,17 +412,20 @@ function generateDailyPDF(
           line-height: 1.4;
           color: #222;
           background: #fff;
-          width: 210mm;
-          min-height: 297mm;
+        }
+        
+        .page-container {
+          width: 100%;
+          max-width: 100%;
+          padding: 40px 50px;
           margin: 0 auto;
-          padding: 20mm;
         }
         
         .header {
           width: 100%;
           padding-bottom: 15px;
           border-bottom: 3px solid #222;
-          margin-bottom: 20px;
+          margin-bottom: 25px;
         }
         
         .header-content {
@@ -408,67 +434,67 @@ function generateDailyPDF(
           align-items: flex-start;
         }
         
-        .header-left h1 { font-size: 20pt; margin-bottom: 5px; color: #111; }
-        .header-left .subtitle { font-size: 12pt; color: #333; }
+        .header-left h1 { font-size: 22pt; margin-bottom: 5px; color: #111; }
+        .header-left .subtitle { font-size: 13pt; color: #333; }
         .header-left .tisax { 
-          font-size: 10pt; 
+          font-size: 11pt; 
           color: #0066cc; 
           margin-top: 8px;
           font-weight: bold;
         }
         .header-right { text-align: right; }
-        .header-right .brand { font-size: 14pt; font-weight: bold; color: #111; }
-        .header-right .info { font-size: 9pt; color: #666; margin-top: 3px; }
+        .header-right .brand { font-size: 16pt; font-weight: bold; color: #111; }
+        .header-right .info { font-size: 10pt; color: #666; margin-top: 3px; }
         
         .summary-box {
           display: flex;
-          gap: 15px;
-          margin-bottom: 25px;
+          gap: 20px;
+          margin-bottom: 30px;
         }
         
         .summary-item {
           flex: 1;
           text-align: center;
-          padding: 15px;
+          padding: 18px;
           background: #fafafa;
           border: 1px solid #ddd;
-          border-radius: 4px;
+          border-radius: 6px;
         }
         
-        .summary-item .label { font-size: 8pt; color: #666; text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 5px; }
-        .summary-item .value { font-size: 16pt; font-weight: bold; color: #111; }
+        .summary-item .label { font-size: 9pt; color: #666; text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 6px; }
+        .summary-item .value { font-size: 18pt; font-weight: bold; color: #111; }
         
-        .section { margin-bottom: 20px; page-break-inside: avoid; }
+        .section { margin-bottom: 25px; page-break-inside: avoid; }
         .section-header {
           background: #333;
           color: white;
-          padding: 10px 15px;
-          font-size: 11pt;
+          padding: 12px 18px;
+          font-size: 12pt;
           font-weight: bold;
-          margin-bottom: 10px;
+          margin-bottom: 12px;
         }
         .section-content { padding: 0; }
         
-        table { width: 100%; border-collapse: collapse; font-size: 10pt; margin-bottom: 10px; }
-        th { background: #f0f0f0; padding: 10px; text-align: left; font-weight: 600; border: 1px solid #ddd; font-size: 9pt; text-transform: uppercase; }
-        td { padding: 8px 10px; border: 1px solid #ddd; vertical-align: top; }
+        table { width: 100%; border-collapse: collapse; font-size: 11pt; margin-bottom: 12px; }
+        th { background: #f0f0f0; padding: 12px; text-align: left; font-weight: 600; border: 1px solid #ddd; font-size: 10pt; text-transform: uppercase; }
+        td { padding: 10px 12px; border: 1px solid #ddd; vertical-align: top; }
         tr:nth-child(even) { background: #f9f9f9; }
         
         .badge { 
           display: inline-block; 
-          padding: 3px 8px; 
-          border-radius: 3px; 
-          font-size: 9pt; 
+          padding: 4px 10px; 
+          border-radius: 4px; 
+          font-size: 10pt; 
           font-weight: bold;
         }
         .badge-success { background: #d4edda; color: #155724; }
         .badge-warning { background: #fff3cd; color: #856404; }
         
         .footer {
-          margin-top: 30px;
-          padding-top: 15px;
+          margin-top: 40px;
+          padding-top: 20px;
           border-top: 2px solid #222;
-          font-size: 9pt;
+          font-size: 10pt;
           color: #666;
           display: flex;
           justify-content: space-between;
@@ -479,7 +505,7 @@ function generateDailyPDF(
         }
         
         .empty-msg {
-          padding: 30px;
+          padding: 40px;
           text-align: center;
           color: #888;
           font-style: italic;
@@ -488,49 +514,50 @@ function generateDailyPDF(
         }
         
         @media print {
+          @page { size: A4; margin: 0; }
           html, body { 
-            width: 210mm !important;
-            min-height: 297mm !important;
+            width: 100% !important;
+            height: 100% !important;
             margin: 0 !important;
-            padding: 15mm !important;
+            padding: 0 !important;
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
           }
+          .page-container { padding: 40px 50px; }
           .section { page-break-inside: avoid; }
-          .summary-box { gap: 10px; }
-          .summary-item { padding: 10px; }
         }
       </style>
     </head>
     <body>
-      <div class="header">
-        <div class="header-content">
-          <div class="header-left">
-            <h1>Relatorio Diario de Operacoes</h1>
-            <div class="subtitle">${formattedDate}</div>
-            <div class="tisax">Preparado para conformidade TISAX</div>
+      <div class="page-container">
+        <div class="header">
+          <div class="header-content">
+            <div class="header-left">
+              <h1>Relatorio Diario de Operacoes</h1>
+              <div class="subtitle">${formattedDate}</div>
+              <div class="tisax">Preparado para conformidade TISAX</div>
+            </div>
+            <div class="header-right">
+              <div class="brand">TMS ONE</div>
+              <div class="info">Tool Manager System</div>
+              <div class="info">Gerado em: ${currentDateTime}</div>
+            </div>
           </div>
-          <div class="header-right">
-            <div class="brand">TMS ONE</div>
-            <div class="info">Tool Manager System</div>
-            <div class="info">Gerado em: ${currentDateTime}</div>
+        </div>
+        
+        <div class="summary-box">
+          <div class="summary-item">
+            <span class="label">Chamados Abertos</span>
+            <span class="value">${summary.totalTicketsCreated}</span>
           </div>
-        </div>
-      </div>
-      
-      <div class="summary-box">
-        <div class="summary-item">
-          <span class="label">Chamados Abertos</span>
-          <span class="value">${summary.totalTicketsCreated}</span>
-        </div>
-        <div class="summary-item">
-          <span class="label">Chamados Finalizados</span>
-          <span class="value">${summary.totalTicketsCompleted}</span>
-        </div>
-        <div class="summary-item">
-          <span class="label">Tempo Total Parado</span>
-          <span class="value">${summary.totalDowntime}</span>
-        </div>
+          <div class="summary-item">
+            <span class="label">Chamados Finalizados</span>
+            <span class="value">${summary.totalTicketsCompleted}</span>
+          </div>
+          <div class="summary-item">
+            <span class="label">Tempo Total Parado</span>
+            <span class="value">${summary.totalDowntime}</span>
+          </div>
         <div class="summary-item">
           <span class="label">Custo em Pecas</span>
           <span class="value">${summary.totalCost}</span>
@@ -642,9 +669,10 @@ function generateDailyPDF(
       </div>
       
       <div class="footer">
-        <div>TMS ONE - Tool Manager System v1.0</div>
-        <div class="footer-center">Documento gerado automaticamente para fins de auditoria e conformidade TISAX</div>
-        <div>Todos os direitos reservados</div>
+          <div>TMS ONE - Tool Manager System v1.0</div>
+          <div class="footer-center">Documento gerado automaticamente para fins de auditoria e conformidade TISAX</div>
+          <div>Todos os direitos reservados</div>
+        </div>
       </div>
       
       <script>
@@ -695,80 +723,83 @@ function generateMachineDetailPDF(
       <meta charset="UTF-8">
       <title>Relatorio por Maquina - TMS ONE</title>
       <style>
-        @page { size: A4; margin: 20mm; }
+        @page { size: A4; margin: 0; }
         * { margin: 0; padding: 0; box-sizing: border-box; }
+        html, body { width: 100%; height: 100%; margin: 0; padding: 0; }
         body {
           font-family: 'Segoe UI', Arial, sans-serif;
           font-size: 11pt;
           line-height: 1.4;
           color: #222;
           background: #fff;
-          width: 210mm;
-          min-height: 297mm;
+        }
+        .page-container {
+          width: 100%;
+          max-width: 100%;
+          padding: 40px 50px;
           margin: 0 auto;
-          padding: 20mm;
         }
         .header {
           width: 100%;
           padding-bottom: 15px;
           border-bottom: 3px solid #222;
-          margin-bottom: 25px;
+          margin-bottom: 30px;
         }
         .header-content {
           display: flex;
           justify-content: space-between;
           align-items: flex-start;
         }
-        .header h1 { font-size: 20pt; color: #111; margin-bottom: 5px; }
-        .header p { font-size: 10pt; color: #666; }
+        .header h1 { font-size: 22pt; color: #111; margin-bottom: 5px; }
+        .header p { font-size: 11pt; color: #666; }
         .header-right { text-align: right; }
-        .header-right .brand { font-size: 14pt; font-weight: bold; color: #111; }
-        .header-right .info { font-size: 9pt; color: #666; margin-top: 3px; }
+        .header-right .brand { font-size: 16pt; font-weight: bold; color: #111; }
+        .header-right .info { font-size: 10pt; color: #666; margin-top: 3px; }
         .machine-section {
-          margin-bottom: 30px;
+          margin-bottom: 35px;
           page-break-inside: avoid;
         }
         .machine-header {
           background: #333;
           color: white;
-          padding: 12px 15px;
-          margin-bottom: 12px;
+          padding: 14px 18px;
+          margin-bottom: 15px;
         }
-        .machine-header h3 { font-size: 13pt; margin-bottom: 3px; }
-        .machine-header p { font-size: 10pt; opacity: 0.9; }
+        .machine-header h3 { font-size: 14pt; margin-bottom: 4px; }
+        .machine-header p { font-size: 11pt; opacity: 0.9; }
         .machine-stats {
           display: flex;
-          gap: 15px;
-          margin-bottom: 15px;
+          gap: 20px;
+          margin-bottom: 20px;
         }
         .machine-stats > div {
           flex: 1;
           text-align: center;
-          padding: 12px;
+          padding: 15px;
           background: #fafafa;
           border: 1px solid #ddd;
-          border-radius: 4px;
+          border-radius: 6px;
         }
-        .machine-stats .label { font-size: 8pt; color: #666; text-transform: uppercase; display: block; margin-bottom: 5px; }
-        .machine-stats .value { font-size: 14pt; font-weight: bold; color: #111; }
-        table { width: 100%; border-collapse: collapse; font-size: 10pt; }
-        th { background: #f0f0f0; padding: 10px; text-align: left; font-weight: 600; border: 1px solid #ddd; font-size: 9pt; text-transform: uppercase; }
-        td { padding: 8px 10px; border: 1px solid #ddd; vertical-align: middle; }
+        .machine-stats .label { font-size: 9pt; color: #666; text-transform: uppercase; display: block; margin-bottom: 6px; }
+        .machine-stats .value { font-size: 16pt; font-weight: bold; color: #111; }
+        table { width: 100%; border-collapse: collapse; font-size: 11pt; }
+        th { background: #f0f0f0; padding: 12px; text-align: left; font-weight: 600; border: 1px solid #ddd; font-size: 10pt; text-transform: uppercase; }
+        td { padding: 10px 12px; border: 1px solid #ddd; vertical-align: middle; }
         tr:nth-child(even) { background: #f9f9f9; }
-        .badge { display: inline-block; padding: 3px 8px; border-radius: 3px; font-size: 9pt; font-weight: bold; }
+        .badge { display: inline-block; padding: 4px 10px; border-radius: 4px; font-size: 10pt; font-weight: bold; }
         .badge-success { background: #d4edda; color: #155724; }
         .badge-warning { background: #fff3cd; color: #856404; }
         .footer {
-          margin-top: 30px;
-          padding-top: 15px;
+          margin-top: 40px;
+          padding-top: 20px;
           border-top: 2px solid #222;
-          font-size: 9pt;
+          font-size: 10pt;
           color: #666;
           display: flex;
           justify-content: space-between;
         }
         .empty-msg {
-          padding: 30px;
+          padding: 40px;
           text-align: center;
           color: #888;
           font-style: italic;
@@ -776,89 +807,91 @@ function generateMachineDetailPDF(
           border: 1px dashed #ddd;
         }
         @media print {
+          @page { size: A4; margin: 0; }
           html, body { 
-            width: 210mm !important;
-            min-height: 297mm !important;
+            width: 100% !important;
+            height: 100% !important;
             margin: 0 !important;
-            padding: 15mm !important;
+            padding: 0 !important;
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
           }
+          .page-container { padding: 40px 50px; }
           .machine-section { page-break-inside: avoid; }
-          .machine-stats { gap: 10px; }
-          .machine-stats > div { padding: 10px; }
         }
       </style>
     </head>
     <body>
-      <div class="header">
-        <div class="header-content">
-          <div>
-            <h1>Relatorio Detalhado por Maquina</h1>
-            <p>Historico completo de manutencoes</p>
-          </div>
-          <div class="header-right">
-            <div class="brand">TMS ONE</div>
-            <div class="info">Tool Manager System</div>
-            <div class="info">${currentDate}</div>
+      <div class="page-container">
+        <div class="header">
+          <div class="header-content">
+            <div>
+              <h1>Relatorio Detalhado por Maquina</h1>
+              <p>Historico completo de manutencoes</p>
+            </div>
+            <div class="header-right">
+              <div class="brand">TMS ONE</div>
+              <div class="info">Tool Manager System</div>
+              <div class="info">${currentDate}</div>
+            </div>
           </div>
         </div>
-      </div>
-      
-      ${machineData.map(machine => `
-        <div class="machine-section">
-          <div class="machine-header">
-            <h3>${machine.machineName}</h3>
-            <p>${machine.sector}</p>
-          </div>
-          <div class="machine-stats">
-            <div>
-              <span class="label">Total de Chamados</span>
-              <span class="value">${machine.tickets.length}</span>
+        
+        ${machineData.map(machine => `
+          <div class="machine-section">
+            <div class="machine-header">
+              <h3>${machine.machineName}</h3>
+              <p>${machine.sector}</p>
             </div>
-            <div>
-              <span class="label">Tempo Parado</span>
-              <span class="value">${formatDuration(machine.totalDowntime)}</span>
+            <div class="machine-stats">
+              <div>
+                <span class="label">Total de Chamados</span>
+                <span class="value">${machine.tickets.length}</span>
+              </div>
+              <div>
+                <span class="label">Tempo Parado</span>
+                <span class="value">${formatDuration(machine.totalDowntime)}</span>
+              </div>
+              <div>
+                <span class="label">Custo Total</span>
+                <span class="value">${formatCurrency(machine.totalCost)}</span>
+              </div>
             </div>
-            <div>
-              <span class="label">Custo Total</span>
-              <span class="value">${formatCurrency(machine.totalCost)}</span>
-            </div>
-          </div>
-          ${machine.tickets.length > 0 ? `
-            <table>
-              <thead>
-                <tr>
-                  <th>Data</th>
-                  <th>Problema</th>
-                  <th>Status</th>
-                  <th>Tempo</th>
-                  <th>Custo</th>
-                  <th>Operador</th>
-                  <th>Pecas</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${machine.tickets.map(t => `
+            ${machine.tickets.length > 0 ? `
+              <table>
+                <thead>
                   <tr>
-                    <td>${t.date}</td>
-                    <td>${t.problem}</td>
-                    <td><span class="badge ${t.resolved ? 'badge-success' : 'badge-warning'}">${t.resolved ? 'Resolvido' : 'Nao Resolvido'}</span></td>
-                    <td>${formatDuration(t.downtime)}</td>
-                    <td>${formatCurrency(t.cost)}</td>
-                    <td>${t.operator}</td>
-                    <td>${t.parts || '-'}</td>
+                    <th>Data</th>
+                    <th>Problema</th>
+                    <th>Status</th>
+                    <th>Tempo</th>
+                    <th>Custo</th>
+                    <th>Operador</th>
+                    <th>Pecas</th>
                   </tr>
-                `).join('')}
-              </tbody>
-            </table>
-          ` : '<div class="empty-msg">Nenhuma manutencao registrada</div>'}
+                </thead>
+                <tbody>
+                  ${machine.tickets.map(t => `
+                    <tr>
+                      <td>${t.date}</td>
+                      <td>${t.problem}</td>
+                      <td><span class="badge ${t.resolved ? 'badge-success' : 'badge-warning'}">${t.resolved ? 'Resolvido' : 'Nao Resolvido'}</span></td>
+                      <td>${formatDuration(t.downtime)}</td>
+                      <td>${formatCurrency(t.cost)}</td>
+                      <td>${t.operator}</td>
+                      <td>${t.parts || '-'}</td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+            ` : '<div class="empty-msg">Nenhuma manutencao registrada</div>'}
+          </div>
+        `).join('')}
+        
+        <div class="footer">
+          <div>TMS ONE - Tool Manager System | Todos os direitos reservados</div>
+          <div>Pagina 1</div>
         </div>
-      `).join('')}
-      
-      <div class="footer">
-        <div>TMS ONE - Tool Manager System | Todos os direitos reservados</div>
-        <div>Pagina 1</div>
       </div>
       
       <script>
