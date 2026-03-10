@@ -92,12 +92,11 @@ function generatePDF(
     <html lang="pt-BR">
     <head>
       <meta charset="UTF-8">
-      <meta name="viewport" content="width=device-width, initial-scale=1.0">
       <title>${title} - TMS ONE</title>
       <style>
         @page {
           size: A4;
-          margin: 15mm 12mm 15mm 12mm;
+          margin: 20mm;
         }
         
         * {
@@ -106,240 +105,168 @@ function generatePDF(
           box-sizing: border-box;
         }
         
-        html, body {
-          width: 100%;
-          height: 100%;
-        }
-        
         body {
-          font-family: Arial, Helvetica, sans-serif;
-          font-size: 11px;
-          line-height: 1.4;
-          color: #000;
+          font-family: 'Segoe UI', Arial, sans-serif;
+          font-size: 12pt;
+          line-height: 1.5;
+          color: #222;
           background: #fff;
-          padding: 0;
-          margin: 0;
-        }
-        
-        .container {
-          width: 100%;
-          padding: 20px;
+          width: 210mm;
+          min-height: 297mm;
+          margin: 0 auto;
+          padding: 20mm;
         }
         
         .header {
-          display: table;
           width: 100%;
-          padding-bottom: 10px;
-          border-bottom: 3px solid #000;
-          margin-bottom: 15px;
+          border-bottom: 3px solid #222;
+          padding-bottom: 15px;
+          margin-bottom: 20px;
         }
         
-        .header-left {
-          display: table-cell;
-          vertical-align: top;
-          width: 70%;
-        }
-        
-        .header-right {
-          display: table-cell;
-          vertical-align: top;
-          width: 30%;
-          text-align: right;
+        .header-content {
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-start;
         }
         
         .header-left h1 {
-          font-size: 20px;
+          font-size: 22pt;
           font-weight: bold;
-          color: #000;
-          margin-bottom: 3px;
+          color: #111;
+          margin-bottom: 5px;
         }
         
         .header-left p {
-          font-size: 10px;
-          color: #555;
+          font-size: 10pt;
+          color: #666;
+        }
+        
+        .header-right {
+          text-align: right;
         }
         
         .header-right .brand {
-          font-size: 14px;
+          font-size: 16pt;
           font-weight: bold;
-          color: #000;
+          color: #111;
         }
         
         .header-right .info {
-          font-size: 9px;
-          color: #555;
+          font-size: 9pt;
+          color: #666;
           margin-top: 3px;
         }
         
         .subtitle {
-          font-size: 11px;
+          font-size: 11pt;
           color: #333;
-          margin-bottom: 15px;
-          padding: 8px 10px;
-          background: #f0f0f0;
-          border-left: 4px solid #000;
+          margin-bottom: 20px;
+          padding: 12px 15px;
+          background: #f5f5f5;
+          border-left: 5px solid #333;
         }
         
         .summary {
-          display: table;
-          width: 100%;
-          margin-bottom: 15px;
-          border: 1px solid #ddd;
-        }
-        
-        .summary-row {
-          display: table-row;
+          display: flex;
+          gap: 15px;
+          margin-bottom: 25px;
         }
         
         .summary-item {
-          display: table-cell;
-          padding: 10px;
+          flex: 1;
+          padding: 15px;
           text-align: center;
-          border-right: 1px solid #ddd;
           background: #fafafa;
-        }
-        
-        .summary-item:last-child {
-          border-right: none;
+          border: 1px solid #ddd;
+          border-radius: 4px;
         }
         
         .summary-item .label {
-          font-size: 9px;
+          font-size: 9pt;
           color: #666;
           text-transform: uppercase;
+          letter-spacing: 0.5px;
           display: block;
+          margin-bottom: 5px;
         }
         
         .summary-item .value {
-          font-size: 16px;
+          font-size: 18pt;
           font-weight: bold;
-          color: #000;
-          display: block;
-          margin-top: 3px;
+          color: #111;
         }
         
         table {
           width: 100%;
           border-collapse: collapse;
-          margin-bottom: 15px;
-          font-size: 10px;
+          margin-bottom: 20px;
+          font-size: 10pt;
         }
         
         th {
           background: #333;
           color: #fff;
-          padding: 8px 6px;
-          font-weight: bold;
+          padding: 12px 10px;
+          font-weight: 600;
           text-align: left;
-          font-size: 9px;
+          font-size: 9pt;
           text-transform: uppercase;
-          border: 1px solid #333;
+          letter-spacing: 0.5px;
         }
         
         td {
-          padding: 6px;
-          border: 1px solid #ddd;
-          vertical-align: top;
-          word-wrap: break-word;
+          padding: 10px;
+          border-bottom: 1px solid #ddd;
+          vertical-align: middle;
         }
         
         tr:nth-child(even) {
           background: #f9f9f9;
         }
         
-        .section-title {
-          font-size: 13px;
-          font-weight: bold;
-          color: #000;
-          margin: 20px 0 10px 0;
-          padding-bottom: 5px;
-          border-bottom: 2px solid #333;
-        }
-        
         .footer {
-          margin-top: 20px;
-          padding-top: 10px;
-          border-top: 2px solid #000;
-          font-size: 9px;
-          color: #555;
-          display: table;
-          width: 100%;
-        }
-        
-        .footer-left, .footer-right {
-          display: table-cell;
-        }
-        
-        .footer-right {
-          text-align: right;
-        }
-        
-        .badge {
-          display: inline-block;
-          padding: 2px 6px;
-          border-radius: 3px;
-          font-size: 9px;
-          font-weight: bold;
-        }
-        
-        .badge-success { background: #d4edda; color: #155724; }
-        .badge-warning { background: #fff3cd; color: #856404; }
-        .badge-danger { background: #f8d7da; color: #721c24; }
-        .badge-info { background: #d1ecf1; color: #0c5460; }
-        
-        .text-muted { color: #666; }
-        .text-success { color: #28a745; }
-        .text-danger { color: #dc3545; }
-        .text-warning { color: #ffc107; }
-        
-        .machine-section {
-          margin-bottom: 20px;
-          page-break-inside: avoid;
-        }
-        
-        .machine-header {
-          background: #f0f0f0;
-          padding: 8px 10px;
-          margin-bottom: 8px;
-          border-left: 4px solid #000;
-        }
-        
-        .machine-header h3 {
-          font-size: 12px;
-          margin-bottom: 3px;
-        }
-        
-        .machine-header p {
-          font-size: 10px;
-          color: #555;
+          margin-top: 30px;
+          padding-top: 15px;
+          border-top: 2px solid #222;
+          font-size: 9pt;
+          color: #666;
+          display: flex;
+          justify-content: space-between;
         }
         
         .empty-message {
-          padding: 30px;
+          padding: 50px;
           text-align: center;
-          color: #666;
+          color: #888;
+          font-size: 12pt;
           font-style: italic;
+          background: #f9f9f9;
+          border: 1px dashed #ddd;
         }
         
         @media print {
           body { 
-            print-color-adjust: exact; 
-            -webkit-print-color-adjust: exact;
-          }
-          .container {
+            width: 100%;
             padding: 0;
+            margin: 0;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
           }
-          .machine-section { page-break-inside: avoid; }
-          tr { page-break-inside: avoid; }
-          table { page-break-inside: auto; }
-          thead { display: table-header-group; }
-          tfoot { display: table-footer-group; }
+          .header-content { display: table; width: 100%; }
+          .header-left { display: table-cell; width: 70%; }
+          .header-right { display: table-cell; width: 30%; }
+          .summary { display: table; width: 100%; }
+          .summary-item { display: table-cell; }
+          .footer { display: table; width: 100%; }
+          .footer > div { display: table-cell; }
+          .footer > div:last-child { text-align: right; }
         }
       </style>
     </head>
     <body>
-      <div class="container">
-        <div class="header">
+      <div class="header">
+        <div class="header-content">
           <div class="header-left">
             <h1>${title}</h1>
             <p>Relatorio gerado automaticamente pelo sistema</p>
@@ -350,48 +277,46 @@ function generatePDF(
             <div class="info">${currentDate}</div>
           </div>
         </div>
-        
-        <div class="subtitle">${subtitle}</div>
-        
-        ${summary ? `
-          <div class="summary">
-            <div class="summary-row">
-              ${summary.map(s => `
-                <div class="summary-item">
-                  <span class="label">${s.label}</span>
-                  <span class="value">${s.value}</span>
-                </div>
-              `).join('')}
+      </div>
+      
+      <div class="subtitle">${subtitle}</div>
+      
+      ${summary ? `
+        <div class="summary">
+          ${summary.map(s => `
+            <div class="summary-item">
+              <span class="label">${s.label}</span>
+              <span class="value">${s.value}</span>
             </div>
-          </div>
-        ` : ''}
-        
-        ${data.length > 0 ? `
-          <table>
-            <thead>
-              <tr>
-                ${columns.map(col => `<th style="${getAlignment(col.align)}">${col.label}</th>`).join('')}
-              </tr>
-            </thead>
-            <tbody>
-              ${data.map(row => `
-                <tr>
-                  ${columns.map(col => `<td style="${getAlignment(col.align)}">${row[col.key] ?? '-'}</td>`).join('')}
-                </tr>
-              `).join('')}
-            </tbody>
-          </table>
-        ` : '<div class="empty-message">Nenhum dado encontrado para os filtros selecionados.</div>'}
-        
-        <div class="footer">
-          <div class="footer-left">TMS ONE - Tool Manager System | Todos os direitos reservados</div>
-          <div class="footer-right">Pagina 1</div>
+          `).join('')}
         </div>
+      ` : ''}
+      
+      ${data.length > 0 ? `
+        <table>
+          <thead>
+            <tr>
+              ${columns.map(col => `<th style="${getAlignment(col.align)}">${col.label}</th>`).join('')}
+            </tr>
+          </thead>
+          <tbody>
+            ${data.map(row => `
+              <tr>
+                ${columns.map(col => `<td style="${getAlignment(col.align)}">${row[col.key] ?? '-'}</td>`).join('')}
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      ` : '<div class="empty-message">Nenhum dado encontrado para os filtros selecionados.</div>'}
+      
+      <div class="footer">
+        <div>TMS ONE - Tool Manager System | Todos os direitos reservados</div>
+        <div>Pagina 1</div>
       </div>
       
       <script>
         window.onload = function() {
-          setTimeout(function() { window.print(); }, 500);
+          setTimeout(function() { window.print(); }, 300);
         }
       </script>
     </body>
@@ -453,191 +378,174 @@ function generateDailyPDF(
     <html lang="pt-BR">
     <head>
       <meta charset="UTF-8">
-      <meta name="viewport" content="width=device-width, initial-scale=1.0">
       <title>Relatorio Diario TISAX - ${formattedDate} - TMS ONE</title>
       <style>
         @page {
           size: A4;
-          margin: 12mm 10mm 12mm 10mm;
+          margin: 20mm;
         }
         
         * { margin: 0; padding: 0; box-sizing: border-box; }
         
-        html, body {
-          width: 100%;
-          height: 100%;
-        }
-        
         body {
-          font-family: Arial, Helvetica, sans-serif;
-          font-size: 10px;
-          line-height: 1.3;
-          color: #000;
+          font-family: 'Segoe UI', Arial, sans-serif;
+          font-size: 11pt;
+          line-height: 1.4;
+          color: #222;
           background: #fff;
-          padding: 15px;
+          width: 210mm;
+          min-height: 297mm;
+          margin: 0 auto;
+          padding: 20mm;
         }
         
         .header {
-          display: table;
           width: 100%;
-          padding-bottom: 8px;
-          border-bottom: 3px solid #000;
-          margin-bottom: 12px;
+          padding-bottom: 15px;
+          border-bottom: 3px solid #222;
+          margin-bottom: 20px;
         }
         
-        .header-left {
-          display: table-cell;
-          vertical-align: top;
-          width: 65%;
+        .header-content {
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-start;
         }
         
-        .header-right {
-          display: table-cell;
-          vertical-align: top;
-          width: 35%;
-          text-align: right;
-        }
-        
-        .header-left h1 { font-size: 18px; margin-bottom: 3px; color: #000; }
-        .header-left .subtitle { font-size: 12px; color: #333; }
+        .header-left h1 { font-size: 20pt; margin-bottom: 5px; color: #111; }
+        .header-left .subtitle { font-size: 12pt; color: #333; }
         .header-left .tisax { 
-          font-size: 10px; 
+          font-size: 10pt; 
           color: #0066cc; 
-          margin-top: 4px;
+          margin-top: 8px;
           font-weight: bold;
         }
-        .header-right .brand { font-size: 14px; font-weight: bold; color: #000; }
-        .header-right .info { font-size: 9px; color: #555; margin-top: 2px; }
+        .header-right { text-align: right; }
+        .header-right .brand { font-size: 14pt; font-weight: bold; color: #111; }
+        .header-right .info { font-size: 9pt; color: #666; margin-top: 3px; }
         
         .summary-box {
-          display: table;
-          width: 100%;
-          margin-bottom: 12px;
-          border: 1px solid #ddd;
-        }
-        
-        .summary-row {
-          display: table-row;
+          display: flex;
+          gap: 15px;
+          margin-bottom: 25px;
         }
         
         .summary-item {
-          display: table-cell;
+          flex: 1;
           text-align: center;
-          padding: 8px;
+          padding: 15px;
           background: #fafafa;
-          border-right: 1px solid #ddd;
+          border: 1px solid #ddd;
+          border-radius: 4px;
         }
         
-        .summary-item:last-child {
-          border-right: none;
-        }
+        .summary-item .label { font-size: 8pt; color: #666; text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 5px; }
+        .summary-item .value { font-size: 16pt; font-weight: bold; color: #111; }
         
-        .summary-item .label { font-size: 8px; color: #666; text-transform: uppercase; display: block; }
-        .summary-item .value { font-size: 14px; font-weight: bold; margin-top: 2px; display: block; color: #000; }
-        
-        .section { margin-bottom: 12px; page-break-inside: avoid; }
+        .section { margin-bottom: 20px; page-break-inside: avoid; }
         .section-header {
           background: #333;
           color: white;
-          padding: 6px 10px;
-          font-size: 11px;
+          padding: 10px 15px;
+          font-size: 11pt;
           font-weight: bold;
-          margin-bottom: 6px;
+          margin-bottom: 10px;
         }
         .section-content { padding: 0; }
         
-        table { width: 100%; border-collapse: collapse; font-size: 9px; margin-bottom: 5px; }
-        th { background: #f0f0f0; padding: 6px 8px; text-align: left; font-weight: bold; border: 1px solid #ddd; font-size: 8px; text-transform: uppercase; }
-        td { padding: 5px 8px; border: 1px solid #ddd; vertical-align: top; }
+        table { width: 100%; border-collapse: collapse; font-size: 10pt; margin-bottom: 10px; }
+        th { background: #f0f0f0; padding: 10px; text-align: left; font-weight: 600; border: 1px solid #ddd; font-size: 9pt; text-transform: uppercase; }
+        td { padding: 8px 10px; border: 1px solid #ddd; vertical-align: top; }
         tr:nth-child(even) { background: #f9f9f9; }
         
         .badge { 
           display: inline-block; 
-          padding: 2px 6px; 
+          padding: 3px 8px; 
           border-radius: 3px; 
-          font-size: 8px; 
+          font-size: 9pt; 
           font-weight: bold;
         }
         .badge-success { background: #d4edda; color: #155724; }
         .badge-warning { background: #fff3cd; color: #856404; }
-        .badge-danger { background: #f8d7da; color: #721c24; }
-        .badge-info { background: #cce5ff; color: #004085; }
         
         .footer {
-          margin-top: 15px;
-          padding-top: 8px;
-          border-top: 2px solid #000;
-          font-size: 8px;
-          color: #555;
-          display: table;
-          width: 100%;
-        }
-        .footer-left, .footer-center, .footer-right {
-          display: table-cell;
+          margin-top: 30px;
+          padding-top: 15px;
+          border-top: 2px solid #222;
+          font-size: 9pt;
+          color: #666;
+          display: flex;
+          justify-content: space-between;
         }
         .footer-center {
           text-align: center;
           color: #0066cc;
         }
-        .footer-right {
-          text-align: right;
-        }
         
         .empty-msg {
-          padding: 15px;
+          padding: 30px;
           text-align: center;
-          color: #666;
+          color: #888;
           font-style: italic;
+          background: #f9f9f9;
+          border: 1px dashed #ddd;
         }
         
         @media print {
           body { 
-            print-color-adjust: exact; 
-            -webkit-print-color-adjust: exact;
+            width: 100%;
             padding: 0;
+            margin: 0;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
           }
+          .header-content { display: table; width: 100%; }
+          .header-left { display: table-cell; width: 65%; }
+          .header-right { display: table-cell; width: 35%; }
+          .summary-box { display: table; width: 100%; }
+          .summary-item { display: table-cell; }
+          .footer { display: table; width: 100%; }
+          .footer > div { display: table-cell; }
           .section { page-break-inside: avoid; }
-          tr { page-break-inside: avoid; }
-          thead { display: table-header-group; }
         }
       </style>
     </head>
     <body>
       <div class="header">
-        <div class="header-left">
-          <h1>Relatorio Diario de Operacoes</h1>
-          <div class="subtitle">${formattedDate}</div>
-          <div class="tisax">Preparado para conformidade TISAX</div>
-        </div>
-        <div class="header-right">
-          <div class="brand">TMS ONE</div>
-          <div class="info">Tool Manager System</div>
-          <div class="info">Gerado em: ${currentDateTime}</div>
+        <div class="header-content">
+          <div class="header-left">
+            <h1>Relatorio Diario de Operacoes</h1>
+            <div class="subtitle">${formattedDate}</div>
+            <div class="tisax">Preparado para conformidade TISAX</div>
+          </div>
+          <div class="header-right">
+            <div class="brand">TMS ONE</div>
+            <div class="info">Tool Manager System</div>
+            <div class="info">Gerado em: ${currentDateTime}</div>
+          </div>
         </div>
       </div>
       
       <div class="summary-box">
-        <div class="summary-row">
-          <div class="summary-item">
-            <span class="label">Chamados Abertos</span>
-            <span class="value">${summary.totalTicketsCreated}</span>
-          </div>
-          <div class="summary-item">
-            <span class="label">Chamados Finalizados</span>
-            <span class="value">${summary.totalTicketsCompleted}</span>
-          </div>
-          <div class="summary-item">
-            <span class="label">Tempo Total Parado</span>
-            <span class="value">${summary.totalDowntime}</span>
-          </div>
-          <div class="summary-item">
-            <span class="label">Custo em Pecas</span>
-            <span class="value">${summary.totalCost}</span>
-          </div>
-          <div class="summary-item">
-            <span class="label">Registros de Auditoria</span>
-            <span class="value">${summary.totalLogs}</span>
-          </div>
+        <div class="summary-item">
+          <span class="label">Chamados Abertos</span>
+          <span class="value">${summary.totalTicketsCreated}</span>
+        </div>
+        <div class="summary-item">
+          <span class="label">Chamados Finalizados</span>
+          <span class="value">${summary.totalTicketsCompleted}</span>
+        </div>
+        <div class="summary-item">
+          <span class="label">Tempo Total Parado</span>
+          <span class="value">${summary.totalDowntime}</span>
+        </div>
+        <div class="summary-item">
+          <span class="label">Custo em Pecas</span>
+          <span class="value">${summary.totalCost}</span>
+        </div>
+        <div class="summary-item">
+          <span class="label">Registros de Auditoria</span>
+          <span class="value">${summary.totalLogs}</span>
         </div>
       </div>
       
@@ -793,97 +701,114 @@ function generateMachineDetailPDF(
     <html lang="pt-BR">
     <head>
       <meta charset="UTF-8">
-      <meta name="viewport" content="width=device-width, initial-scale=1.0">
       <title>Relatorio por Maquina - TMS ONE</title>
       <style>
-        @page { size: A4; margin: 12mm 10mm; }
+        @page { size: A4; margin: 20mm; }
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        html, body { width: 100%; height: 100%; }
         body {
-          font-family: Arial, Helvetica, sans-serif;
-          font-size: 10px;
+          font-family: 'Segoe UI', Arial, sans-serif;
+          font-size: 11pt;
           line-height: 1.4;
-          color: #000;
+          color: #222;
           background: #fff;
-          padding: 15px;
+          width: 210mm;
+          min-height: 297mm;
+          margin: 0 auto;
+          padding: 20mm;
         }
         .header {
-          display: table;
           width: 100%;
-          padding-bottom: 10px;
-          border-bottom: 3px solid #000;
-          margin-bottom: 15px;
-        }
-        .header-left { display: table-cell; vertical-align: top; width: 70%; }
-        .header-right { display: table-cell; vertical-align: top; width: 30%; text-align: right; }
-        .header h1 { font-size: 18px; color: #000; }
-        .header-right .brand { font-size: 14px; font-weight: bold; color: #000; }
-        .header-right .info { font-size: 9px; color: #555; margin-top: 2px; }
-        .machine-section {
+          padding-bottom: 15px;
+          border-bottom: 3px solid #222;
           margin-bottom: 25px;
+        }
+        .header-content {
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-start;
+        }
+        .header h1 { font-size: 20pt; color: #111; margin-bottom: 5px; }
+        .header p { font-size: 10pt; color: #666; }
+        .header-right { text-align: right; }
+        .header-right .brand { font-size: 14pt; font-weight: bold; color: #111; }
+        .header-right .info { font-size: 9pt; color: #666; margin-top: 3px; }
+        .machine-section {
+          margin-bottom: 30px;
           page-break-inside: avoid;
         }
         .machine-header {
           background: #333;
           color: white;
-          padding: 10px;
-          margin-bottom: 8px;
+          padding: 12px 15px;
+          margin-bottom: 12px;
         }
-        .machine-header h3 { font-size: 13px; margin-bottom: 3px; }
-        .machine-header p { font-size: 10px; opacity: 0.9; }
+        .machine-header h3 { font-size: 13pt; margin-bottom: 3px; }
+        .machine-header p { font-size: 10pt; opacity: 0.9; }
         .machine-stats {
-          display: table;
-          width: 100%;
-          margin-bottom: 10px;
-          border: 1px solid #ddd;
+          display: flex;
+          gap: 15px;
+          margin-bottom: 15px;
         }
-        .machine-stats-row { display: table-row; }
-        .machine-stats div {
-          display: table-cell;
+        .machine-stats > div {
+          flex: 1;
           text-align: center;
-          padding: 8px;
+          padding: 12px;
           background: #fafafa;
-          border-right: 1px solid #ddd;
+          border: 1px solid #ddd;
+          border-radius: 4px;
         }
-        .machine-stats div:last-child { border-right: none; }
-        .machine-stats .label { font-size: 8px; color: #666; display: block; }
-        .machine-stats .value { font-size: 14px; font-weight: bold; display: block; margin-top: 2px; }
-        table { width: 100%; border-collapse: collapse; font-size: 9px; }
-        th { background: #f0f0f0; padding: 6px 8px; text-align: left; font-weight: bold; border: 1px solid #ddd; font-size: 8px; }
-        td { padding: 5px 8px; border: 1px solid #ddd; vertical-align: top; }
+        .machine-stats .label { font-size: 8pt; color: #666; text-transform: uppercase; display: block; margin-bottom: 5px; }
+        .machine-stats .value { font-size: 14pt; font-weight: bold; color: #111; }
+        table { width: 100%; border-collapse: collapse; font-size: 10pt; }
+        th { background: #f0f0f0; padding: 10px; text-align: left; font-weight: 600; border: 1px solid #ddd; font-size: 9pt; text-transform: uppercase; }
+        td { padding: 8px 10px; border: 1px solid #ddd; vertical-align: middle; }
         tr:nth-child(even) { background: #f9f9f9; }
-        .badge { display: inline-block; padding: 2px 6px; border-radius: 3px; font-size: 8px; font-weight: bold; }
+        .badge { display: inline-block; padding: 3px 8px; border-radius: 3px; font-size: 9pt; font-weight: bold; }
         .badge-success { background: #d4edda; color: #155724; }
         .badge-warning { background: #fff3cd; color: #856404; }
         .footer {
-          margin-top: 20px;
-          padding-top: 10px;
-          border-top: 2px solid #000;
-          font-size: 9px;
-          color: #555;
-          display: table;
-          width: 100%;
+          margin-top: 30px;
+          padding-top: 15px;
+          border-top: 2px solid #222;
+          font-size: 9pt;
+          color: #666;
+          display: flex;
+          justify-content: space-between;
         }
-        .footer-left, .footer-right { display: table-cell; }
-        .footer-right { text-align: right; }
+        .empty-msg {
+          padding: 30px;
+          text-align: center;
+          color: #888;
+          font-style: italic;
+          background: #f9f9f9;
+          border: 1px dashed #ddd;
+        }
         @media print {
-          body { print-color-adjust: exact; -webkit-print-color-adjust: exact; padding: 0; }
+          body { width: 100%; padding: 0; margin: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+          .header-content { display: table; width: 100%; }
+          .header-content > div:first-child { display: table-cell; width: 70%; }
+          .header-right { display: table-cell; width: 30%; }
+          .machine-stats { display: table; width: 100%; }
+          .machine-stats > div { display: table-cell; }
+          .footer { display: table; width: 100%; }
+          .footer > div { display: table-cell; }
+          .footer > div:last-child { text-align: right; }
           .machine-section { page-break-inside: avoid; }
-          tr { page-break-inside: avoid; }
-          thead { display: table-header-group; }
         }
       </style>
     </head>
     <body>
       <div class="header">
-        <div class="header-left">
-          <h1>Relatorio Detalhado por Maquina</h1>
-          <p style="font-size: 10px; color: #555; margin-top: 3px;">Historico completo de manutencoes</p>
-        </div>
-        <div class="header-right">
-          <div class="brand">TMS ONE</div>
-          <div class="info">Tool Manager System</div>
-          <div class="info">${currentDate}</div>
+        <div class="header-content">
+          <div>
+            <h1>Relatorio Detalhado por Maquina</h1>
+            <p>Historico completo de manutencoes</p>
+          </div>
+          <div class="header-right">
+            <div class="brand">TMS ONE</div>
+            <div class="info">Tool Manager System</div>
+            <div class="info">${currentDate}</div>
+          </div>
         </div>
       </div>
       
@@ -894,19 +819,17 @@ function generateMachineDetailPDF(
             <p>${machine.sector}</p>
           </div>
           <div class="machine-stats">
-            <div class="machine-stats-row">
-              <div>
-                <span class="label">Total de Chamados</span>
-                <span class="value">${machine.tickets.length}</span>
-              </div>
-              <div>
-                <span class="label">Tempo Parado</span>
-                <span class="value">${formatDuration(machine.totalDowntime)}</span>
-              </div>
-              <div>
-                <span class="label">Custo Total</span>
-                <span class="value">${formatCurrency(machine.totalCost)}</span>
-              </div>
+            <div>
+              <span class="label">Total de Chamados</span>
+              <span class="value">${machine.tickets.length}</span>
+            </div>
+            <div>
+              <span class="label">Tempo Parado</span>
+              <span class="value">${formatDuration(machine.totalDowntime)}</span>
+            </div>
+            <div>
+              <span class="label">Custo Total</span>
+              <span class="value">${formatCurrency(machine.totalCost)}</span>
             </div>
           </div>
           ${machine.tickets.length > 0 ? `
@@ -936,18 +859,18 @@ function generateMachineDetailPDF(
                 `).join('')}
               </tbody>
             </table>
-          ` : '<p style="padding: 20px; text-align: center; color: #666;">Nenhuma manutencao registrada</p>'}
+          ` : '<div class="empty-msg">Nenhuma manutencao registrada</div>'}
         </div>
       `).join('')}
       
       <div class="footer">
-        <div class="footer-left">TMS ONE - Tool Manager System | Todos os direitos reservados</div>
-        <div class="footer-right">Pagina 1</div>
+        <div>TMS ONE - Tool Manager System | Todos os direitos reservados</div>
+        <div>Pagina 1</div>
       </div>
       
       <script>
         window.onload = function() { 
-          setTimeout(function() { window.print(); }, 500);
+          setTimeout(function() { window.print(); }, 300);
         }
       </script>
     </body>
