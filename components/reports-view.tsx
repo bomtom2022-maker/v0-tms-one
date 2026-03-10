@@ -615,7 +615,7 @@ function generateDailyPDF(
                 p.part, 
                 p.action, 
                 p.user, 
-                p.oldPrice && p.newPrice ? \`\${p.oldPrice} → \${p.newPrice}\` : '-'
+                p.oldPrice && p.newPrice ? (p.oldPrice + ' → ' + p.newPrice) : '-'
               ]),
               ['Hora', 'Peca', 'Acao', 'Usuario', 'Alteracao Preco']
             )}
