@@ -138,7 +138,7 @@ export const MAINTENANCE_TYPE_CONFIG = {
     bgLight: 'bg-orange-50',
   },
   inspection: {
-    label: 'Inspecao',
+    label: 'Inspeção',
     color: 'bg-green-500',
     textColor: 'text-green-600',
     bgLight: 'bg-green-50',

@@ -134,15 +134,15 @@ export function ScheduledView() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl lg:text-3xl font-bold text-foreground">
-            Manutencoes Futuras
+            Manutenções Futuras
           </h1>
           <p className="text-muted-foreground mt-1">
-            Gerencie manutencoes preventivas e programadas
+            Gerencie manutenções preventivas e programadas
           </p>
         </div>
         <Button onClick={() => setShowForm(true)}>
           <Plus className="w-4 h-4 mr-2" />
-          Nova Manutencao
+          Nova Manutenção
         </Button>
       </div>
 
@@ -168,7 +168,7 @@ export function ScheduledView() {
                 <CheckCircle className="w-5 h-5 text-green-600" />
               </div>
               <div>
-                <p className="text-sm text-muted-foreground">Concluidas</p>
+                <p className="text-sm text-muted-foreground">Concluídas</p>
                 <p className="text-2xl font-bold">{completedMaintenances.length}</p>
               </div>
             </div>
@@ -194,18 +194,18 @@ export function ScheduledView() {
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>
-              {editingId ? 'Editar Manutencao' : 'Nova Manutencao Programada'}
+              {editingId ? 'Editar Manutenção' : 'Nova Manutenção Programada'}
             </DialogTitle>
             <DialogDescription>
-              Preencha os dados da manutencao programada
+              Preencha os dados da manutenção programada
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="machine">Maquina *</Label>
+              <Label htmlFor="machine">Máquina *</Label>
               <Select value={machineId} onValueChange={setMachineId}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Selecione a maquina..." />
+                  <SelectValue placeholder="Selecione a máquina..." />
                 </SelectTrigger>
                 <SelectContent>
                   {machines.map((machine) => (
@@ -218,17 +218,17 @@ export function ScheduledView() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="title">Titulo *</Label>
+              <Label htmlFor="title">Título *</Label>
               <Input
                 id="title"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                placeholder="Ex: Troca de Oleo Hidraulico"
+                placeholder="Ex: Troca de Óleo Hidráulico"
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="type">Tipo de Manutencao *</Label>
+              <Label htmlFor="type">Tipo de Manutenção *</Label>
               <Select value={maintenanceType} onValueChange={(v) => setMaintenanceType(v as typeof maintenanceType)}>
                 <SelectTrigger>
                   <SelectValue />
@@ -257,12 +257,12 @@ export function ScheduledView() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="description">Descricao</Label>
+              <Label htmlFor="description">Descrição</Label>
               <Textarea
                 id="description"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                placeholder="Descreva os detalhes da manutencao..."
+                placeholder="Descreva os detalhes da manutenção..."
                 rows={3}
               />
             </div>
@@ -272,7 +272,7 @@ export function ScheduledView() {
                 Cancelar
               </Button>
               <Button type="submit" disabled={!machineId || !title || !scheduledDate}>
-                {editingId ? 'Salvar Alteracoes' : 'Criar Manutencao'}
+                {editingId ? 'Salvar Alterações' : 'Criar Manutenção'}
               </Button>
             </DialogFooter>
           </form>
@@ -283,9 +283,9 @@ export function ScheduledView() {
       <Dialog open={!!showDeleteConfirm} onOpenChange={() => setShowDeleteConfirm(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Confirmar Exclusao</DialogTitle>
+            <DialogTitle>Confirmar Exclusão</DialogTitle>
             <DialogDescription>
-              Tem certeza que deseja excluir esta manutencao programada? Esta acao nao pode ser desfeita.
+              Tem certeza que deseja excluir esta manutenção programada? Esta ação não pode ser desfeita.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -304,13 +304,13 @@ export function ScheduledView() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Calendar className="w-5 h-5" />
-            Manutencoes Pendentes
+            Manutenções Pendentes
           </CardTitle>
         </CardHeader>
         <CardContent className="p-0">
           {pendingMaintenances.length === 0 ? (
             <div className="p-8 text-center">
-              <p className="text-muted-foreground">Nenhuma manutencao pendente.</p>
+              <p className="text-muted-foreground">Nenhuma manutenção pendente.</p>
             </div>
           ) : (
             <div className="divide-y">
@@ -335,7 +335,7 @@ export function ScheduledView() {
                           )}
                         </div>
                         <p className="text-sm text-muted-foreground mt-1">
-                          {machine?.name || 'Maquina desconhecida'}
+                          {machine?.name || 'Máquina desconhecida'}
                         </p>
                         {maintenance.description && (
                           <p className="text-sm text-foreground/80 mt-2">{maintenance.description}</p>
@@ -383,7 +383,7 @@ export function ScheduledView() {
       {(completedMaintenances.length > 0 || cancelledMaintenances.length > 0) && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Historico</CardTitle>
+            <CardTitle className="text-base">Histórico</CardTitle>
           </CardHeader>
           <CardContent className="p-0">
             <div className="divide-y">
@@ -399,11 +399,11 @@ export function ScheduledView() {
                         <div className="flex items-center gap-2 flex-wrap">
                           <h3 className="font-medium">{maintenance.title}</h3>
                           <Badge variant="outline" className={cn("text-xs", isCompleted ? "text-green-600" : "text-gray-500")}>
-                            {isCompleted ? 'Concluida' : 'Cancelada'}
+                            {isCompleted ? 'Concluída' : 'Cancelada'}
                           </Badge>
                         </div>
                         <p className="text-sm text-muted-foreground mt-1">
-                          {machine?.name || 'Maquina desconhecida'}
+                          {machine?.name || 'Máquina desconhecida'}
                         </p>
                       </div>
                     </div>

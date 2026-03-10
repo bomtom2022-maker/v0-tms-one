@@ -41,12 +41,12 @@ interface SidebarProps {
 const allMenuItems = [
   { id: 'dashboard' as const, label: 'Dashboard', icon: LayoutDashboard, roles: ['manutentor', 'lider'] },
   { id: 'new-ticket' as const, label: 'Novo Chamado', icon: Plus, roles: ['manutentor', 'lider'] },
-  { id: 'scheduled' as const, label: 'Manutencoes Futuras', icon: CalendarClock, roles: ['manutentor'] },
-  { id: 'machines' as const, label: 'Maquinas', icon: Cog, roles: ['manutentor'] },
+  { id: 'scheduled' as const, label: 'Manutenções Futuras', icon: CalendarClock, roles: ['manutentor'] },
+  { id: 'machines' as const, label: 'Máquinas', icon: Cog, roles: ['manutentor'] },
   { id: 'problems' as const, label: 'Problemas', icon: Wrench, roles: ['manutentor'] },
-  { id: 'parts' as const, label: 'Pecas', icon: Package, roles: ['manutentor'] },
-  { id: 'users' as const, label: 'Usuarios', icon: Users, roles: ['manutentor'] },
-  { id: 'reports' as const, label: 'Relatorios', icon: BarChart3, roles: ['manutentor'] },
+  { id: 'parts' as const, label: 'Peças', icon: Package, roles: ['manutentor'] },
+  { id: 'users' as const, label: 'Usuários', icon: Users, roles: ['manutentor'] },
+  { id: 'reports' as const, label: 'Relatórios', icon: BarChart3, roles: ['manutentor'] },
 ]
 
 export function Sidebar({ currentView, onViewChange }: SidebarProps) {
@@ -69,7 +69,7 @@ export function Sidebar({ currentView, onViewChange }: SidebarProps) {
 
   const roleConfig = isManutentor 
     ? { label: 'Manutentor', icon: Shield, color: 'bg-blue-500', textColor: 'text-blue-600' }
-    : { label: 'Lider', icon: User, color: 'bg-amber-500', textColor: 'text-amber-600' }
+    : { label: 'Líder', icon: User, color: 'bg-amber-500', textColor: 'text-amber-600' }
 
   return (
     <>

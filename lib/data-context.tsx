@@ -48,13 +48,13 @@ const INITIAL_PARTS: Part[] = [
   { id: 'part-010', name: 'Bomba de Refrigeracao', price: 1850.00, description: 'Bomba para sistema de refrigeracao' },
 ]
 
-// Manutencoes futuras de exemplo
+// Manutenções futuras de exemplo
 const INITIAL_SCHEDULED: ScheduledMaintenance[] = [
   {
     id: 'sched-001',
     machineId: 'cnc-001',
-    title: 'Troca de Oleo Hidraulico',
-    description: 'Troca programada do oleo hidraulico do sistema.',
+    title: 'Troca de Óleo Hidráulico',
+    description: 'Troca programada do óleo hidráulico do sistema.',
     scheduledDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
     type: 'preventive',
     status: 'pending',
@@ -63,7 +63,7 @@ const INITIAL_SCHEDULED: ScheduledMaintenance[] = [
   {
     id: 'sched-002',
     machineId: 'cnc-003',
-    title: 'Inspecao de Guias Lineares',
+    title: 'Inspeção de Guias Lineares',
     description: 'Verificar desgaste e ajustar folgas das guias.',
     scheduledDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
     type: 'inspection',
@@ -73,8 +73,8 @@ const INITIAL_SCHEDULED: ScheduledMaintenance[] = [
   {
     id: 'sched-003',
     machineId: 'cnc-005',
-    title: 'Substituicao de Correias',
-    description: 'Trocar correias do eixo principal conforme plano de manutencao.',
+    title: 'Substituição de Correias',
+    description: 'Trocar correias do eixo principal conforme plano de manutenção.',
     scheduledDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
     type: 'preventive',
     status: 'pending',
