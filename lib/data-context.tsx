@@ -31,7 +31,7 @@ const INITIAL_PROBLEMS: Problem[] = [
   { id: 'prob-010', name: 'Problema no Trocador Automatico', defaultPriority: 'medium' },
   { id: 'prob-011', name: 'Manutencao Preventiva Programada', defaultPriority: 'low' },
   { id: 'prob-012', name: 'Calibracao/Ajuste', defaultPriority: 'low' },
-  { id: 'prob-013', name: 'Outros', defaultPriority: 'medium' },
+  { id: 'prob-013', name: 'Outros', defaultPriority: 'medium', requiresManualPriority: true },
 ]
 
 // Pecas iniciais

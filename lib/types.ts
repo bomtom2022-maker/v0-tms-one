@@ -69,6 +69,7 @@ export interface Problem {
   id: string
   name: string
   defaultPriority: Priority
+  requiresManualPriority?: boolean
 }
 
 export interface Part {
