@@ -39,14 +39,13 @@ export function NewTicketView({ onSuccess }: NewTicketViewProps) {
 
   // Auto-selecionar prioridade baseada no problema
   useEffect(() => {
-    if (problemId && !manualPriority) {
+    if (problemId) {
       const problem = getProblemById(problemId)
       if (problem) {
-        // Se o problema nao tem prioridade padrao (ex: "Outros"), ativar prioridade manual
-        if (problem.defaultPriority === null) {
+        // Se o problema requer prioridade manual (ex: "Outros"), ativar automaticamente
+        if (problem.requiresManualPriority) {
           setManualPriority(true)
-          setPriority('medium') // Define um valor inicial para selecao manual
-        } else {
+        } else if (!manualPriority) {
           setPriority(problem.defaultPriority)
         }
       }
@@ -66,13 +65,13 @@ export function NewTicketView({ onSuccess }: NewTicketViewProps) {
 
   const handleManualPriorityChange = (checked: boolean) => {
     const problem = getProblemById(problemId)
-    // Se o problema nao tem prioridade padrao, nao permite desativar prioridade manual
-    if (!checked && problem?.defaultPriority === null) {
+    // Se o problema requer prioridade manual, nao permite desativar
+    if (!checked && problem?.requiresManualPriority) {
       return
     }
     setManualPriority(checked)
     if (!checked && problemId && problem) {
-      setPriority(machineStopped ? 'high' : (problem.defaultPriority || 'medium'))
+      setPriority(machineStopped ? 'high' : problem.defaultPriority)
     }
   }
 
@@ -220,14 +219,14 @@ export function NewTicketView({ onSuccess }: NewTicketViewProps) {
               </SelectTrigger>
               <SelectContent>
                 {problems.map((problem) => {
-                  const config = problem.defaultPriority ? PRIORITY_CONFIG[problem.defaultPriority] : null
+                  const config = PRIORITY_CONFIG[problem.defaultPriority]
                   return (
                     <SelectItem key={problem.id} value={problem.id}>
                       <div className="flex items-center gap-2">
-                        {config ? (
-                          <div className={cn("w-2 h-2 rounded-full", config.color)} />
-                        ) : (
+                        {problem.requiresManualPriority ? (
                           <div className="w-2 h-2 rounded-full bg-gray-400" />
+                        ) : (
+                          <div className={cn("w-2 h-2 rounded-full", config.color)} />
                         )}
                         <span>{problem.name}</span>
                       </div>
@@ -237,7 +236,7 @@ export function NewTicketView({ onSuccess }: NewTicketViewProps) {
               </SelectContent>
             </Select>
             
-            {selectedProblem && !manualPriority && !machineStopped && selectedProblem.defaultPriority && (
+            {selectedProblem && !manualPriority && !machineStopped && !selectedProblem.requiresManualPriority && (
               <div className="mt-3 p-3 rounded-lg bg-muted/50">
                 <p className="text-sm text-muted-foreground">
                   Prioridade automatica: <span className={cn("font-medium", PRIORITY_CONFIG[selectedProblem.defaultPriority].textColor)}>
@@ -251,23 +250,23 @@ export function NewTicketView({ onSuccess }: NewTicketViewProps) {
 
         {/* Toggle para prioridade manual */}
         {!machineStopped && (
-          <Card className={selectedProblem?.defaultPriority === null ? "border-primary" : ""}>
+          <Card className={selectedProblem?.requiresManualPriority ? "border-primary" : ""}>
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
                 <div>
                   <CardTitle className="text-base flex items-center gap-2">
-                    Prioridade {selectedProblem?.defaultPriority === null ? "" : "Manual"}
-                    {selectedProblem?.defaultPriority === null && (
+                    Prioridade {selectedProblem?.requiresManualPriority ? "" : "Manual"}
+                    {selectedProblem?.requiresManualPriority && (
                       <Badge variant="outline" className="text-xs">Obrigatorio</Badge>
                     )}
                   </CardTitle>
                   <CardDescription>
-                    {selectedProblem?.defaultPriority === null 
+                    {selectedProblem?.requiresManualPriority 
                       ? "Defina a prioridade para este tipo de problema"
                       : "Deseja definir a prioridade manualmente?"}
                   </CardDescription>
                 </div>
-                {selectedProblem?.defaultPriority !== null && (
+                {!selectedProblem?.requiresManualPriority && (
                   <Switch 
                     checked={manualPriority} 
                     onCheckedChange={handleManualPriorityChange}
@@ -275,7 +274,7 @@ export function NewTicketView({ onSuccess }: NewTicketViewProps) {
                 )}
               </div>
             </CardHeader>
-            {(manualPriority || selectedProblem?.defaultPriority === null) && (
+            {(manualPriority || selectedProblem?.requiresManualPriority) && (
               <CardContent>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   {(Object.keys(PRIORITY_CONFIG) as Priority[]).map((p) => {
