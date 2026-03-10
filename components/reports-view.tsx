@@ -212,6 +212,7 @@ function generatePDF(
           border-collapse: collapse;
           margin-bottom: 25px;
           font-size: 11pt;
+          table-layout: fixed;
         }
         
         th {
@@ -228,7 +229,11 @@ function generatePDF(
         td {
           padding: 12px;
           border-bottom: 1px solid #ddd;
-          vertical-align: middle;
+          vertical-align: top;
+          word-wrap: break-word;
+          word-break: break-word;
+          white-space: normal;
+          max-width: 200px;
         }
         
         tr:nth-child(even) {
@@ -475,9 +480,9 @@ function generateDailyPDF(
         }
         .section-content { padding: 0; }
         
-        table { width: 100%; border-collapse: collapse; font-size: 11pt; margin-bottom: 12px; }
+        table { width: 100%; border-collapse: collapse; font-size: 11pt; margin-bottom: 12px; table-layout: fixed; }
         th { background: #f0f0f0; padding: 12px; text-align: left; font-weight: 600; border: 1px solid #ddd; font-size: 10pt; text-transform: uppercase; }
-        td { padding: 10px 12px; border: 1px solid #ddd; vertical-align: top; }
+        td { padding: 10px 12px; border: 1px solid #ddd; vertical-align: top; word-wrap: break-word; word-break: break-word; white-space: normal; }
         tr:nth-child(even) { background: #f9f9f9; }
         
         .badge { 
@@ -782,9 +787,9 @@ function generateMachineDetailPDF(
         }
         .machine-stats .label { font-size: 9pt; color: #666; text-transform: uppercase; display: block; margin-bottom: 6px; }
         .machine-stats .value { font-size: 16pt; font-weight: bold; color: #111; }
-        table { width: 100%; border-collapse: collapse; font-size: 11pt; }
+        table { width: 100%; border-collapse: collapse; font-size: 11pt; table-layout: fixed; }
         th { background: #f0f0f0; padding: 12px; text-align: left; font-weight: 600; border: 1px solid #ddd; font-size: 10pt; text-transform: uppercase; }
-        td { padding: 10px 12px; border: 1px solid #ddd; vertical-align: middle; }
+        td { padding: 10px 12px; border: 1px solid #ddd; vertical-align: top; word-wrap: break-word; word-break: break-word; white-space: normal; }
         tr:nth-child(even) { background: #f9f9f9; }
         .badge { display: inline-block; padding: 4px 10px; border-radius: 4px; font-size: 10pt; font-weight: bold; }
         .badge-success { background: #d4edda; color: #155724; }
