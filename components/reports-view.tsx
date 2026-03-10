@@ -92,136 +92,154 @@ function generatePDF(
     <html lang="pt-BR">
     <head>
       <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
       <title>${title} - TMS ONE</title>
       <style>
+        @page {
+          size: A4;
+          margin: 15mm 12mm 15mm 12mm;
+        }
+        
         * {
           margin: 0;
           padding: 0;
           box-sizing: border-box;
         }
         
-        @page {
-          size: A4 portrait;
-          margin: 10mm 8mm 10mm 8mm;
+        html, body {
+          width: 100%;
+          height: 100%;
         }
         
         body {
           font-family: Arial, Helvetica, sans-serif;
-          font-size: 8pt;
-          line-height: 1.3;
-          color: #1a1a1a;
-          background: white;
-          width: 100%;
-          max-width: 190mm;
-          margin: 0 auto;
+          font-size: 11px;
+          line-height: 1.4;
+          color: #000;
+          background: #fff;
+          padding: 0;
+          margin: 0;
         }
         
-        .page {
+        .container {
           width: 100%;
-          max-width: 190mm;
+          padding: 20px;
         }
         
         .header {
-          display: flex;
-          justify-content: space-between;
-          align-items: flex-start;
-          padding-bottom: 8px;
-          border-bottom: 2px solid #1a1a1a;
-          margin-bottom: 12px;
+          display: table;
+          width: 100%;
+          padding-bottom: 10px;
+          border-bottom: 3px solid #000;
+          margin-bottom: 15px;
         }
         
-        .header-left h1 {
-          font-size: 14pt;
-          font-weight: bold;
-          color: #1a1a1a;
-          margin-bottom: 2px;
-        }
-        
-        .header-left p {
-          font-size: 7pt;
-          color: #666;
+        .header-left {
+          display: table-cell;
+          vertical-align: top;
+          width: 70%;
         }
         
         .header-right {
+          display: table-cell;
+          vertical-align: top;
+          width: 30%;
           text-align: right;
-          font-size: 7pt;
-          color: #666;
+        }
+        
+        .header-left h1 {
+          font-size: 20px;
+          font-weight: bold;
+          color: #000;
+          margin-bottom: 3px;
+        }
+        
+        .header-left p {
+          font-size: 10px;
+          color: #555;
         }
         
         .header-right .brand {
-          font-size: 10pt;
+          font-size: 14px;
           font-weight: bold;
-          color: #1a1a1a;
+          color: #000;
+        }
+        
+        .header-right .info {
+          font-size: 9px;
+          color: #555;
+          margin-top: 3px;
         }
         
         .subtitle {
-          font-size: 8pt;
-          color: #444;
-          margin-bottom: 12px;
-          padding: 6px 8px;
-          background: #f5f5f5;
-          border-radius: 2px;
+          font-size: 11px;
+          color: #333;
+          margin-bottom: 15px;
+          padding: 8px 10px;
+          background: #f0f0f0;
+          border-left: 4px solid #000;
         }
         
         .summary {
-          display: flex;
-          flex-wrap: wrap;
-          gap: 8px;
-          margin-bottom: 12px;
-          padding: 8px;
-          background: #f8f9fa;
-          border-radius: 2px;
+          display: table;
+          width: 100%;
+          margin-bottom: 15px;
+          border: 1px solid #ddd;
+        }
+        
+        .summary-row {
+          display: table-row;
         }
         
         .summary-item {
-          flex: 1;
-          min-width: 80px;
-          padding: 6px;
-          background: white;
-          border-radius: 2px;
-          border: 1px solid #e0e0e0;
+          display: table-cell;
+          padding: 10px;
           text-align: center;
+          border-right: 1px solid #ddd;
+          background: #fafafa;
+        }
+        
+        .summary-item:last-child {
+          border-right: none;
         }
         
         .summary-item .label {
-          font-size: 6pt;
+          font-size: 9px;
           color: #666;
           text-transform: uppercase;
+          display: block;
         }
         
         .summary-item .value {
-          font-size: 10pt;
+          font-size: 16px;
           font-weight: bold;
-          color: #1a1a1a;
-          margin-top: 2px;
+          color: #000;
+          display: block;
+          margin-top: 3px;
         }
         
         table {
           width: 100%;
           border-collapse: collapse;
-          margin-bottom: 12px;
-          font-size: 7pt;
-          table-layout: fixed;
+          margin-bottom: 15px;
+          font-size: 10px;
         }
         
         th {
-          background: #1a1a1a;
-          color: white;
-          padding: 5px 4px;
-          font-weight: 600;
+          background: #333;
+          color: #fff;
+          padding: 8px 6px;
+          font-weight: bold;
+          text-align: left;
+          font-size: 9px;
           text-transform: uppercase;
-          font-size: 6pt;
-          overflow: hidden;
-          text-overflow: ellipsis;
-          white-space: nowrap;
+          border: 1px solid #333;
         }
         
         td {
-          padding: 4px;
-          border-bottom: 1px solid #e0e0e0;
+          padding: 6px;
+          border: 1px solid #ddd;
           vertical-align: top;
-          overflow: hidden;
-          text-overflow: ellipsis;
           word-wrap: break-word;
         }
         
@@ -230,30 +248,38 @@ function generatePDF(
         }
         
         .section-title {
-          font-size: 9pt;
+          font-size: 13px;
           font-weight: bold;
-          color: #1a1a1a;
-          margin: 15px 0 8px 0;
-          padding-bottom: 4px;
-          border-bottom: 1px solid #ddd;
+          color: #000;
+          margin: 20px 0 10px 0;
+          padding-bottom: 5px;
+          border-bottom: 2px solid #333;
         }
         
         .footer {
-          margin-top: 15px;
-          padding-top: 8px;
-          border-top: 1px solid #ddd;
-          font-size: 6pt;
-          color: #666;
-          display: flex;
-          justify-content: space-between;
+          margin-top: 20px;
+          padding-top: 10px;
+          border-top: 2px solid #000;
+          font-size: 9px;
+          color: #555;
+          display: table;
+          width: 100%;
+        }
+        
+        .footer-left, .footer-right {
+          display: table-cell;
+        }
+        
+        .footer-right {
+          text-align: right;
         }
         
         .badge {
           display: inline-block;
-          padding: 1px 4px;
-          border-radius: 2px;
-          font-size: 6pt;
-          font-weight: 500;
+          padding: 2px 6px;
+          border-radius: 3px;
+          font-size: 9px;
+          font-weight: bold;
         }
         
         .badge-success { background: #d4edda; color: #155724; }
@@ -267,36 +293,42 @@ function generatePDF(
         .text-warning { color: #ffc107; }
         
         .machine-section {
-          margin-bottom: 15px;
+          margin-bottom: 20px;
           page-break-inside: avoid;
         }
         
         .machine-header {
           background: #f0f0f0;
-          padding: 6px 8px;
-          margin-bottom: 6px;
-          border-radius: 2px;
-          border-left: 3px solid #1a1a1a;
+          padding: 8px 10px;
+          margin-bottom: 8px;
+          border-left: 4px solid #000;
         }
         
         .machine-header h3 {
-          font-size: 9pt;
-          margin-bottom: 2px;
+          font-size: 12px;
+          margin-bottom: 3px;
         }
         
         .machine-header p {
-          font-size: 7pt;
+          font-size: 10px;
+          color: #555;
+        }
+        
+        .empty-message {
+          padding: 30px;
+          text-align: center;
           color: #666;
+          font-style: italic;
         }
         
         @media print {
           body { 
             print-color-adjust: exact; 
             -webkit-print-color-adjust: exact;
-            width: 100%;
-            max-width: 100%;
           }
-          .page { page-break-after: auto; }
+          .container {
+            padding: 0;
+          }
           .machine-section { page-break-inside: avoid; }
           tr { page-break-inside: avoid; }
           table { page-break-inside: auto; }
@@ -306,7 +338,7 @@ function generatePDF(
       </style>
     </head>
     <body>
-      <div class="page">
+      <div class="container">
         <div class="header">
           <div class="header-left">
             <h1>${title}</h1>
@@ -314,8 +346,8 @@ function generatePDF(
           </div>
           <div class="header-right">
             <div class="brand">TMS ONE</div>
-            <div>Tool Manager System</div>
-            <div style="margin-top: 8px;">${currentDate}</div>
+            <div class="info">Tool Manager System</div>
+            <div class="info">${currentDate}</div>
           </div>
         </div>
         
@@ -323,12 +355,14 @@ function generatePDF(
         
         ${summary ? `
           <div class="summary">
-            ${summary.map(s => `
-              <div class="summary-item">
-                <div class="label">${s.label}</div>
-                <div class="value">${s.value}</div>
-              </div>
-            `).join('')}
+            <div class="summary-row">
+              ${summary.map(s => `
+                <div class="summary-item">
+                  <span class="label">${s.label}</span>
+                  <span class="value">${s.value}</span>
+                </div>
+              `).join('')}
+            </div>
           </div>
         ` : ''}
         
@@ -347,17 +381,17 @@ function generatePDF(
               `).join('')}
             </tbody>
           </table>
-        ` : '<p style="text-align: center; padding: 40px; color: #666;">Nenhum dado encontrado para os filtros selecionados.</p>'}
+        ` : '<div class="empty-message">Nenhum dado encontrado para os filtros selecionados.</div>'}
         
         <div class="footer">
-          <div>TMS ONE - Tool Manager System | Todos os direitos reservados</div>
-          <div>Pagina 1</div>
+          <div class="footer-left">TMS ONE - Tool Manager System | Todos os direitos reservados</div>
+          <div class="footer-right">Pagina 1</div>
         </div>
       </div>
       
       <script>
         window.onload = function() {
-          window.print();
+          setTimeout(function() { window.print(); }, 500);
         }
       </script>
     </body>
@@ -419,76 +453,110 @@ function generateDailyPDF(
     <html lang="pt-BR">
     <head>
       <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
       <title>Relatorio Diario TISAX - ${formattedDate} - TMS ONE</title>
       <style>
+        @page {
+          size: A4;
+          margin: 12mm 10mm 12mm 10mm;
+        }
+        
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        @page { size: A4 portrait; margin: 8mm 6mm; }
+        
+        html, body {
+          width: 100%;
+          height: 100%;
+        }
+        
         body {
           font-family: Arial, Helvetica, sans-serif;
-          font-size: 7pt;
-          line-height: 1.2;
-          color: #1a1a1a;
-          width: 100%;
-          max-width: 198mm;
-          margin: 0 auto;
+          font-size: 10px;
+          line-height: 1.3;
+          color: #000;
+          background: #fff;
+          padding: 15px;
         }
+        
         .header {
-          display: flex;
-          justify-content: space-between;
-          padding-bottom: 6px;
-          border-bottom: 2px solid #1a1a1a;
-          margin-bottom: 8px;
+          display: table;
+          width: 100%;
+          padding-bottom: 8px;
+          border-bottom: 3px solid #000;
+          margin-bottom: 12px;
         }
-        .header-left h1 { font-size: 12pt; margin-bottom: 1px; }
-        .header-left .subtitle { font-size: 8pt; color: #444; }
+        
+        .header-left {
+          display: table-cell;
+          vertical-align: top;
+          width: 65%;
+        }
+        
+        .header-right {
+          display: table-cell;
+          vertical-align: top;
+          width: 35%;
+          text-align: right;
+        }
+        
+        .header-left h1 { font-size: 18px; margin-bottom: 3px; color: #000; }
+        .header-left .subtitle { font-size: 12px; color: #333; }
         .header-left .tisax { 
-          font-size: 6pt; 
+          font-size: 10px; 
           color: #0066cc; 
-          margin-top: 2px;
+          margin-top: 4px;
+          font-weight: bold;
         }
-        .header-right { text-align: right; font-size: 6pt; color: #666; }
-        .header-right .brand { font-size: 9pt; font-weight: bold; color: #1a1a1a; }
+        .header-right .brand { font-size: 14px; font-weight: bold; color: #000; }
+        .header-right .info { font-size: 9px; color: #555; margin-top: 2px; }
         
         .summary-box {
-          display: flex;
-          gap: 6px;
-          margin-bottom: 8px;
-          padding: 6px;
-          background: #f5f5f5;
-          border-radius: 2px;
+          display: table;
+          width: 100%;
+          margin-bottom: 12px;
+          border: 1px solid #ddd;
         }
+        
+        .summary-row {
+          display: table-row;
+        }
+        
         .summary-item {
-          flex: 1;
+          display: table-cell;
           text-align: center;
-          padding: 4px;
-          background: white;
-          border-radius: 2px;
-          border: 1px solid #e0e0e0;
+          padding: 8px;
+          background: #fafafa;
+          border-right: 1px solid #ddd;
         }
-        .summary-item .label { font-size: 5pt; color: #666; text-transform: uppercase; }
-        .summary-item .value { font-size: 9pt; font-weight: bold; margin-top: 1px; }
         
-        .section { margin-bottom: 8px; page-break-inside: avoid; }
+        .summary-item:last-child {
+          border-right: none;
+        }
+        
+        .summary-item .label { font-size: 8px; color: #666; text-transform: uppercase; display: block; }
+        .summary-item .value { font-size: 14px; font-weight: bold; margin-top: 2px; display: block; color: #000; }
+        
+        .section { margin-bottom: 12px; page-break-inside: avoid; }
         .section-header {
-          background: #1a1a1a;
+          background: #333;
           color: white;
-          padding: 4px 6px;
-          font-size: 7pt;
+          padding: 6px 10px;
+          font-size: 11px;
           font-weight: bold;
-          margin-bottom: 4px;
+          margin-bottom: 6px;
         }
-        .section-content { padding: 0 2px; }
+        .section-content { padding: 0; }
         
-        table { width: 100%; border-collapse: collapse; font-size: 6pt; margin-bottom: 3px; table-layout: fixed; }
-        th { background: #f0f0f0; padding: 3px 4px; text-align: left; font-weight: 600; border-bottom: 1px solid #ddd; font-size: 6pt; overflow: hidden; text-overflow: ellipsis; }
-        td { padding: 3px 4px; border-bottom: 1px solid #eee; vertical-align: top; overflow: hidden; text-overflow: ellipsis; word-wrap: break-word; }
+        table { width: 100%; border-collapse: collapse; font-size: 9px; margin-bottom: 5px; }
+        th { background: #f0f0f0; padding: 6px 8px; text-align: left; font-weight: bold; border: 1px solid #ddd; font-size: 8px; text-transform: uppercase; }
+        td { padding: 5px 8px; border: 1px solid #ddd; vertical-align: top; }
+        tr:nth-child(even) { background: #f9f9f9; }
         
         .badge { 
           display: inline-block; 
-          padding: 1px 3px; 
-          border-radius: 2px; 
-          font-size: 5pt; 
-          font-weight: 500;
+          padding: 2px 6px; 
+          border-radius: 3px; 
+          font-size: 8px; 
+          font-weight: bold;
         }
         .badge-success { background: #d4edda; color: #155724; }
         .badge-warning { background: #fff3cd; color: #856404; }
@@ -496,30 +564,40 @@ function generateDailyPDF(
         .badge-info { background: #cce5ff; color: #004085; }
         
         .footer {
-          margin-top: 10px;
-          padding-top: 6px;
-          border-top: 1px solid #1a1a1a;
-          font-size: 5pt;
-          color: #666;
-          display: flex;
-          justify-content: space-between;
+          margin-top: 15px;
+          padding-top: 8px;
+          border-top: 2px solid #000;
+          font-size: 8px;
+          color: #555;
+          display: table;
+          width: 100%;
+        }
+        .footer-left, .footer-center, .footer-right {
+          display: table-cell;
         }
         .footer-center {
           text-align: center;
-          font-size: 6pt;
           color: #0066cc;
+        }
+        .footer-right {
+          text-align: right;
+        }
+        
+        .empty-msg {
+          padding: 15px;
+          text-align: center;
+          color: #666;
+          font-style: italic;
         }
         
         @media print {
           body { 
             print-color-adjust: exact; 
             -webkit-print-color-adjust: exact;
-            width: 100%;
-            max-width: 100%;
+            padding: 0;
           }
           .section { page-break-inside: avoid; }
           tr { page-break-inside: avoid; }
-          table { page-break-inside: auto; }
           thead { display: table-header-group; }
         }
       </style>
@@ -533,31 +611,33 @@ function generateDailyPDF(
         </div>
         <div class="header-right">
           <div class="brand">TMS ONE</div>
-          <div>Tool Manager System</div>
-          <div style="margin-top: 6px;">Gerado em: ${currentDateTime}</div>
+          <div class="info">Tool Manager System</div>
+          <div class="info">Gerado em: ${currentDateTime}</div>
         </div>
       </div>
       
       <div class="summary-box">
-        <div class="summary-item">
-          <div class="label">Chamados Abertos</div>
-          <div class="value">${summary.totalTicketsCreated}</div>
-        </div>
-        <div class="summary-item">
-          <div class="label">Chamados Finalizados</div>
-          <div class="value">${summary.totalTicketsCompleted}</div>
-        </div>
-        <div class="summary-item">
-          <div class="label">Tempo Total Parado</div>
-          <div class="value">${summary.totalDowntime}</div>
-        </div>
-        <div class="summary-item">
-          <div class="label">Custo em Pecas</div>
-          <div class="value">${summary.totalCost}</div>
-        </div>
-        <div class="summary-item">
-          <div class="label">Registros de Auditoria</div>
-          <div class="value">${summary.totalLogs}</div>
+        <div class="summary-row">
+          <div class="summary-item">
+            <span class="label">Chamados Abertos</span>
+            <span class="value">${summary.totalTicketsCreated}</span>
+          </div>
+          <div class="summary-item">
+            <span class="label">Chamados Finalizados</span>
+            <span class="value">${summary.totalTicketsCompleted}</span>
+          </div>
+          <div class="summary-item">
+            <span class="label">Tempo Total Parado</span>
+            <span class="value">${summary.totalDowntime}</span>
+          </div>
+          <div class="summary-item">
+            <span class="label">Custo em Pecas</span>
+            <span class="value">${summary.totalCost}</span>
+          </div>
+          <div class="summary-item">
+            <span class="label">Registros de Auditoria</span>
+            <span class="value">${summary.totalLogs}</span>
+          </div>
         </div>
       </div>
       
@@ -667,7 +747,11 @@ function generateDailyPDF(
         <div>Todos os direitos reservados</div>
       </div>
       
-      <script>window.onload = function() { window.print(); }</script>
+      <script>
+        window.onload = function() { 
+          setTimeout(function() { window.print(); }, 500);
+        }
+      </script>
     </body>
     </html>
   `
@@ -709,79 +793,97 @@ function generateMachineDetailPDF(
     <html lang="pt-BR">
     <head>
       <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
       <title>Relatorio por Maquina - TMS ONE</title>
       <style>
+        @page { size: A4; margin: 12mm 10mm; }
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        @page { size: A4; margin: 15mm 10mm; }
+        html, body { width: 100%; height: 100%; }
         body {
-          font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-          font-size: 10pt;
+          font-family: Arial, Helvetica, sans-serif;
+          font-size: 10px;
           line-height: 1.4;
-          color: #1a1a1a;
+          color: #000;
+          background: #fff;
+          padding: 15px;
         }
         .header {
-          display: flex;
-          justify-content: space-between;
-          padding-bottom: 15px;
-          border-bottom: 2px solid #1a1a1a;
-          margin-bottom: 20px;
+          display: table;
+          width: 100%;
+          padding-bottom: 10px;
+          border-bottom: 3px solid #000;
+          margin-bottom: 15px;
         }
-        .header h1 { font-size: 18pt; }
-        .header-right { text-align: right; font-size: 8pt; color: #666; }
-        .header-right .brand { font-size: 12pt; font-weight: bold; color: #1a1a1a; }
+        .header-left { display: table-cell; vertical-align: top; width: 70%; }
+        .header-right { display: table-cell; vertical-align: top; width: 30%; text-align: right; }
+        .header h1 { font-size: 18px; color: #000; }
+        .header-right .brand { font-size: 14px; font-weight: bold; color: #000; }
+        .header-right .info { font-size: 9px; color: #555; margin-top: 2px; }
         .machine-section {
-          margin-bottom: 30px;
+          margin-bottom: 25px;
           page-break-inside: avoid;
         }
         .machine-header {
-          background: #1a1a1a;
+          background: #333;
           color: white;
-          padding: 12px;
-          margin-bottom: 10px;
-        }
-        .machine-header h3 { font-size: 12pt; margin-bottom: 4px; }
-        .machine-header p { font-size: 9pt; opacity: 0.8; }
-        .machine-stats {
-          display: flex;
-          gap: 15px;
-          margin-bottom: 15px;
           padding: 10px;
-          background: #f5f5f5;
+          margin-bottom: 8px;
         }
+        .machine-header h3 { font-size: 13px; margin-bottom: 3px; }
+        .machine-header p { font-size: 10px; opacity: 0.9; }
+        .machine-stats {
+          display: table;
+          width: 100%;
+          margin-bottom: 10px;
+          border: 1px solid #ddd;
+        }
+        .machine-stats-row { display: table-row; }
         .machine-stats div {
-          flex: 1;
+          display: table-cell;
           text-align: center;
+          padding: 8px;
+          background: #fafafa;
+          border-right: 1px solid #ddd;
         }
-        .machine-stats .label { font-size: 8pt; color: #666; }
-        .machine-stats .value { font-size: 12pt; font-weight: bold; }
-        table { width: 100%; border-collapse: collapse; font-size: 8pt; }
-        th { background: #f0f0f0; padding: 8px; text-align: left; font-weight: 600; }
-        td { padding: 8px; border-bottom: 1px solid #e0e0e0; vertical-align: top; }
-        .badge { display: inline-block; padding: 2px 6px; border-radius: 3px; font-size: 7pt; }
+        .machine-stats div:last-child { border-right: none; }
+        .machine-stats .label { font-size: 8px; color: #666; display: block; }
+        .machine-stats .value { font-size: 14px; font-weight: bold; display: block; margin-top: 2px; }
+        table { width: 100%; border-collapse: collapse; font-size: 9px; }
+        th { background: #f0f0f0; padding: 6px 8px; text-align: left; font-weight: bold; border: 1px solid #ddd; font-size: 8px; }
+        td { padding: 5px 8px; border: 1px solid #ddd; vertical-align: top; }
+        tr:nth-child(even) { background: #f9f9f9; }
+        .badge { display: inline-block; padding: 2px 6px; border-radius: 3px; font-size: 8px; font-weight: bold; }
         .badge-success { background: #d4edda; color: #155724; }
         .badge-warning { background: #fff3cd; color: #856404; }
         .footer {
-          margin-top: 30px;
-          padding-top: 15px;
-          border-top: 1px solid #ddd;
-          font-size: 8pt;
-          color: #666;
+          margin-top: 20px;
+          padding-top: 10px;
+          border-top: 2px solid #000;
+          font-size: 9px;
+          color: #555;
+          display: table;
+          width: 100%;
         }
+        .footer-left, .footer-right { display: table-cell; }
+        .footer-right { text-align: right; }
         @media print {
+          body { print-color-adjust: exact; -webkit-print-color-adjust: exact; padding: 0; }
           .machine-section { page-break-inside: avoid; }
+          tr { page-break-inside: avoid; }
+          thead { display: table-header-group; }
         }
       </style>
     </head>
     <body>
       <div class="header">
-        <div>
+        <div class="header-left">
           <h1>Relatorio Detalhado por Maquina</h1>
-          <p style="font-size: 9pt; color: #666; margin-top: 4px;">Historico completo de manutencoes</p>
+          <p style="font-size: 10px; color: #555; margin-top: 3px;">Historico completo de manutencoes</p>
         </div>
         <div class="header-right">
           <div class="brand">TMS ONE</div>
-          <div>Tool Manager System</div>
-          <div style="margin-top: 8px;">${currentDate}</div>
+          <div class="info">Tool Manager System</div>
+          <div class="info">${currentDate}</div>
         </div>
       </div>
       
@@ -792,17 +894,19 @@ function generateMachineDetailPDF(
             <p>${machine.sector}</p>
           </div>
           <div class="machine-stats">
-            <div>
-              <div class="label">Total de Chamados</div>
-              <div class="value">${machine.tickets.length}</div>
-            </div>
-            <div>
-              <div class="label">Tempo Parado</div>
-              <div class="value">${formatDuration(machine.totalDowntime)}</div>
-            </div>
-            <div>
-              <div class="label">Custo Total</div>
-              <div class="value">${formatCurrency(machine.totalCost)}</div>
+            <div class="machine-stats-row">
+              <div>
+                <span class="label">Total de Chamados</span>
+                <span class="value">${machine.tickets.length}</span>
+              </div>
+              <div>
+                <span class="label">Tempo Parado</span>
+                <span class="value">${formatDuration(machine.totalDowntime)}</span>
+              </div>
+              <div>
+                <span class="label">Custo Total</span>
+                <span class="value">${formatCurrency(machine.totalCost)}</span>
+              </div>
             </div>
           </div>
           ${machine.tickets.length > 0 ? `
@@ -837,10 +941,15 @@ function generateMachineDetailPDF(
       `).join('')}
       
       <div class="footer">
-        TMS ONE - Tool Manager System | Todos os direitos reservados
+        <div class="footer-left">TMS ONE - Tool Manager System | Todos os direitos reservados</div>
+        <div class="footer-right">Pagina 1</div>
       </div>
       
-      <script>window.onload = function() { window.print(); }</script>
+      <script>
+        window.onload = function() { 
+          setTimeout(function() { window.print(); }, 500);
+        }
+      </script>
     </body>
     </html>
   `
