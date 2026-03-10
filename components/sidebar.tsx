@@ -195,7 +195,15 @@ export function Sidebar({ currentView, onViewChange }: SidebarProps) {
         </div>
 
         {/* Footer */}
-        <div className="p-4 border-t border-sidebar-border">
+        <div className="p-4 border-t border-sidebar-border space-y-3">
+          <Button 
+            variant="outline" 
+            className="w-full text-destructive border-destructive/30 hover:bg-destructive/10 hover:text-destructive"
+            onClick={handleLogout}
+          >
+            <LogOut className="w-4 h-4 mr-2" />
+            Sair da Conta
+          </Button>
           <div className="text-center space-y-1">
             <p className="text-xs text-sidebar-foreground/50">
               TMS ONE v1.0
