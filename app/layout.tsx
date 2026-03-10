@@ -6,14 +6,14 @@ const geistSans = Geist({ subsets: ["latin"], variable: "--font-geist-sans" });
 const geistMono = Geist_Mono({ subsets: ["latin"], variable: "--font-geist-mono" });
 
 export const metadata: Metadata = {
-  title: 'TMS One - Tool Manager System | Vetore',
-  description: 'Sistema de Gestão de Manutenção Industrial - Vetore',
+  title: 'MANUTENCAO VETORE - Sistema de Gestao de Manutencao Industrial',
+  description: 'Sistema de Gestao de Manutencao Industrial para CNC - Vetore',
   generator: 'v0.app',
   manifest: '/manifest.json',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black-translucent',
-    title: 'TMS One',
+    title: 'MANUTENCAO VETORE',
   },
   formatDetection: {
     telephone: false,
