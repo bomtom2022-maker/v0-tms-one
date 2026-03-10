@@ -3,7 +3,7 @@
 import { createContext, useContext, useState, useCallback, type ReactNode } from 'react'
 import type { User, UserRole, AuthSession } from './types'
 
-// Admin oculto - nao aparece na lista de usuarios
+// Admin oculto - não aparece na lista de usuários
 const ADMIN_USER: User = {
   id: 'admin-001',
   name: 'Renan Bassinelo',
@@ -14,12 +14,12 @@ const ADMIN_USER: User = {
   isAdmin: true,
 }
 
-// Usuarios iniciais - vazio, apenas admin pode criar
+// Usuários iniciais - vazio, apenas admin pode criar
 const INITIAL_USERS: User[] = []
 
 interface AuthContextType {
   session: AuthSession | null
-  users: User[] // Lista de usuarios visiveis (sem admin)
+  users: User[] // Lista de usuários visíveis (sem admin)
   login: (email: string, password: string) => { success: boolean; error?: string }
   logout: () => void
   register: (name: string, email: string, password: string, role: UserRole) => { success: boolean; error?: string }
@@ -49,11 +49,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return { success: true }
     }
     
-    // Depois verificar usuarios normais
+    // Depois verificar usuários normais
     const user = users.find(u => u.email.toLowerCase() === email.toLowerCase())
     
     if (!user) {
-      return { success: false, error: 'Usuario nao encontrado' }
+      return { success: false, error: 'Usuário não encontrado' }
     }
     
     if (user.password !== password) {
@@ -74,9 +74,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const register = useCallback((name: string, email: string, password: string, role: UserRole) => {
-    // Verificar se email ja existe
+    // Verificar se email já existe
     if (users.some(u => u.email.toLowerCase() === email.toLowerCase())) {
-      return { success: false, error: 'Email ja cadastrado' }
+      return { success: false, error: 'Email já cadastrado' }
     }
 
     const newUser: User = {
@@ -93,9 +93,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [users])
 
   const updateUser = useCallback((id: string, name: string, email: string, role: UserRole, password?: string) => {
-    // Verificar se email ja existe em outro usuario
+    // Verificar se email já existe em outro usuário
     if (users.some(u => u.email.toLowerCase() === email.toLowerCase() && u.id !== id)) {
-      return { success: false, error: 'Email ja cadastrado em outro usuario' }
+      return { success: false, error: 'Email já cadastrado em outro usuário' }
     }
 
     setUsers(prev => prev.map(u => {
@@ -109,7 +109,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     }))
 
-    // Atualizar sessao se for o usuario logado
+    // Atualizar sessão se for o usuário logado
     if (session?.user.id === id) {
       setSession(prev => prev ? {
         ...prev,
@@ -121,9 +121,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [users, session])
 
   const deleteUser = useCallback((id: string) => {
-    // Nao pode deletar a si mesmo
+    // Não pode deletar a si mesmo
     if (session?.user.id === id) {
-      return { success: false, error: 'Voce nao pode deletar seu proprio usuario' }
+      return { success: false, error: 'Você não pode deletar seu próprio usuário' }
     }
 
     setUsers(prev => prev.filter(u => u.id !== id))

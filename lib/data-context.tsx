@@ -3,7 +3,7 @@
 import { createContext, useContext, useState, useCallback, type ReactNode } from 'react'
 import type { Machine, Problem, Part, Ticket, UsedPart, Priority, MaintenanceAction, MachineStatus, ScheduledMaintenance, AuditLog, AuditLogAction } from './types'
 
-// Dados iniciais de maquinas CNC
+// Dados iniciais de máquinas CNC
 const INITIAL_MACHINES: Machine[] = [
   { id: 'cnc-001', name: 'CNC Torno Romi GL-240', sector: 'Usinagem A', status: 'critical' },
   { id: 'cnc-002', name: 'CNC Fresadora Haas VF-2', sector: 'Usinagem A', status: 'ok' },
@@ -17,44 +17,44 @@ const INITIAL_MACHINES: Machine[] = [
   { id: 'cnc-010', name: 'CNC Mandriladora TOS', sector: 'Usinagem B', status: 'ok' },
 ]
 
-// Problemas pre-cadastrados com prioridade padrao
+// Problemas pré-cadastrados com prioridade padrão
 const INITIAL_PROBLEMS: Problem[] = [
   { id: 'prob-001', name: 'Falha no Spindle', defaultPriority: 'high' },
   { id: 'prob-002', name: 'Erro de Posicionamento', defaultPriority: 'high' },
-  { id: 'prob-003', name: 'Vazamento de Oleo', defaultPriority: 'medium' },
-  { id: 'prob-004', name: 'Problema no Sistema de Refrigeracao', defaultPriority: 'medium' },
+  { id: 'prob-003', name: 'Vazamento de Óleo', defaultPriority: 'medium' },
+  { id: 'prob-004', name: 'Problema no Sistema de Refrigeração', defaultPriority: 'medium' },
   { id: 'prob-005', name: 'Falha no Magazine de Ferramentas', defaultPriority: 'high' },
   { id: 'prob-006', name: 'Erro no CNC/Controlador', defaultPriority: 'high' },
   { id: 'prob-007', name: 'Problema no Servo Motor', defaultPriority: 'high' },
   { id: 'prob-008', name: 'Desgaste de Guias', defaultPriority: 'medium' },
-  { id: 'prob-009', name: 'Falha no Sistema Hidraulico', defaultPriority: 'high' },
-  { id: 'prob-010', name: 'Problema no Trocador Automatico', defaultPriority: 'medium' },
-  { id: 'prob-011', name: 'Manutencao Preventiva Programada', defaultPriority: 'low' },
-  { id: 'prob-012', name: 'Calibracao/Ajuste', defaultPriority: 'low' },
+  { id: 'prob-009', name: 'Falha no Sistema Hidráulico', defaultPriority: 'high' },
+  { id: 'prob-010', name: 'Problema no Trocador Automático', defaultPriority: 'medium' },
+  { id: 'prob-011', name: 'Manutenção Preventiva Programada', defaultPriority: 'low' },
+  { id: 'prob-012', name: 'Calibração/Ajuste', defaultPriority: 'low' },
   { id: 'prob-013', name: 'Outros', defaultPriority: 'medium', requiresManualPriority: true },
 ]
 
-// Pecas iniciais
+// Peças iniciais
 const INITIAL_PARTS: Part[] = [
   { id: 'part-001', name: 'Rolamento SKF 6205', price: 85.00, description: 'Rolamento de esferas para eixo principal' },
-  { id: 'part-002', name: 'Correia Dentada HTD 5M', price: 120.00, description: 'Correia de transmissao' },
-  { id: 'part-003', name: 'Oleo Hidraulico 20L', price: 280.00, description: 'Oleo para sistema hidraulico' },
-  { id: 'part-004', name: 'Filtro de Oleo', price: 65.00, description: 'Filtro para sistema de lubrificacao' },
+  { id: 'part-002', name: 'Correia Dentada HTD 5M', price: 120.00, description: 'Correia de transmissão' },
+  { id: 'part-003', name: 'Óleo Hidráulico 20L', price: 280.00, description: 'Óleo para sistema hidráulico' },
+  { id: 'part-004', name: 'Filtro de Óleo', price: 65.00, description: 'Filtro para sistema de lubrificação' },
   { id: 'part-005', name: 'Sensor de Proximidade', price: 450.00, description: 'Sensor indutivo para posicionamento' },
-  { id: 'part-006', name: 'Conector Eletrico Industrial', price: 35.00, description: 'Conector para painel eletrico' },
-  { id: 'part-007', name: 'Vedacao O-Ring Kit', price: 45.00, description: 'Kit de aneis de vedacao' },
-  { id: 'part-008', name: 'Fusivel Industrial 10A', price: 12.00, description: 'Fusivel de protecao' },
+  { id: 'part-006', name: 'Conector Elétrico Industrial', price: 35.00, description: 'Conector para painel elétrico' },
+  { id: 'part-007', name: 'Vedação O-Ring Kit', price: 45.00, description: 'Kit de anéis de vedação' },
+  { id: 'part-008', name: 'Fusível Industrial 10A', price: 12.00, description: 'Fusível de proteção' },
   { id: 'part-009', name: 'Graxa Especial 1Kg', price: 95.00, description: 'Graxa para guias lineares' },
-  { id: 'part-010', name: 'Bomba de Refrigeracao', price: 1850.00, description: 'Bomba para sistema de refrigeracao' },
+  { id: 'part-010', name: 'Bomba de Refrigeração', price: 1850.00, description: 'Bomba para sistema de refrigeração' },
 ]
 
-// Manutencoes futuras de exemplo
+// Manutenções futuras de exemplo
 const INITIAL_SCHEDULED: ScheduledMaintenance[] = [
   {
     id: 'sched-001',
     machineId: 'cnc-001',
-    title: 'Troca de Oleo Hidraulico',
-    description: 'Troca programada do oleo hidraulico do sistema.',
+    title: 'Troca de Óleo Hidráulico',
+    description: 'Troca programada do óleo hidráulico do sistema.',
     scheduledDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
     type: 'preventive',
     status: 'pending',
@@ -63,7 +63,7 @@ const INITIAL_SCHEDULED: ScheduledMaintenance[] = [
   {
     id: 'sched-002',
     machineId: 'cnc-003',
-    title: 'Inspecao de Guias Lineares',
+    title: 'Inspeção de Guias Lineares',
     description: 'Verificar desgaste e ajustar folgas das guias.',
     scheduledDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
     type: 'inspection',
@@ -73,8 +73,8 @@ const INITIAL_SCHEDULED: ScheduledMaintenance[] = [
   {
     id: 'sched-003',
     machineId: 'cnc-005',
-    title: 'Substituicao de Correias',
-    description: 'Trocar correias do eixo principal conforme plano de manutencao.',
+    title: 'Substituição de Correias',
+    description: 'Trocar correias do eixo principal conforme plano de manutenção.',
     scheduledDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
     type: 'preventive',
     status: 'pending',
@@ -88,7 +88,7 @@ const INITIAL_TICKETS: Ticket[] = []
 // Logs de auditoria - inicialmente vazio
 const INITIAL_AUDIT_LOGS: AuditLog[] = []
 
-// Callback para notificacoes
+// Callback para notificações
 type NotificationCallback = (title: string, message: string, type?: 'info' | 'warning' | 'success' | 'error') => void
 
 interface DataContextType {
@@ -142,7 +142,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     setNotifyCallback(() => callback)
   }, [])
 
-  // Funcao para adicionar log de auditoria
+  // Função para adicionar log de auditoria
   const addAuditLog = useCallback((logData: Omit<AuditLog, 'id' | 'timestamp'>) => {
     const newLog: AuditLog = {
       ...logData,
@@ -152,7 +152,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     setAuditLogs(prev => [newLog, ...prev])
   }, [])
 
-  // Funcoes para buscar logs
+  // Funções para buscar logs
   const getAuditLogsByEntity = useCallback((entityType: AuditLog['entityType'], entityId?: string) => {
     return auditLogs.filter(log => {
       if (log.entityType !== entityType) return false
@@ -189,7 +189,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       entityType: 'machine',
       entityId: newMachine.id,
       entityName: name,
-      details: `Maquina "${name}" criada no setor "${sector}" com status "${status}"`,
+      details: `Máquina "${name}" criada no setor "${sector}" com status "${status}"`,
       newValue: JSON.stringify({ name, sector, status }),
     })
   }, [addAuditLog])
@@ -208,7 +208,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       entityType: 'machine',
       entityId: id,
       entityName: name,
-      details: `Maquina "${oldMachine?.name}" atualizada para "${name}"`,
+      details: `Máquina "${oldMachine?.name}" atualizada para "${name}"`,
       previousValue: JSON.stringify(oldMachine),
       newValue: JSON.stringify({ name, sector, status }),
     })
@@ -231,7 +231,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       entityType: 'part',
       entityId: newPart.id,
       entityName: name,
-      details: `Peca "${name}" criada com preco R$ ${price.toFixed(2)}`,
+      details: `Peça "${name}" criada com preço R$ ${price.toFixed(2)}`,
       newValue: JSON.stringify({ name, price, description }),
     })
   }, [addAuditLog])
@@ -242,10 +242,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
       p.id === id ? { ...p, name, price, description } : p
     ))
     
-    // Log de auditoria com destaque para mudanca de preco
-    let details = `Peca "${oldPart?.name}" atualizada`
+    // Log de auditoria com destaque para mudança de preço
+    let details = `Peça "${oldPart?.name}" atualizada`
     if (previousPrice !== undefined && previousPrice !== price) {
-      details += ` - Preco alterado de R$ ${previousPrice.toFixed(2)} para R$ ${price.toFixed(2)}`
+      details += ` - Preço alterado de R$ ${previousPrice.toFixed(2)} para R$ ${price.toFixed(2)}`
     }
     
     addAuditLog({
@@ -278,7 +278,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       entityType: 'problem',
       entityId: newProblem.id,
       entityName: name,
-      details: `Problema "${name}" criado com prioridade padrao "${defaultPriority}"`,
+      details: `Problema "${name}" criado com prioridade padrão "${defaultPriority}"`,
       newValue: JSON.stringify({ name, defaultPriority }),
     })
   }, [addAuditLog])
@@ -328,8 +328,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
       userName: ticketData.createdByName,
       entityType: 'ticket',
       entityId: newTicket.id,
-      entityName: `${machine?.name || 'Maquina'} - ${problem?.name || 'Problema'}`,
-      details: `Chamado aberto para ${machine?.name || 'Maquina'} - Problema: ${problem?.name || 'N/A'} - Prioridade: ${ticketData.priority}${ticketData.machineStopped ? ' - MAQUINA PARADA' : ''}`,
+      entityName: `${machine?.name || 'Máquina'} - ${problem?.name || 'Problema'}`,
+      details: `Chamado aberto para ${machine?.name || 'Máquina'} - Problema: ${problem?.name || 'N/A'} - Prioridade: ${ticketData.priority}${ticketData.machineStopped ? ' - MÁQUINA PARADA' : ''}`,
       newValue: JSON.stringify(ticketData),
       metadata: {
         machineName: machine?.name,
@@ -343,7 +343,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     if (notifyCallback) {
       notifyCallback(
         'Novo Chamado Aberto',
-        `${machine?.name || 'Maquina'} - ${problem?.name || 'Problema'}`,
+        `${machine?.name || 'Máquina'} - ${problem?.name || 'Problema'}`,
         ticketData.priority === 'high' ? 'warning' : 'info'
       )
     }
@@ -365,7 +365,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       entityType: 'ticket',
       entityId: ticketId,
       entityName: machine?.name || 'Chamado',
-      details: `Observacao do chamado editada`,
+      details: `Observação do chamado editada`,
       previousValue: ticket?.observation,
       newValue: observation,
     })
@@ -389,7 +389,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       entityType: 'ticket',
       entityId: ticketId,
       entityName: machine?.name || 'Chamado',
-      details: `Chamado cancelado para ${machine?.name || 'Maquina'}`,
+      details: `Chamado cancelado para ${machine?.name || 'Máquina'}`,
     })
   }, [tickets, machines, addAuditLog])
 
@@ -412,7 +412,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       entityType: 'scheduled',
       entityId: newScheduled.id,
       entityName: data.title,
-      details: `Manutencao programada "${data.title}" criada para ${machine?.name || 'Maquina'} - Tipo: ${data.type}`,
+      details: `Manutenção programada "${data.title}" criada para ${machine?.name || 'Máquina'} - Tipo: ${data.type}`,
       newValue: JSON.stringify(data),
     })
   }, [machines, addAuditLog])
@@ -433,10 +433,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
       userName,
       entityType: 'scheduled',
       entityId: id,
-      entityName: oldScheduled?.title || 'Manutencao Programada',
+      entityName: oldScheduled?.title || 'Manutenção Programada',
       details: data.status === 'completed' 
-        ? `Manutencao programada "${oldScheduled?.title}" marcada como concluida`
-        : `Manutencao programada "${oldScheduled?.title}" atualizada`,
+        ? `Manutenção programada "${oldScheduled?.title}" marcada como concluída`
+        : `Manutenção programada "${oldScheduled?.title}" atualizada`,
       previousValue: JSON.stringify(oldScheduled),
       newValue: JSON.stringify(data),
       metadata: { machineName: machine?.name },
@@ -456,8 +456,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
       userName,
       entityType: 'scheduled',
       entityId: id,
-      entityName: scheduled?.title || 'Manutencao Programada',
-      details: `Manutencao programada "${scheduled?.title}" excluida - Maquina: ${machine?.name || 'N/A'}`,
+      entityName: scheduled?.title || 'Manutenção Programada',
+      details: `Manutenção programada "${scheduled?.title}" excluída - Máquina: ${machine?.name || 'N/A'}`,
       previousValue: JSON.stringify(scheduled),
     })
   }, [scheduledMaintenances, machines, addAuditLog])
@@ -492,14 +492,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
       entityType: 'ticket',
       entityId: ticketId,
       entityName: machine?.name || 'Chamado',
-      details: `Manutencao iniciada por ${operatorName} - ${machine?.name || 'Maquina'}`,
+      details: `Manutenção iniciada por ${operatorName} - ${machine?.name || 'Máquina'}`,
       metadata: { machineName: machine?.name },
     })
     
     // Notificar
     if (notifyCallback && machine) {
       notifyCallback(
-        'Manutencao Iniciada',
+        'Manutenção Iniciada',
         `${machine.name} - por ${operatorName}`,
         'info'
       )
@@ -546,7 +546,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       entityType: 'ticket',
       entityId: ticketId,
       entityName: machine?.name || 'Chamado',
-      details: `Manutencao pausada por ${operatorName} - Motivo: ${reason}`,
+      details: `Manutenção pausada por ${operatorName} - Motivo: ${reason}`,
       metadata: { machineName: machine?.name, reason },
     })
   }, [tickets, machines, addAuditLog])
@@ -579,7 +579,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       entityType: 'ticket',
       entityId: ticketId,
       entityName: machine?.name || 'Chamado',
-      details: `Manutencao retomada por ${operatorName} - ${machine?.name || 'Maquina'}`,
+      details: `Manutenção retomada por ${operatorName} - ${machine?.name || 'Máquina'}`,
       metadata: { machineName: machine?.name },
     })
   }, [tickets, machines, addAuditLog])
@@ -655,7 +655,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       entityType: 'ticket',
       entityId: ticketId,
       entityName: machine?.name || 'Chamado',
-      details: `Manutencao finalizada por ${operatorName} - ${machine?.name || 'Maquina'} - ${resolved ? 'RESOLVIDO' : 'NAO RESOLVIDO'} - Custo: R$ ${calculatedCost.toFixed(2)}${partsUsedList ? ` - Pecas: ${partsUsedList}` : ''}`,
+      details: `Manutenção finalizada por ${operatorName} - ${machine?.name || 'Máquina'} - ${resolved ? 'RESOLVIDO' : 'NÃO RESOLVIDO'} - Custo: R$ ${calculatedCost.toFixed(2)}${partsUsedList ? ` - Peças: ${partsUsedList}` : ''}`,
       metadata: {
         machineName: machine?.name,
         resolved,
@@ -671,11 +671,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
       },
     })
     
-    // Notificar sobre manutencao concluida
+    // Notificar sobre manutenção concluída
     if (notifyCallback && machine) {
       notifyCallback(
-        'Manutencao Finalizada',
-        `${machine.name} - ${resolved ? 'Resolvido' : 'Nao Resolvido'}`,
+        'Manutenção Finalizada',
+        `${machine.name} - ${resolved ? 'Resolvido' : 'Não Resolvido'}`,
         resolved ? 'success' : 'warning'
       )
     }
@@ -686,7 +686,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const getProblemById = useCallback((id: string) => problems.find(p => p.id === id), [problems])
   const getPartById = useCallback((id: string) => parts.find(p => p.id === id), [parts])
   
-  // Retorna o ultimo chamado criado por um usuario (mais recente)
+  // Retorna o último chamado criado por um usuário (mais recente)
   const getLastTicketByUser = useCallback((userId: string) => {
     const userTickets = tickets
       .filter(t => t.createdBy === userId)

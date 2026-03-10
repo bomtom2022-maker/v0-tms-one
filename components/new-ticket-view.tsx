@@ -52,7 +52,7 @@ export function NewTicketView({ onSuccess }: NewTicketViewProps) {
     }
   }, [problemId, manualPriority, getProblemById])
 
-  // Se maquina parada, automaticamente definir prioridade alta
+  // Se máquina parada, automaticamente definir prioridade alta
   useEffect(() => {
     if (machineStopped && !manualPriority) {
       setPriority('high')
@@ -65,7 +65,7 @@ export function NewTicketView({ onSuccess }: NewTicketViewProps) {
 
   const handleManualPriorityChange = (checked: boolean) => {
     const problem = getProblemById(problemId)
-    // Se o problema requer prioridade manual, nao permite desativar
+    // Se o problema requer prioridade manual, não permite desativar
     if (!checked && problem?.requiresManualPriority) {
       return
     }
@@ -124,7 +124,7 @@ export function NewTicketView({ onSuccess }: NewTicketViewProps) {
 
   const selectedProblem = problemId ? getProblemById(problemId) : null
   
-  // Verifica se e o problema "Outros" (requer observacao obrigatoria)
+  // Verifica se é o problema "Outros" (requer observação obrigatória)
   const isOtherProblem = selectedProblem?.name.toLowerCase() === 'outros' || selectedProblem?.name.toLowerCase() === 'outro'
   const isObservationRequired = isOtherProblem
   const isFormValid = machineId && problemId && (!isObservationRequired || observation.trim().length > 0)
@@ -137,21 +137,21 @@ export function NewTicketView({ onSuccess }: NewTicketViewProps) {
           Novo Chamado
         </h1>
         <p className="text-muted-foreground mt-1">
-          Registre um novo chamado de manutencao
+          Registre um novo chamado de manutenção
         </p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
-        {/* Selecao de Maquina */}
+        {/* Seleção de Máquina */}
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-base">Maquina CNC</CardTitle>
-            <CardDescription>Selecione a maquina com problema</CardDescription>
+            <CardTitle className="text-base">Máquina CNC</CardTitle>
+            <CardDescription>Selecione a máquina com problema</CardDescription>
           </CardHeader>
           <CardContent>
             <Select value={machineId} onValueChange={setMachineId}>
               <SelectTrigger className="w-full">
-                <SelectValue placeholder="Selecione a maquina..." />
+                <SelectValue placeholder="Selecione a máquina..." />
               </SelectTrigger>
               <SelectContent>
                 {machines.map((machine) => (
@@ -167,7 +167,7 @@ export function NewTicketView({ onSuccess }: NewTicketViewProps) {
           </CardContent>
         </Card>
 
-        {/* Maquina Parada */}
+        {/* Máquina Parada */}
         <Card className={cn(machineStopped && "border-red-500 bg-red-50/50")}>
           <CardContent className="p-4">
             <div className="flex items-start gap-4">
@@ -186,10 +186,10 @@ export function NewTicketView({ onSuccess }: NewTicketViewProps) {
                   )}
                 >
                   <AlertOctagon className={cn("w-5 h-5", machineStopped ? "text-red-500" : "text-muted-foreground")} />
-                  Maquina Parada
+                  Máquina Parada
                 </Label>
                 <p className="text-sm text-muted-foreground mt-1">
-                  Marque esta opcao se a maquina esta completamente parada e nao pode operar
+                  Marque esta opção se a máquina está completamente parada e não pode operar
                 </p>
               </div>
             </div>
@@ -197,19 +197,19 @@ export function NewTicketView({ onSuccess }: NewTicketViewProps) {
               <div className="mt-4 p-3 bg-red-100 rounded-lg border border-red-200">
                 <p className="text-sm text-red-700 font-medium flex items-center gap-2">
                   <AlertTriangle className="w-4 h-4" />
-                  Este chamado sera marcado como URGENTE (Prioridade Alta)
+                  Este chamado será marcado como URGENTE (Prioridade Alta)
                 </p>
               </div>
             )}
           </CardContent>
         </Card>
 
-        {/* Selecao de Problema */}
+        {/* Seleção de Problema */}
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-base">Tipo de Problema</CardTitle>
             <CardDescription>
-              Selecione o problema identificado (a prioridade sera definida automaticamente)
+              Selecione o problema identificado (a prioridade será definida automaticamente)
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -239,7 +239,7 @@ export function NewTicketView({ onSuccess }: NewTicketViewProps) {
             {selectedProblem && !manualPriority && !machineStopped && !selectedProblem.requiresManualPriority && (
               <div className="mt-3 p-3 rounded-lg bg-muted/50">
                 <p className="text-sm text-muted-foreground">
-                  Prioridade automatica: <span className={cn("font-medium", PRIORITY_CONFIG[selectedProblem.defaultPriority].textColor)}>
+                  Prioridade automática: <span className={cn("font-medium", PRIORITY_CONFIG[selectedProblem.defaultPriority].textColor)}>
                     {PRIORITY_CONFIG[selectedProblem.defaultPriority].label}
                   </span>
                 </p>
@@ -257,7 +257,7 @@ export function NewTicketView({ onSuccess }: NewTicketViewProps) {
                   <CardTitle className="text-base flex items-center gap-2">
                     Prioridade {selectedProblem?.requiresManualPriority ? "" : "Manual"}
                     {selectedProblem?.requiresManualPriority && (
-                      <Badge variant="outline" className="text-xs">Obrigatorio</Badge>
+                      <Badge variant="outline" className="text-xs">Obrigatório</Badge>
                     )}
                   </CardTitle>
                   <CardDescription>
@@ -316,20 +316,20 @@ export function NewTicketView({ onSuccess }: NewTicketViewProps) {
           </Card>
         )}
 
-        {/* Observacao */}
+        {/* Observação */}
         <Card className={cn(isObservationRequired && !observation.trim() && "border-amber-500")}>
           <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center gap-2">
-              Observacao
+              Observação
               {isObservationRequired && (
                 <Badge variant="outline" className="text-amber-600 border-amber-500 text-xs font-normal">
-                  Obrigatorio
+                  Obrigatório
                 </Badge>
               )}
             </CardTitle>
             <CardDescription>
               {isObservationRequired 
-                ? 'Descreva detalhadamente o problema especifico (campo obrigatorio para "Outros")'
+                ? 'Descreva detalhadamente o problema específico (campo obrigatório para "Outros")'
                 : 'Descreva o problema em detalhes'}
             </CardDescription>
           </CardHeader>
@@ -338,8 +338,8 @@ export function NewTicketView({ onSuccess }: NewTicketViewProps) {
               value={observation}
               onChange={(e) => setObservation(e.target.value)}
               placeholder={isObservationRequired 
-                ? "OBRIGATORIO: Descreva detalhadamente o problema especifico..."
-                : "Descreva o problema observado, sintomas, comportamento da maquina, etc."}
+                ? "OBRIGATÓRIO: Descreva detalhadamente o problema específico..."
+                : "Descreva o problema observado, sintomas, comportamento da máquina, etc."}
               rows={4}
               className={cn(
                 "resize-none",
@@ -349,7 +349,7 @@ export function NewTicketView({ onSuccess }: NewTicketViewProps) {
             {isObservationRequired && !observation.trim() && (
               <p className="text-sm text-amber-600 mt-2 flex items-center gap-1">
                 <AlertTriangle className="w-4 h-4" />
-                Este campo e obrigatorio quando o tipo de problema for "Outros"
+                Este campo é obrigatório quando o tipo de problema for "Outros"
               </p>
             )}
           </CardContent>

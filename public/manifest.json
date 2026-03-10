@@ -1,7 +1,7 @@
 {
   "name": "TMS ONE - Tool Manager System",
   "short_name": "TMS ONE",
-  "description": "Sistema de Gestao de Manutencao Industrial para CNC - Desenvolvido por TMS ONE",
+  "description": "Sistema de Gestão de Manutenção Industrial para CNC - Desenvolvido por TMS ONE",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0f172a",
@@ -80,7 +80,7 @@
     {
       "name": "Novo Chamado",
       "short_name": "Chamado",
-      "description": "Abrir novo chamado de manutencao",
+      "description": "Abrir novo chamado de manutenção",
       "url": "/?view=new-ticket",
       "icons": [{ "src": "/icons/icon-96x96.png", "sizes": "96x96" }]
     },

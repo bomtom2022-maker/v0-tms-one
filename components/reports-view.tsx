@@ -212,6 +212,7 @@ function generatePDF(
           border-collapse: collapse;
           margin-bottom: 25px;
           font-size: 11pt;
+          table-layout: fixed;
         }
         
         th {
@@ -228,7 +229,11 @@ function generatePDF(
         td {
           padding: 12px;
           border-bottom: 1px solid #ddd;
-          vertical-align: middle;
+          vertical-align: top;
+          word-wrap: break-word;
+          word-break: break-word;
+          white-space: normal;
+          max-width: 200px;
         }
         
         tr:nth-child(even) {
@@ -280,7 +285,7 @@ function generatePDF(
           <div class="header-content">
             <div class="header-left">
               <h1>${title}</h1>
-              <p>Relatorio gerado automaticamente pelo sistema</p>
+              <p>Relatório gerado automaticamente pelo sistema</p>
             </div>
             <div class="header-right">
               <div class="brand">TMS ONE</div>
@@ -390,7 +395,7 @@ function generateDailyPDF(
     <html lang="pt-BR">
     <head>
       <meta charset="UTF-8">
-      <title>Relatorio Diario TISAX - ${formattedDate} - TMS ONE</title>
+      <title>Relatório Diário TISAX - ${formattedDate} - TMS ONE</title>
       <style>
         @page {
           size: A4;
@@ -475,9 +480,9 @@ function generateDailyPDF(
         }
         .section-content { padding: 0; }
         
-        table { width: 100%; border-collapse: collapse; font-size: 11pt; margin-bottom: 12px; }
+        table { width: 100%; border-collapse: collapse; font-size: 11pt; margin-bottom: 12px; table-layout: fixed; }
         th { background: #f0f0f0; padding: 12px; text-align: left; font-weight: 600; border: 1px solid #ddd; font-size: 10pt; text-transform: uppercase; }
-        td { padding: 10px 12px; border: 1px solid #ddd; vertical-align: top; }
+        td { padding: 10px 12px; border: 1px solid #ddd; vertical-align: top; word-wrap: break-word; word-break: break-word; white-space: normal; }
         tr:nth-child(even) { background: #f9f9f9; }
         
         .badge { 
@@ -533,7 +538,7 @@ function generateDailyPDF(
         <div class="header">
           <div class="header-content">
             <div class="header-left">
-              <h1>Relatorio Diario de Operacoes</h1>
+              <h1>Relatório Diário de Operações</h1>
               <div class="subtitle">${formattedDate}</div>
               <div class="tisax">Preparado para conformidade TISAX</div>
             </div>
@@ -606,7 +611,7 @@ function generateDailyPDF(
               t.time, 
               t.machine, 
               t.operator, 
-              t.resolved ? '<span class="badge badge-success">Resolvido</span>' : '<span class="badge badge-warning">Nao Resolvido</span>',
+              t.resolved ? '<span class="badge badge-success">Resolvido</span>' : '<span class="badge badge-warning">Não Resolvido</span>',
               t.duration,
               t.cost,
               t.parts || '-'
@@ -721,7 +726,7 @@ function generateMachineDetailPDF(
     <html lang="pt-BR">
     <head>
       <meta charset="UTF-8">
-      <title>Relatorio por Maquina - TMS ONE</title>
+      <title>Relatório por Máquina - TMS ONE</title>
       <style>
         @page { size: A4; margin: 0; }
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -782,9 +787,9 @@ function generateMachineDetailPDF(
         }
         .machine-stats .label { font-size: 9pt; color: #666; text-transform: uppercase; display: block; margin-bottom: 6px; }
         .machine-stats .value { font-size: 16pt; font-weight: bold; color: #111; }
-        table { width: 100%; border-collapse: collapse; font-size: 11pt; }
+        table { width: 100%; border-collapse: collapse; font-size: 11pt; table-layout: fixed; }
         th { background: #f0f0f0; padding: 12px; text-align: left; font-weight: 600; border: 1px solid #ddd; font-size: 10pt; text-transform: uppercase; }
-        td { padding: 10px 12px; border: 1px solid #ddd; vertical-align: middle; }
+        td { padding: 10px 12px; border: 1px solid #ddd; vertical-align: top; word-wrap: break-word; word-break: break-word; white-space: normal; }
         tr:nth-child(even) { background: #f9f9f9; }
         .badge { display: inline-block; padding: 4px 10px; border-radius: 4px; font-size: 10pt; font-weight: bold; }
         .badge-success { background: #d4edda; color: #155724; }
@@ -826,8 +831,8 @@ function generateMachineDetailPDF(
         <div class="header">
           <div class="header-content">
             <div>
-              <h1>Relatorio Detalhado por Maquina</h1>
-              <p>Historico completo de manutencoes</p>
+              <h1>Relatório Detalhado por Máquina</h1>
+              <p>Histórico completo de manutenções</p>
             </div>
             <div class="header-right">
               <div class="brand">TMS ONE</div>
@@ -875,7 +880,7 @@ function generateMachineDetailPDF(
                     <tr>
                       <td>${t.date}</td>
                       <td>${t.problem}</td>
-                      <td><span class="badge ${t.resolved ? 'badge-success' : 'badge-warning'}">${t.resolved ? 'Resolvido' : 'Nao Resolvido'}</span></td>
+                      <td><span class="badge ${t.resolved ? 'badge-success' : 'badge-warning'}">${t.resolved ? 'Resolvido' : 'Não Resolvido'}</span></td>
                       <td>${formatDuration(t.downtime)}</td>
                       <td>${formatCurrency(t.cost)}</td>
                       <td>${t.operator}</td>
@@ -884,7 +889,7 @@ function generateMachineDetailPDF(
                   `).join('')}
                 </tbody>
               </table>
-            ` : '<div class="empty-msg">Nenhuma manutencao registrada</div>'}
+            ` : '<div class="empty-msg">Nenhuma manutenção registrada</div>'}
           </div>
         `).join('')}
         
@@ -994,17 +999,17 @@ export function ReportsView() {
         })) return false
       }
 
-      // Filtro de maquina
+      // Filtro de máquina
       if (filters.machineId !== 'all' && t.machineId !== filters.machineId) return false
 
-      // Filtro de usuario (quem finalizou)
+      // Filtro de usuário (quem finalizou)
       if (filters.userId !== 'all') {
         const lastAction = t.actions[t.actions.length - 1]
         const operatorMatch = lastAction?.operatorName === users.find(u => u.id === filters.userId)?.name
         if (!operatorMatch) return false
       }
 
-      // Filtro de pecas
+      // Filtro de peças
       if (filters.partId !== 'all') {
         const hasPart = t.usedParts.some(up => up.partId === filters.partId)
         if (!hasPart) return false
@@ -1023,7 +1028,7 @@ export function ReportsView() {
     })
   }, [tickets, filters, users])
 
-  // Estatisticas gerais
+  // Estatísticas gerais
   const stats = useMemo(() => {
     const totalDowntime = filteredTickets.reduce((sum, t) => sum + t.downtime, 0)
     const totalCost = filteredTickets.reduce((sum, t) => sum + t.totalCost, 0)
@@ -1041,7 +1046,7 @@ export function ReportsView() {
     }
   }, [filteredTickets])
 
-  // Dados por maquina
+  // Dados por máquina
   const machineData = useMemo(() => {
     const data = new Map<string, { 
       totalDowntime: number
@@ -1078,7 +1083,7 @@ export function ReportsView() {
       .sort((a, b) => b.totalDowntime - a.totalDowntime)
   }, [filteredTickets, getMachineById])
 
-  // Dados por usuario
+  // Dados por usuário
   const userData = useMemo(() => {
     const data = new Map<string, {
       ticketCount: number
@@ -1112,7 +1117,7 @@ export function ReportsView() {
       .sort((a, b) => b.ticketCount - a.ticketCount)
   }, [filteredTickets])
 
-  // Dados por peca
+  // Dados por peça
   const partsData = useMemo(() => {
     const data = new Map<string, { quantity: number; totalValue: number }>()
 
@@ -1168,8 +1173,8 @@ export function ReportsView() {
     switch (activeTab) {
       case 'general':
         generatePDF(
-          'Relatorio Geral de Manutencoes',
-          `Periodo: ${dateLabel}`,
+'Relatório Geral de Manutenções',
+        `Período: ${dateLabel}`,
           filteredTickets.map(t => {
             const machine = getMachineById(t.machineId)
             const problem = getProblemById(t.problemId)
@@ -1179,7 +1184,7 @@ export function ReportsView() {
               maquina: machine?.name || '-',
               problema: problem?.name || '-',
               prioridade: PRIORITY_CONFIG[t.priority].label,
-              status: t.resolved ? 'Resolvido' : 'Nao Resolvido',
+              status: t.resolved ? 'Resolvido' : 'Não Resolvido',
               tempo: formatDuration(t.downtime),
               custo: formatCurrency(t.totalCost),
               operador: lastAction?.operatorName || '-'
@@ -1187,7 +1192,7 @@ export function ReportsView() {
           }),
           [
             { key: 'data', label: 'Data' },
-            { key: 'maquina', label: 'Maquina' },
+            { key: 'maquina', label: 'Máquina' },
             { key: 'problema', label: 'Problema' },
             { key: 'prioridade', label: 'Prioridade', align: 'center' },
             { key: 'status', label: 'Status', align: 'center' },
@@ -1196,7 +1201,7 @@ export function ReportsView() {
             { key: 'operador', label: 'Operador' }
           ],
           [
-            { label: 'Total de Manutencoes', value: String(stats.total) },
+            { label: 'Total de Manutenções', value: String(stats.total) },
             { label: 'Tempo Total Parado', value: formatDuration(stats.totalDowntime) },
             { label: 'Custo Total', value: formatCurrency(stats.totalCost) },
             { label: 'Resolvidos', value: `${stats.resolved} (${stats.total > 0 ? Math.round(stats.resolved / stats.total * 100) : 0}%)` }
@@ -1238,8 +1243,8 @@ export function ReportsView() {
 
       case 'users':
         generatePDF(
-          'Relatorio por Manutentor',
-          `Periodo: ${dateLabel}`,
+'Relatório por Manutentor',
+        `Período: ${dateLabel}`,
           userData.map(u => ({
             nome: u.userName,
             chamados: String(u.ticketCount),
@@ -1265,8 +1270,8 @@ export function ReportsView() {
 
       case 'parts':
         generatePDF(
-          'Relatorio de Pecas Utilizadas',
-          `Periodo: ${dateLabel}`,
+'Relatório de Peças Utilizadas',
+        `Período: ${dateLabel}`,
           partsData.map(p => ({
             peca: p.partName,
             quantidade: String(p.quantity),
@@ -1289,7 +1294,7 @@ export function ReportsView() {
       case 'audit':
         generatePDF(
           'Log de Auditoria',
-          `Periodo: ${dateLabel}`,
+          `Período: ${dateLabel}`,
           filteredLogs.slice(0, 100).map(log => ({
             data: format(log.timestamp, 'dd/MM/yyyy HH:mm', { locale: ptBR }),
             usuario: log.userName,
@@ -1488,10 +1493,10 @@ export function ReportsView() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl lg:text-3xl font-bold text-foreground">
-            Relatorios e Performance
+            Relatórios e Performance
           </h1>
           <p className="text-muted-foreground mt-1">
-            Analise completa de manutencoes e auditoria
+            Análise completa de manutenções e auditoria
           </p>
         </div>
         <Button onClick={handleGeneratePDF}>
@@ -1518,9 +1523,9 @@ export function ReportsView() {
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {/* Periodo */}
-            <div className="space-y-2">
-              <Label className="text-xs">Periodo</Label>
+{/* Período */}
+            <div>
+              <Label className="text-xs">Período</Label>
               <div className="flex gap-1">
                 <Button 
                   variant={filters.datePreset === 'today' ? 'default' : 'outline'} 
@@ -1589,7 +1594,7 @@ export function ReportsView() {
                   <SelectValue placeholder="Todas" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">Todas as Maquinas</SelectItem>
+                  <SelectItem value="all">Todas as Máquinas</SelectItem>
                   {machines.map((m) => (
                     <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
                   ))}
@@ -1629,7 +1634,7 @@ export function ReportsView() {
                 <SelectContent>
                   <SelectItem value="all">Todos os Status</SelectItem>
                   <SelectItem value="yes">Resolvidos</SelectItem>
-                  <SelectItem value="no">Nao Resolvidos</SelectItem>
+                  <SelectItem value="no">Não Resolvidos</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -1646,7 +1651,7 @@ export function ReportsView() {
                 <Wrench className="w-4 h-4 text-primary-foreground" />
               </div>
               <div>
-                <p className="text-xs text-muted-foreground">Total Manutencoes</p>
+                <p className="text-xs text-muted-foreground">Total Manutenções</p>
                 <p className="text-xl font-bold">{stats.total}</p>
               </div>
             </div>
@@ -1688,7 +1693,7 @@ export function ReportsView() {
                 <CheckCircle className="w-4 h-4 text-white" />
               </div>
               <div>
-                <p className="text-xs text-muted-foreground">Taxa Resolucao</p>
+                <p className="text-xs text-muted-foreground">Taxa Resolução</p>
                 <p className="text-xl font-bold">
                   {stats.total > 0 ? Math.round(stats.resolved / stats.total * 100) : 0}%
                 </p>
@@ -1698,9 +1703,9 @@ export function ReportsView() {
         </Card>
       </div>
 
-      {/* Tabs de Relatorios */}
+      {/* Tabs de Relatórios */}
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as ReportType)}>
-        <TabsList className="grid grid-cols-3 sm:grid-cols-6 w-full h-auto gap-1 p-1">
+        <TabsList className="grid grid-cols-3 sm:grid-cols-5 w-full h-auto gap-1 p-1">
           <TabsTrigger value="general" className="text-[10px] sm:text-xs px-1 py-2">
             <FileText className="w-3 h-3 sm:w-4 sm:h-4 mr-0.5 sm:mr-1" />
             <span className="hidden xs:inline">Geral</span>
@@ -1708,27 +1713,22 @@ export function ReportsView() {
           </TabsTrigger>
           <TabsTrigger value="machines" className="text-[10px] sm:text-xs px-1 py-2">
             <Settings className="w-3 h-3 sm:w-4 sm:h-4 mr-0.5 sm:mr-1" />
-            <span className="hidden sm:inline">Maquinas</span>
+            <span className="hidden sm:inline">Máquinas</span>
             <span className="sm:hidden">Maq.</span>
           </TabsTrigger>
           <TabsTrigger value="users" className="text-[10px] sm:text-xs px-1 py-2">
             <User className="w-3 h-3 sm:w-4 sm:h-4 mr-0.5 sm:mr-1" />
-            <span className="hidden sm:inline">Usuarios</span>
+            <span className="hidden sm:inline">Usuários</span>
             <span className="sm:hidden">User</span>
           </TabsTrigger>
           <TabsTrigger value="parts" className="text-[10px] sm:text-xs px-1 py-2">
             <Package className="w-3 h-3 sm:w-4 sm:h-4 mr-0.5 sm:mr-1" />
-            <span className="hidden sm:inline">Pecas</span>
+            <span className="hidden sm:inline">Peças</span>
             <span className="sm:hidden">Pec.</span>
-          </TabsTrigger>
-          <TabsTrigger value="audit" className="text-[10px] sm:text-xs px-1 py-2">
-            <History className="w-3 h-3 sm:w-4 sm:h-4 mr-0.5 sm:mr-1" />
-            <span className="hidden sm:inline">Auditoria</span>
-            <span className="sm:hidden">Audit.</span>
           </TabsTrigger>
           <TabsTrigger value="daily" className="text-[10px] sm:text-xs px-1 py-2">
             <Shield className="w-3 h-3 sm:w-4 sm:h-4 mr-0.5 sm:mr-1" />
-            <span className="hidden sm:inline">Diario</span>
+            <span className="hidden sm:inline">Diário</span>
             <span className="sm:hidden">TISAX</span>
           </TabsTrigger>
         </TabsList>
@@ -1737,9 +1737,9 @@ export function ReportsView() {
         <TabsContent value="general" className="mt-4">
           <Card>
             <CardHeader>
-              <CardTitle>Lista de Manutencoes</CardTitle>
+              <CardTitle>Lista de Manutenções</CardTitle>
               <CardDescription>
-                {filteredTickets.length} manutencoes encontradas
+                {filteredTickets.length} manutenções encontradas
               </CardDescription>
             </CardHeader>
             <CardContent className="p-0">
@@ -1748,7 +1748,7 @@ export function ReportsView() {
                   <thead className="bg-muted">
                     <tr>
                       <th className="p-2 sm:p-3 text-left font-medium text-[10px] sm:text-xs">Data</th>
-                      <th className="p-2 sm:p-3 text-left font-medium text-[10px] sm:text-xs">Maquina</th>
+                      <th className="p-2 sm:p-3 text-left font-medium text-[10px] sm:text-xs">Máquina</th>
                       <th className="p-2 sm:p-3 text-left font-medium text-[10px] sm:text-xs hidden sm:table-cell">Problema</th>
                       <th className="p-2 sm:p-3 text-center font-medium text-[10px] sm:text-xs">Status</th>
                       <th className="p-2 sm:p-3 text-right font-medium text-[10px] sm:text-xs">Tempo</th>
@@ -1796,7 +1796,7 @@ export function ReportsView() {
                 </table>
                 {filteredTickets.length === 0 && (
                   <div className="p-8 text-center text-muted-foreground">
-                    Nenhuma manutencao encontrada para os filtros selecionados.
+                    Nenhuma manutenção encontrada para os filtros selecionados.
                   </div>
                 )}
                 {filteredTickets.length > 50 && (
@@ -1902,7 +1902,7 @@ export function ReportsView() {
         <TabsContent value="parts" className="mt-4">
           <Card>
             <CardHeader>
-              <CardTitle>Pecas Utilizadas</CardTitle>
+              <CardTitle>Peças Utilizadas</CardTitle>
               <CardDescription>
                 Ordenado por valor total (maior para menor)
               </CardDescription>
@@ -1912,9 +1912,9 @@ export function ReportsView() {
                 <table className="w-full text-sm">
                   <thead className="bg-muted">
                     <tr>
-                      <th className="p-3 text-left font-medium">Peca</th>
+                      <th className="p-3 text-left font-medium">Peça</th>
                       <th className="p-3 text-center font-medium">Quantidade</th>
-                      <th className="p-3 text-right font-medium">Preco Unit.</th>
+                      <th className="p-3 text-right font-medium">Preço Unit.</th>
                       <th className="p-3 text-right font-medium">Total</th>
                     </tr>
                   </thead>
@@ -1943,56 +1943,7 @@ export function ReportsView() {
                 </table>
                 {partsData.length === 0 && (
                   <div className="p-8 text-center text-muted-foreground">
-                    Nenhuma peca utilizada no periodo selecionado.
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* Tab Auditoria */}
-        <TabsContent value="audit" className="mt-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Log de Auditoria</CardTitle>
-              <CardDescription>
-                Historico de todas as alteracoes no sistema ({filteredLogs.length} registros)
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="p-0">
-              <div className="divide-y max-h-[600px] overflow-y-auto">
-                {filteredLogs.slice(0, 100).map((log) => (
-                  <div key={log.id} className="p-4 hover:bg-muted/50">
-                    <div className="flex items-start gap-3">
-                      <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center shrink-0">
-                        <History className="w-4 h-4 text-muted-foreground" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="font-medium">{log.userName}</span>
-                          <Badge variant="outline" className="text-xs">
-                            {getActionLabel(log.action)}
-                          </Badge>
-                        </div>
-                        <p className="text-sm text-muted-foreground mt-1">
-                          {log.details}
-                        </p>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          {format(log.timestamp, "dd/MM/yyyy 'as' HH:mm:ss", { locale: ptBR })}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-                {filteredLogs.length === 0 && (
-                  <div className="p-8 text-center text-muted-foreground">
-                    Nenhum registro de auditoria encontrado.
-                  </div>
-                )}
-                {filteredLogs.length > 100 && (
-                  <div className="p-4 text-center text-muted-foreground text-sm border-t">
-                    Mostrando 100 de {filteredLogs.length} registros. Gere o PDF para ver todos.
+                    Nenhuma peça utilizada no período selecionado.
                   </div>
                 )}
               </div>
@@ -2009,9 +1960,9 @@ export function ReportsView() {
                   <Shield className="w-5 h-5 text-blue-600" />
                 </div>
                 <div>
-                  <CardTitle>Relatorio Diario - TISAX</CardTitle>
+                  <CardTitle>Relatório Diário - TISAX</CardTitle>
                   <CardDescription>
-                    Gere um relatorio completo de todas as atividades de um dia especifico para auditoria
+                    Gere um relatório completo de todas as atividades de um dia específico para auditoria
                   </CardDescription>
                 </div>
               </div>
@@ -2023,9 +1974,9 @@ export function ReportsView() {
                   <div className="text-sm">
                     <p className="font-medium text-blue-900">Preparado para TISAX</p>
                     <p className="text-blue-700 mt-1">
-                      Este relatorio foi desenvolvido para atender aos requisitos de auditoria e rastreabilidade 
-                      exigidos pela certificacao TISAX (Trusted Information Security Assessment Exchange) 
-                      da industria automotiva.
+                      Este relatório foi desenvolvido para atender aos requisitos de auditoria e rastreabilidade 
+                      exigidos pela certificação TISAX (Trusted Information Security Assessment Exchange) 
+                      da indústria automotiva.
                     </p>
                   </div>
                 </div>
@@ -2033,7 +1984,7 @@ export function ReportsView() {
 
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <Label className="text-sm font-medium">Selecione a Data do Relatorio</Label>
+                  <Label className="text-sm font-medium">Selecione a Data do Relatório</Label>
                   <Popover open={dailyCalendarOpen} onOpenChange={setDailyCalendarOpen}>
                     <PopoverTrigger asChild>
                       <Button
@@ -2074,15 +2025,15 @@ export function ReportsView() {
                     </li>
                     <li className="flex items-center gap-2">
                       <CheckCircle className="w-4 h-4 text-green-500" />
-                      Manutencoes iniciadas, pausadas e finalizadas
+                      Manutenções iniciadas, pausadas e finalizadas
                     </li>
                     <li className="flex items-center gap-2">
                       <CheckCircle className="w-4 h-4 text-green-500" />
-                      Alteracoes em maquinas, pecas e usuarios
+                      Alterações em máquinas, peças e usuários
                     </li>
                     <li className="flex items-center gap-2">
                       <CheckCircle className="w-4 h-4 text-green-500" />
-                      Log completo de auditoria com horarios
+                      Log completo de auditoria com horários
                     </li>
                     <li className="flex items-center gap-2">
                       <CheckCircle className="w-4 h-4 text-green-500" />
@@ -2097,7 +2048,7 @@ export function ReportsView() {
                   className="w-full sm:w-auto"
                 >
                   <Printer className="w-4 h-4 mr-2" />
-                  Gerar Relatorio Diario em PDF
+                  Gerar Relatório Diário em PDF
                 </Button>
               </div>
             </CardContent>

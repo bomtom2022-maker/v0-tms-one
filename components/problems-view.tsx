@@ -89,7 +89,7 @@ export function ProblemsView() {
             Cadastro de Problemas
           </h1>
           <p className="text-muted-foreground mt-1">
-            Gerencie os tipos de problemas e suas prioridades padrao
+            Gerencie os tipos de problemas e suas prioridades padrão
           </p>
         </div>
         
@@ -104,7 +104,7 @@ export function ProblemsView() {
             <DialogHeader>
               <DialogTitle>Cadastrar Novo Problema</DialogTitle>
               <DialogDescription>
-                Defina o nome do problema e sua prioridade padrao. A prioridade sera sugerida automaticamente ao abrir um chamado.
+                Defina o nome do problema e sua prioridade padrão. A prioridade será sugerida automaticamente ao abrir um chamado.
               </DialogDescription>
             </DialogHeader>
             
@@ -120,7 +120,7 @@ export function ProblemsView() {
               </div>
               
               <div className="space-y-2">
-                <Label>Prioridade Padrao</Label>
+                <Label>Prioridade Padrão</Label>
                 <Select value={newProblemPriority} onValueChange={(v) => setNewProblemPriority(v as Priority)}>
                   <SelectTrigger>
                     <SelectValue />
@@ -143,7 +143,7 @@ export function ProblemsView() {
                   </SelectContent>
                 </Select>
                 <p className="text-xs text-muted-foreground">
-                  Esta prioridade sera automaticamente selecionada quando este problema for escolhido em um chamado.
+                  Esta prioridade será automaticamente selecionada quando este problema for escolhido em um chamado.
                 </p>
               </div>
             </div>
@@ -166,7 +166,7 @@ export function ProblemsView() {
           <DialogHeader>
             <DialogTitle>Editar Problema</DialogTitle>
             <DialogDescription>
-              Altere o nome e a prioridade padrao do problema.
+              Altere o nome e a prioridade padrão do problema.
             </DialogDescription>
           </DialogHeader>
           
@@ -182,7 +182,7 @@ export function ProblemsView() {
               </div>
               
               <div className="space-y-2">
-                <Label>Prioridade Padrao</Label>
+                <Label>Prioridade Padrão</Label>
                 <Select 
                   value={editingProblem.defaultPriority} 
                   onValueChange={(v) => setEditingProblem({ ...editingProblem, defaultPriority: v as Priority })}
@@ -299,7 +299,7 @@ export function ProblemsView() {
         <CardHeader>
           <CardTitle>Problemas Cadastrados</CardTitle>
           <CardDescription>
-            Lista de todos os problemas disponiveis para abertura de chamados
+            Lista de todos os problemas disponíveis para abertura de chamados
           </CardDescription>
         </CardHeader>
         <CardContent>

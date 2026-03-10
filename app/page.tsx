@@ -26,7 +26,7 @@ function TMSApp() {
   const [currentView, setCurrentView] = useState<View>('dashboard')
   const [selectedTicketId, setSelectedTicketId] = useState<string | null>(null)
 
-  // Integrar notificacoes do data-context com notification-context
+  // Integrar notificações do data-context com notification-context
   useEffect(() => {
     setNotificationCallback(notify)
     return () => setNotificationCallback(null)
@@ -40,7 +40,7 @@ function TMSApp() {
   }, [isLider, currentView])
 
   const handleSelectTicket = useCallback((ticketId: string) => {
-    // Apenas manutentores podem acessar a tela de manutencao
+    // Apenas manutentores podem acessar a tela de manutenção
     if (isManutentor) {
       setSelectedTicketId(ticketId)
       setCurrentView('maintenance')
