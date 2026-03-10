@@ -999,17 +999,17 @@ export function ReportsView() {
         })) return false
       }
 
-      // Filtro de maquina
+      // Filtro de máquina
       if (filters.machineId !== 'all' && t.machineId !== filters.machineId) return false
 
-      // Filtro de usuario (quem finalizou)
+      // Filtro de usuário (quem finalizou)
       if (filters.userId !== 'all') {
         const lastAction = t.actions[t.actions.length - 1]
         const operatorMatch = lastAction?.operatorName === users.find(u => u.id === filters.userId)?.name
         if (!operatorMatch) return false
       }
 
-      // Filtro de pecas
+      // Filtro de peças
       if (filters.partId !== 'all') {
         const hasPart = t.usedParts.some(up => up.partId === filters.partId)
         if (!hasPart) return false
@@ -1028,7 +1028,7 @@ export function ReportsView() {
     })
   }, [tickets, filters, users])
 
-  // Estatisticas gerais
+  // Estatísticas gerais
   const stats = useMemo(() => {
     const totalDowntime = filteredTickets.reduce((sum, t) => sum + t.downtime, 0)
     const totalCost = filteredTickets.reduce((sum, t) => sum + t.totalCost, 0)
@@ -1046,7 +1046,7 @@ export function ReportsView() {
     }
   }, [filteredTickets])
 
-  // Dados por maquina
+  // Dados por máquina
   const machineData = useMemo(() => {
     const data = new Map<string, { 
       totalDowntime: number
@@ -1083,7 +1083,7 @@ export function ReportsView() {
       .sort((a, b) => b.totalDowntime - a.totalDowntime)
   }, [filteredTickets, getMachineById])
 
-  // Dados por usuario
+  // Dados por usuário
   const userData = useMemo(() => {
     const data = new Map<string, {
       ticketCount: number
@@ -1117,7 +1117,7 @@ export function ReportsView() {
       .sort((a, b) => b.ticketCount - a.ticketCount)
   }, [filteredTickets])
 
-  // Dados por peca
+  // Dados por peça
   const partsData = useMemo(() => {
     const data = new Map<string, { quantity: number; totalValue: number }>()
 
@@ -1594,7 +1594,7 @@ export function ReportsView() {
                   <SelectValue placeholder="Todas" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">Todas as Maquinas</SelectItem>
+                  <SelectItem value="all">Todas as Máquinas</SelectItem>
                   {machines.map((m) => (
                     <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
                   ))}

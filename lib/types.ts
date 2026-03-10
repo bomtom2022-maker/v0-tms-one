@@ -154,16 +154,16 @@ export interface MaintenanceStats {
 
 export const MACHINE_STATUS_CONFIG = {
   critical: {
-    label: 'Critica',
-    description: 'Nao pode parar',
+    label: 'Crítica',
+    description: 'Não pode parar',
     color: 'bg-red-500',
     textColor: 'text-red-500',
     borderColor: 'border-red-500',
     bgLight: 'bg-red-50',
   },
   attention: {
-    label: 'Em Observacao',
-    description: 'Requer atencao',
+    label: 'Em Observação',
+    description: 'Requer atenção',
     color: 'bg-orange-500',
     textColor: 'text-orange-500',
     borderColor: 'border-orange-500',
@@ -171,7 +171,7 @@ export const MACHINE_STATUS_CONFIG = {
   },
   ok: {
     label: 'Normal',
-    description: 'Operacao normal',
+    description: 'Operação normal',
     color: 'bg-green-500',
     textColor: 'text-green-500',
     borderColor: 'border-green-500',
