@@ -412,7 +412,7 @@ export function MaintenanceView({ ticketId, onBack, onComplete }: MaintenanceVie
                 <div className="flex items-start gap-3">
                   <AlertTriangle className="w-5 h-5 text-orange-600 mt-0.5" />
                   <div>
-                    <h4 className="font-medium text-orange-800 dark:text-orange-200">Problema N��o Finalizado</h4>
+                    <h4 className="font-medium text-orange-800 dark:text-orange-200">Problema Nao Finalizado</h4>
                     <p className="text-sm text-orange-700 dark:text-orange-300 mt-1">
                       Este chamado foi marcado como não resolvido anteriormente. Você pode continuar a manutenção para tentar resolver o problema.
                     </p>
@@ -482,6 +482,41 @@ export function MaintenanceView({ ticketId, onBack, onComplete }: MaintenanceVie
                   </div>
                 )
               })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Tempo por Manutentor */}
+      {ticket.timeSegments && ticket.timeSegments.length > 0 && !showCompletionForm && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <Clock className="w-4 h-4" />
+              Tempo por Manutentor
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {/* Agrupar tempos por manutentor */}
+              {Object.entries(
+                ticket.timeSegments.reduce((acc, seg) => {
+                  if (!acc[seg.operatorName]) {
+                    acc[seg.operatorName] = 0
+                  }
+                  acc[seg.operatorName] += seg.duration
+                  return acc
+                }, {} as Record<string, number>)
+              ).map(([operatorName, totalTime]) => (
+                <div key={operatorName} className="flex items-center justify-between p-2 bg-muted/50 rounded">
+                  <span className="font-medium">{operatorName}</span>
+                  <span className="text-muted-foreground">{formatDuration(totalTime)}</span>
+                </div>
+              ))}
+              <div className="flex items-center justify-between p-2 border-t mt-2 pt-2 font-semibold">
+                <span>Tempo Total</span>
+                <span>{formatDuration(ticket.timeSegments.reduce((sum, seg) => sum + seg.duration, 0))}</span>
+              </div>
             </div>
           </CardContent>
         </Card>
