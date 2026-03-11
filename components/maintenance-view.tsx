@@ -140,10 +140,15 @@ export function MaintenanceView({ ticketId, onBack, onComplete }: MaintenanceVie
     setPauseReason('')
   }, [ticketId, operatorName, pauseReason, pauseMaintenance, currentUser])
 
-  const totalCost = Object.entries(selectedParts).reduce((sum, [partId, qty]) => {
+  // Custo das novas peças selecionadas
+  const newPartsCost = Object.entries(selectedParts).reduce((sum, [partId, qty]) => {
     const part = parts.find(p => p.id === partId)
     return sum + (part ? part.price * qty : 0)
   }, 0)
+  
+  // Custo total (anteriores + novas)
+  const previousCost = ticket?.totalCost || 0
+  const totalCost = previousCost + newPartsCost
 
   const getActionLabel = (action: 'start' | 'resume' | 'complete') => {
     switch (action) {
@@ -407,7 +412,7 @@ export function MaintenanceView({ ticketId, onBack, onComplete }: MaintenanceVie
                 <div className="flex items-start gap-3">
                   <AlertTriangle className="w-5 h-5 text-orange-600 mt-0.5" />
                   <div>
-                    <h4 className="font-medium text-orange-800 dark:text-orange-200">Problema Não Finalizado</h4>
+                    <h4 className="font-medium text-orange-800 dark:text-orange-200">Problema N��o Finalizado</h4>
                     <p className="text-sm text-orange-700 dark:text-orange-300 mt-1">
                       Este chamado foi marcado como não resolvido anteriormente. Você pode continuar a manutenção para tentar resolver o problema.
                     </p>
@@ -549,9 +554,33 @@ export function MaintenanceView({ ticketId, onBack, onComplete }: MaintenanceVie
               />
             </div>
 
+            {/* Peças já utilizadas anteriormente */}
+            {ticket.usedParts && ticket.usedParts.length > 0 && (
+              <div className="space-y-3 p-4 bg-muted/50 rounded-lg border">
+                <Label className="text-muted-foreground">Peças já utilizadas anteriormente:</Label>
+                <div className="space-y-2">
+                  {ticket.usedParts.map((up) => {
+                    const part = parts.find(p => p.id === up.partId)
+                    return (
+                      <div key={up.partId} className="flex items-center justify-between text-sm">
+                        <span>{part?.name || 'Peça não encontrada'}</span>
+                        <span className="text-muted-foreground">
+                          {up.quantity}x - {formatCurrency((part?.price || 0) * up.quantity)}
+                        </span>
+                      </div>
+                    )
+                  })}
+                  <div className="flex items-center justify-between font-medium pt-2 border-t">
+                    <span>Custo anterior:</span>
+                    <span>{formatCurrency(ticket.totalCost || 0)}</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Parts Selection */}
             <div className="space-y-3">
-              <Label>Peças Utilizadas</Label>
+              <Label>{ticket.usedParts && ticket.usedParts.length > 0 ? 'Adicionar mais peças' : 'Peças Utilizadas'}</Label>
               <div className="space-y-3 max-h-60 overflow-y-auto">
                 {parts.map((part) => (
                   <div key={part.id} className="flex items-center gap-4 p-3 rounded-lg border">
@@ -589,8 +618,14 @@ export function MaintenanceView({ ticketId, onBack, onComplete }: MaintenanceVie
             </div>
 
             <div className="border-t pt-4">
+              {previousCost > 0 && newPartsCost > 0 && (
+                <div className="flex justify-between items-center mb-2 text-sm text-muted-foreground">
+                  <span>Novas peças:</span>
+                  <span>{formatCurrency(newPartsCost)}</span>
+                </div>
+              )}
               <div className="flex justify-between items-center mb-4">
-                <span className="font-medium">Custo Total em Pecas:</span>
+                <span className="font-medium">Custo Total em Peças:</span>
                 <span className="text-xl font-bold">{formatCurrency(totalCost)}</span>
               </div>
 

@@ -612,7 +612,27 @@ setTickets(prev => {
       
       calculatedDowntime = ticket.accumulatedTime + additionalTime
       
-      calculatedCost = usedParts.reduce((sum, up) => {
+      // Combinar peças anteriores com novas peças
+      const previousParts = ticket.usedParts || []
+      const combinedParts: UsedPart[] = [...previousParts]
+      
+      // Para cada peça nova, verificar se já existe e somar quantidades
+      usedParts.forEach(newPart => {
+        const existingIndex = combinedParts.findIndex(p => p.partId === newPart.partId)
+        if (existingIndex >= 0) {
+          // Somar quantidade se a peça já existe
+          combinedParts[existingIndex] = {
+            ...combinedParts[existingIndex],
+            quantity: combinedParts[existingIndex].quantity + newPart.quantity
+          }
+        } else {
+          // Adicionar nova peça
+          combinedParts.push(newPart)
+        }
+      })
+      
+      // Calcular custo total de TODAS as peças (anteriores + novas)
+      calculatedCost = combinedParts.reduce((sum, up) => {
         const part = parts.find(p => p.id === up.partId)
         return sum + (part ? part.price * up.quantity : 0)
       }, 0)
@@ -635,11 +655,13 @@ setTickets(prev => {
         // Se não foi resolvido, usar status 'unresolved' para permitir continuidade
         status: resolved === false ? 'unresolved' as const : 'completed' as const,
         completedAt: resolved === false ? undefined : now,
-        usedParts,
+        usedParts: combinedParts, // Usar peças combinadas
         totalCost: calculatedCost,
         downtime: calculatedDowntime,
         actions: [...ticket.actions, action],
-        completionNotes,
+        completionNotes: resolved === false 
+          ? (ticket.completionNotes ? `${ticket.completionNotes}\n---\n${completionNotes || ''}` : completionNotes) 
+          : completionNotes, // Acumular observações quando não resolvido
         resolved,
       }
     }))
