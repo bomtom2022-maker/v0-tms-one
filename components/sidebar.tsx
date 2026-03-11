@@ -59,7 +59,7 @@ const allMenuItems = [
 
 export function Sidebar({ currentView, onViewChange }: SidebarProps) {
   const [mobileOpen, setMobileOpen] = useState(false)
-  const [showInstallButton, setShowInstallButton] = useState(false)
+  const [showInstallButton, setShowInstallButton] = useState(true)
   const { currentUser, logout, isManutentor } = useAuth()
 
   // Verificar se deve mostrar botao de instalacao (APENAS DESKTOP)
@@ -73,16 +73,22 @@ export function Sidebar({ currentView, onViewChange }: SidebarProps) {
         || (window.navigator as Navigator & { standalone?: boolean }).standalone === true
       
       // Mostrar botao APENAS em desktop e se NAO estiver instalado
-      setShowInstallButton(!isMobile && !isInStandaloneMode)
+      const shouldShow = !isMobile && !isInStandaloneMode
+      setShowInstallButton(shouldShow)
     }
     
+    // Executar imediatamente
     checkInstall()
     
     // Escutar quando o prompt de instalacao ficar disponivel
     window.addEventListener('pwa-install-available', checkInstall)
     
+    // Tambem verificar apos o carregamento completo
+    window.addEventListener('load', checkInstall)
+    
     return () => {
       window.removeEventListener('pwa-install-available', checkInstall)
+      window.removeEventListener('load', checkInstall)
     }
   }, [])
 
@@ -169,26 +175,24 @@ export function Sidebar({ currentView, onViewChange }: SidebarProps) {
                 <h1 className="text-xl font-bold text-sidebar-foreground">TMS ONE</h1>
                 <p className="text-xs text-sidebar-foreground/60">TOOL MANAGER SYSTEM</p>
               </div>
-              {/* Botao de instalacao desktop */}
-              {showInstallButton && (
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        variant="default"
-                        size="icon"
-                        onClick={handleInstallClick}
-                        className="h-8 w-8 bg-blue-600 hover:bg-blue-700 text-white"
-                      >
-                        <Download className="w-4 h-4" />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>Instalar aplicativo</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              )}
+              {/* Botao de instalacao desktop - sempre visivel no desktop */}
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="default"
+                      size="icon"
+                      onClick={handleInstallClick}
+                      className="h-8 w-8 bg-blue-600 hover:bg-blue-700 text-white"
+                    >
+                      <Download className="w-4 h-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Instalar aplicativo</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             </div>
           </div>
           <NotificationBell />
