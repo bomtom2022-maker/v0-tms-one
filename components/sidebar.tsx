@@ -3,7 +3,7 @@
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/lib/auth-context'
 import { NotificationBell } from '@/components/notification-bell'
-import { triggerInstall, canInstall, isInstalled } from '@/components/install-prompt'
+import { triggerInstall, canInstall, isInstalled, openInstallModal } from '@/components/install-prompt'
 import { 
   LayoutDashboard, 
   Plus, 
@@ -62,10 +62,11 @@ export function Sidebar({ currentView, onViewChange }: SidebarProps) {
   const [showInstallButton, setShowInstallButton] = useState(false)
   const { currentUser, logout, isManutentor } = useAuth()
 
-  // Verificar se pode mostrar botao de instalacao
+  // Verificar se deve mostrar botao de instalacao (sempre que nao estiver instalado)
   useEffect(() => {
     const checkInstall = () => {
-      setShowInstallButton(canInstall() && !isInstalled())
+      // Mostrar botao se nao estiver instalado
+      setShowInstallButton(!isInstalled())
     }
     
     checkInstall()
@@ -79,10 +80,16 @@ export function Sidebar({ currentView, onViewChange }: SidebarProps) {
   }, [])
 
   const handleInstallClick = async () => {
-    const success = await triggerInstall()
-    if (success) {
-      setShowInstallButton(false)
+    // Se pode instalar diretamente, tenta instalar
+    if (canInstall()) {
+      const success = await triggerInstall()
+      if (success) {
+        setShowInstallButton(false)
+        return
+      }
     }
+    // Senao, abre o modal com instrucoes
+    openInstallModal()
   }
 
   const menuItems = allMenuItems.filter(item => 

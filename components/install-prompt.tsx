@@ -58,6 +58,19 @@ export function isInstalled(): boolean {
   return isInStandaloneMode || localStorage.getItem('pwa-installed') === 'true'
 }
 
+// Evento para abrir modal de instrucoes
+let openInstallModalCallback: (() => void) | null = null
+
+export function setOpenInstallModal(callback: () => void) {
+  openInstallModalCallback = callback
+}
+
+export function openInstallModal() {
+  if (openInstallModalCallback) {
+    openInstallModalCallback()
+  }
+}
+
 export function InstallPrompt() {
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null)
   const [showModal, setShowModal] = useState(false)
@@ -67,6 +80,14 @@ export function InstallPrompt() {
   const [isMobile, setIsMobile] = useState(false)
   const [installing, setInstalling] = useState(false)
   const [installed, setInstalled] = useState(false)
+
+  // Registrar callback para abrir modal externamente
+  useEffect(() => {
+    setOpenInstallModal(() => setShowModal(true))
+    return () => {
+      setOpenInstallModal(() => {})
+    }
+  }, [])
 
   useEffect(() => {
     // Verificar se ja esta instalado (modo standalone)
@@ -97,12 +118,13 @@ export function InstallPrompt() {
       return
     }
     
-    const dismissed = localStorage.getItem('pwa-install-dismissed')
-    if (dismissed) {
-      const dismissedTime = parseInt(dismissed)
+    const dismissedStr = localStorage.getItem('pwa-install-dismissed')
+    let wasDismissedRecently = false
+    if (dismissedStr) {
+      const dismissedTime = parseInt(dismissedStr)
       // Mostrar novamente apos 1 dia
       if (Date.now() - dismissedTime < 1 * 24 * 60 * 60 * 1000) {
-        return
+        wasDismissedRecently = true
       }
     }
     
@@ -122,9 +144,9 @@ export function InstallPrompt() {
       setDeferredPrompt(globalDeferredPrompt)
     }
     
-    // Mostrar modal automaticamente apos 1.5 segundos em dispositivos moveis
-    if (isMobileDevice) {
-      setTimeout(() => setShowModal(true), 1500)
+    // Mostrar modal automaticamente apos 2 segundos em dispositivos moveis (se nao dispensou recentemente)
+    if (isMobileDevice && !wasDismissedRecently) {
+      setTimeout(() => setShowModal(true), 2000)
     }
     
     // Detectar quando o app foi instalado
@@ -174,9 +196,6 @@ export function InstallPrompt() {
 
   // Nao mostrar se ja instalado
   if (isStandalone || installed) return null
-  
-  // Nao mostrar em desktop
-  if (!isMobile) return null
 
   const canInstallDirectly = !!(deferredPrompt || globalDeferredPrompt)
 
@@ -272,6 +291,21 @@ export function InstallPrompt() {
                   <Download className="w-5 h-5 text-blue-400" />
                 </div>
                 <span>2. Selecione <strong className="text-white">Instalar app</strong></span>
+              </div>
+            </div>
+          )}
+
+          {/* Instrucoes para Desktop/outros navegadores */}
+          {!isMobile && !canInstallDirectly && (
+            <div className="bg-slate-800 rounded-xl p-4 space-y-3 mt-4">
+              <p className="text-sm font-medium text-white">
+                Como instalar no computador:
+              </p>
+              <div className="flex items-center gap-3 text-sm text-slate-300">
+                <div className="w-8 h-8 bg-slate-700 rounded-lg flex items-center justify-center shrink-0">
+                  <Download className="w-5 h-5 text-blue-400" />
+                </div>
+                <span>Clique no icone de instalar na barra de endereco do navegador</span>
               </div>
             </div>
           )}
