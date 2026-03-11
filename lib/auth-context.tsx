@@ -1,6 +1,6 @@
 'use client'
 
-import { createContext, useContext, useState, useCallback, type ReactNode } from 'react'
+import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react'
 import type { User, UserRole, AuthSession } from './types'
 
 // Admin oculto - não aparece na lista de usuários
@@ -14,8 +14,37 @@ const ADMIN_USER: User = {
   isAdmin: true,
 }
 
-// Usuários iniciais - vazio, apenas admin pode criar
-const INITIAL_USERS: User[] = []
+// Chave para localStorage
+const USERS_STORAGE_KEY = 'tms-one-users'
+
+// Função para carregar usuários do localStorage
+function loadUsersFromStorage(): User[] {
+  if (typeof window === 'undefined') return []
+  try {
+    const stored = localStorage.getItem(USERS_STORAGE_KEY)
+    if (stored) {
+      const parsed = JSON.parse(stored)
+      // Converter strings de data de volta para objetos Date
+      return parsed.map((u: User) => ({
+        ...u,
+        createdAt: new Date(u.createdAt)
+      }))
+    }
+  } catch (e) {
+    console.error('Erro ao carregar usuários:', e)
+  }
+  return []
+}
+
+// Função para salvar usuários no localStorage
+function saveUsersToStorage(users: User[]) {
+  if (typeof window === 'undefined') return
+  try {
+    localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(users))
+  } catch (e) {
+    console.error('Erro ao salvar usuários:', e)
+  }
+}
 
 interface AuthContextType {
   session: AuthSession | null
@@ -35,8 +64,23 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [users, setUsers] = useState<User[]>(INITIAL_USERS)
+  const [users, setUsers] = useState<User[]>([])
   const [session, setSession] = useState<AuthSession | null>(null)
+  const [isHydrated, setIsHydrated] = useState(false)
+
+  // Carregar usuários do localStorage na inicialização
+  useEffect(() => {
+    const storedUsers = loadUsersFromStorage()
+    setUsers(storedUsers)
+    setIsHydrated(true)
+  }, [])
+
+  // Salvar usuários no localStorage quando mudar
+  useEffect(() => {
+    if (isHydrated) {
+      saveUsersToStorage(users)
+    }
+  }, [users, isHydrated])
 
   const login = useCallback((email: string, password: string) => {
     // Primeiro verificar se e o admin oculto

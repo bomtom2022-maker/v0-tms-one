@@ -110,9 +110,9 @@ function TMSApp() {
     <div className="min-h-screen bg-background">
       <Sidebar currentView={currentView} onViewChange={handleViewChange} />
       
-      {/* Main Content */}
-      <main className="lg:ml-64 pt-16 lg:pt-0">
-        <div className="p-4 lg:p-8">
+      {/* Main Content - Otimizado para mobile */}
+      <main className="lg:ml-64 pt-16 lg:pt-0 pb-4">
+        <div className="p-3 sm:p-4 lg:p-6">
           {renderView()}
         </div>
       </main>

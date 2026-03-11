@@ -1,7 +1,7 @@
 'use client'
 
 import { createContext, useContext, useState, useCallback, type ReactNode } from 'react'
-import type { Machine, Problem, Part, Ticket, UsedPart, Priority, MaintenanceAction, MachineStatus, ScheduledMaintenance, AuditLog, AuditLogAction } from './types'
+import type { Machine, Problem, Part, Ticket, UsedPart, Priority, MaintenanceAction, MachineStatus, ScheduledMaintenance, AuditLog, AuditLogAction, TimeSegment } from './types'
 
 // Dados iniciais de máquinas CNC
 const INITIAL_MACHINES: Machine[] = [
@@ -303,18 +303,19 @@ export function DataProvider({ children }: { children: ReactNode }) {
     })
   }, [problems, addAuditLog])
 
-  const addTicket = useCallback((ticketData: Omit<Ticket, 'id' | 'createdAt' | 'usedParts' | 'totalCost' | 'downtime' | 'accumulatedTime' | 'actions' | 'status'>) => {
-    const newTicket: Ticket = {
-      ...ticketData,
-      id: `ticket-${Date.now()}`,
-      status: 'open',
-      createdAt: new Date(),
-      usedParts: [],
-      totalCost: 0,
-      downtime: 0,
-      accumulatedTime: 0,
-      actions: [],
-    }
+const addTicket = useCallback((ticketData: Omit<Ticket, 'id' | 'createdAt' | 'usedParts' | 'totalCost' | 'downtime' | 'accumulatedTime' | 'actions' | 'status' | 'timeSegments'>) => {
+  const newTicket: Ticket = {
+  ...ticketData,
+  id: `ticket-${Date.now()}`,
+  status: 'open',
+  createdAt: new Date(),
+  usedParts: [],
+  totalCost: 0,
+  downtime: 0,
+  accumulatedTime: 0,
+  actions: [],
+  timeSegments: [],
+  }
     setTickets(prev => [newTicket, ...prev])
     
     // Buscar nomes para o log
@@ -466,23 +467,33 @@ export function DataProvider({ children }: { children: ReactNode }) {
     const ticket = tickets.find(t => t.id === ticketId)
     const machine = ticket ? machines.find(m => m.id === ticket.machineId) : null
     
-    setTickets(prev => {
-      const updated = prev.map(t => {
-        if (t.id !== ticketId) return t
-        const action: MaintenanceAction = {
-          type: 'start',
-          operatorName,
-          timestamp: new Date(),
-        }
-        return { 
-          ...t, 
-          status: 'in-progress' as const, 
-          startedAt: new Date(),
-          actions: [...t.actions, action],
-        }
-      })
-      return updated
+setTickets(prev => {
+    const updated = prev.map(t => {
+      if (t.id !== ticketId) return t
+      const now = new Date()
+      const action: MaintenanceAction = {
+        type: 'start',
+        operatorName,
+        timestamp: now,
+      }
+      // Criar novo segmento de tempo para este manutentor
+      const newSegment: TimeSegment = {
+        operatorName,
+        startTime: now,
+        duration: 0,
+      }
+      return {
+        ...t,
+        status: 'in-progress' as const,
+        startedAt: t.startedAt || now, // Manter data original se existir
+        actions: [...t.actions, action],
+        timeSegments: [...(t.timeSegments || []), newSegment],
+        // Resetar resolved se estava como unresolved (permitir nova tentativa)
+        resolved: t.status === 'unresolved' ? undefined : t.resolved,
+      }
     })
+    return updated
+  })
     
     // Log de auditoria
     addAuditLog({
@@ -530,11 +541,23 @@ export function DataProvider({ children }: { children: ReactNode }) {
         reason,
       }
       
+      // Fechar o segmento de tempo atual
+      const updatedSegments = [...(t.timeSegments || [])]
+      const lastSegmentIndex = updatedSegments.length - 1
+      if (lastSegmentIndex >= 0 && !updatedSegments[lastSegmentIndex].endTime) {
+        updatedSegments[lastSegmentIndex] = {
+          ...updatedSegments[lastSegmentIndex],
+          endTime: now,
+          duration: additionalTime,
+        }
+      }
+      
       return { 
         ...t, 
         status: 'paused' as const,
         accumulatedTime: t.accumulatedTime + additionalTime,
         actions: [...t.actions, action],
+        timeSegments: updatedSegments,
       }
     }))
     
@@ -558,16 +581,25 @@ export function DataProvider({ children }: { children: ReactNode }) {
     setTickets(prev => prev.map(t => {
       if (t.id !== ticketId) return t
       
+      const now = new Date()
       const action: MaintenanceAction = {
         type: 'resume',
         operatorName,
-        timestamp: new Date(),
+        timestamp: now,
+      }
+      
+      // Criar novo segmento de tempo para este manutentor
+      const newSegment: TimeSegment = {
+        operatorName,
+        startTime: now,
+        duration: 0,
       }
       
       return { 
         ...t, 
         status: 'in-progress' as const,
         actions: [...t.actions, action],
+        timeSegments: [...(t.timeSegments || []), newSegment],
       }
     }))
     
@@ -608,9 +640,42 @@ export function DataProvider({ children }: { children: ReactNode }) {
         }
       }
       
-      calculatedDowntime = ticket.accumulatedTime + additionalTime
+      // Fechar o segmento de tempo atual
+      const updatedSegments = [...(ticket.timeSegments || [])]
+      const lastSegmentIndex = updatedSegments.length - 1
+      if (lastSegmentIndex >= 0 && !updatedSegments[lastSegmentIndex].endTime) {
+        updatedSegments[lastSegmentIndex] = {
+          ...updatedSegments[lastSegmentIndex],
+          endTime: now,
+          duration: updatedSegments[lastSegmentIndex].duration + additionalTime,
+        }
+      }
       
-      calculatedCost = usedParts.reduce((sum, up) => {
+      // Calcular downtime total (soma de todos os segmentos)
+      const totalDowntime = updatedSegments.reduce((sum, seg) => sum + seg.duration, 0)
+      calculatedDowntime = totalDowntime
+      
+      // Combinar peças anteriores com novas peças
+      const previousParts = ticket.usedParts || []
+      const combinedParts: UsedPart[] = [...previousParts]
+      
+      // Para cada peça nova, verificar se já existe e somar quantidades
+      usedParts.forEach(newPart => {
+        const existingIndex = combinedParts.findIndex(p => p.partId === newPart.partId)
+        if (existingIndex >= 0) {
+          // Somar quantidade se a peça já existe
+          combinedParts[existingIndex] = {
+            ...combinedParts[existingIndex],
+            quantity: combinedParts[existingIndex].quantity + newPart.quantity
+          }
+        } else {
+          // Adicionar nova peça
+          combinedParts.push(newPart)
+        }
+      })
+      
+      // Calcular custo total de TODAS as peças (anteriores + novas)
+      calculatedCost = combinedParts.reduce((sum, up) => {
         const part = parts.find(p => p.id === up.partId)
         return sum + (part ? part.price * up.quantity : 0)
       }, 0)
@@ -630,13 +695,18 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
       return {
         ...ticket,
-        status: 'completed' as const,
-        completedAt: now,
-        usedParts,
+        // Se não foi resolvido, usar status 'unresolved' para permitir continuidade
+        status: resolved === false ? 'unresolved' as const : 'completed' as const,
+        completedAt: resolved === false ? undefined : now,
+        usedParts: combinedParts, // Usar peças combinadas
         totalCost: calculatedCost,
         downtime: calculatedDowntime,
+        accumulatedTime: totalDowntime, // Manter acumulado atualizado
+        timeSegments: updatedSegments, // Historico de tempo por manutentor
         actions: [...ticket.actions, action],
-        completionNotes,
+        completionNotes: resolved === false 
+          ? (ticket.completionNotes ? `${ticket.completionNotes}\n---\n${completionNotes || ''}` : completionNotes) 
+          : completionNotes, // Acumular observações quando não resolvido
         resolved,
       }
     }))

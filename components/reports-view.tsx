@@ -1083,7 +1083,7 @@ export function ReportsView() {
       .sort((a, b) => b.totalDowntime - a.totalDowntime)
   }, [filteredTickets, getMachineById])
 
-  // Dados por usuário
+  // Dados por usuário - usando timeSegments para tempo real por manutentor
   const userData = useMemo(() => {
     const data = new Map<string, {
       ticketCount: number
@@ -1093,28 +1093,47 @@ export function ReportsView() {
     }>()
 
     filteredTickets.forEach(ticket => {
-      const lastAction = ticket.actions[ticket.actions.length - 1]
-      if (!lastAction) return
-
-      const operatorName = lastAction.operatorName
-      const current = data.get(operatorName) || {
-        ticketCount: 0,
-        totalDowntime: 0,
-        totalCost: 0,
-        resolvedCount: 0
+      // Usar timeSegments para calcular tempo real por manutentor
+      const operatorTimes = new Map<string, number>()
+      
+      if (ticket.timeSegments && ticket.timeSegments.length > 0) {
+        ticket.timeSegments.forEach(seg => {
+          const current = operatorTimes.get(seg.operatorName) || 0
+          operatorTimes.set(seg.operatorName, current + seg.duration)
+        })
+      } else {
+        // Fallback para tickets antigos sem timeSegments
+        const lastAction = ticket.actions[ticket.actions.length - 1]
+        if (lastAction) {
+          operatorTimes.set(lastAction.operatorName, ticket.downtime)
+        }
       }
 
-      data.set(operatorName, {
-        ticketCount: current.ticketCount + 1,
-        totalDowntime: current.totalDowntime + ticket.downtime,
-        totalCost: current.totalCost + ticket.totalCost,
-        resolvedCount: current.resolvedCount + (ticket.resolved ? 1 : 0)
+      // Atualizar dados de cada operador
+      operatorTimes.forEach((time, operatorName) => {
+        const current = data.get(operatorName) || {
+          ticketCount: 0,
+          totalDowntime: 0,
+          totalCost: 0,
+          resolvedCount: 0
+        }
+
+        // Verificar se este operador foi o que finalizou (para contar resolved)
+        const lastAction = ticket.actions[ticket.actions.length - 1]
+        const isCompleter = lastAction?.operatorName === operatorName
+
+        data.set(operatorName, {
+          ticketCount: current.ticketCount + 1,
+          totalDowntime: current.totalDowntime + time,
+          totalCost: current.totalCost + (isCompleter ? ticket.totalCost : 0), // Custo apenas para quem finalizou
+          resolvedCount: current.resolvedCount + (isCompleter && ticket.resolved ? 1 : 0)
+        })
       })
     })
 
     return Array.from(data.entries())
       .map(([userName, d]) => ({ userName, ...d }))
-      .sort((a, b) => b.ticketCount - a.ticketCount)
+      .sort((a, b) => b.totalDowntime - a.totalDowntime) // Ordenar por tempo
   }, [filteredTickets])
 
   // Dados por peça

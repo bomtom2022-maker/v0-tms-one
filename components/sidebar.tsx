@@ -73,27 +73,26 @@ export function Sidebar({ currentView, onViewChange }: SidebarProps) {
 
   return (
     <>
-      {/* Mobile Header */}
-      <header className="lg:hidden fixed top-0 left-0 right-0 z-50 bg-sidebar border-b border-sidebar-border">
-        <div className="flex items-center justify-between p-4">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-sidebar-primary rounded-lg flex items-center justify-center">
-              <Settings className="w-5 h-5 text-sidebar-primary-foreground" />
+      {/* Mobile Header - Compacto */}
+      <header className="lg:hidden fixed top-0 left-0 right-0 z-50 bg-sidebar border-b border-sidebar-border safe-area-inset-top">
+        <div className="flex items-center justify-between p-3">
+          <div className="flex items-center gap-2">
+            <div className="w-7 h-7 bg-sidebar-primary rounded-lg flex items-center justify-center">
+              <Settings className="w-4 h-4 text-sidebar-primary-foreground" />
             </div>
             <div>
-              <h1 className="text-lg font-bold text-sidebar-foreground">TMS ONE</h1>
-              <p className="text-xs text-sidebar-foreground/60">TOOL MANAGER SYSTEM</p>
+              <h1 className="text-base font-bold text-sidebar-foreground leading-tight">TMS ONE</h1>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1">
             <NotificationBell />
             <Button 
               variant="ghost" 
               size="icon" 
               onClick={() => setMobileOpen(!mobileOpen)}
-              className="text-sidebar-foreground"
+              className="text-sidebar-foreground h-9 w-9"
             >
-              {mobileOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+              {mobileOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
             </Button>
           </div>
         </div>
@@ -128,7 +127,7 @@ export function Sidebar({ currentView, onViewChange }: SidebarProps) {
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 p-4 pt-20 lg:pt-4 space-y-1 overflow-y-auto">
+        <nav className="flex-1 p-3 pt-16 lg:pt-4 space-y-0.5 overflow-y-auto">
           {menuItems.map((item) => {
             const Icon = item.icon
             const isActive = currentView === item.id
@@ -138,13 +137,13 @@ export function Sidebar({ currentView, onViewChange }: SidebarProps) {
                 key={item.id}
                 onClick={() => handleNavigation(item.id)}
                 className={cn(
-                  "w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all text-left",
+                  "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all text-left text-sm",
                   isActive 
                     ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium" 
                     : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
                 )}
               >
-                <Icon className="w-5 h-5" />
+                <Icon className="w-4 h-4" />
                 <span>{item.label}</span>
               </button>
             )
@@ -195,13 +194,18 @@ export function Sidebar({ currentView, onViewChange }: SidebarProps) {
         </div>
 
         {/* Footer */}
-        <div className="p-4 border-t border-sidebar-border">
+        <div className="p-4 border-t border-sidebar-border space-y-3">
+          <Button 
+            variant="outline" 
+            className="w-full text-destructive border-destructive/30 hover:bg-destructive/10 hover:text-destructive"
+            onClick={handleLogout}
+          >
+            <LogOut className="w-4 h-4 mr-2" />
+            Sair da Conta
+          </Button>
           <div className="text-center space-y-1">
             <p className="text-xs text-sidebar-foreground/50">
               TMS ONE v1.0
-            </p>
-            <p className="text-[10px] text-sidebar-foreground/40">
-              Desenvolvido por TMS ONE
             </p>
             <p className="text-[10px] text-sidebar-foreground/40">
               Todos os direitos reservados

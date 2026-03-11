@@ -91,21 +91,30 @@ export interface MaintenanceAction {
   reason?: string // motivo da pausa
 }
 
+// Segmento de tempo de cada manutentor
+export interface TimeSegment {
+  operatorName: string
+  startTime: Date
+  endTime?: Date
+  duration: number // em segundos
+}
+
 export interface Ticket {
   id: string
   machineId: string
   problemId: string
   observation: string
   priority: Priority
-  status: 'open' | 'in-progress' | 'paused' | 'completed' | 'cancelled'
+  status: 'open' | 'in-progress' | 'paused' | 'completed' | 'cancelled' | 'unresolved'
   createdAt: Date
   startedAt?: Date
   completedAt?: Date
   usedParts: UsedPart[]
   totalCost: number
-  downtime: number // em segundos
+  downtime: number // tempo total em segundos (soma de todos os segmentos)
   accumulatedTime: number // tempo acumulado durante pausas
   actions: MaintenanceAction[]
+  timeSegments: TimeSegment[] // historico de tempo por manutentor
   completionNotes?: string // observacao ao finalizar
   resolved?: boolean // problema foi resolvido?
   machineStopped?: boolean // maquina parada?
