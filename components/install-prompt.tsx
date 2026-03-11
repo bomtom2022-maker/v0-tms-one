@@ -299,13 +299,25 @@ export function InstallPrompt() {
           {!isMobile && !canInstallDirectly && (
             <div className="bg-slate-800 rounded-xl p-4 space-y-3 mt-4">
               <p className="text-sm font-medium text-white">
-                Como instalar no computador:
+                Como adicionar atalho no computador:
               </p>
               <div className="flex items-center gap-3 text-sm text-slate-300">
                 <div className="w-8 h-8 bg-slate-700 rounded-lg flex items-center justify-center shrink-0">
-                  <Download className="w-5 h-5 text-blue-400" />
+                  <span className="text-blue-400 font-bold text-xs">1</span>
                 </div>
-                <span>Clique no icone de instalar na barra de endereco do navegador</span>
+                <span>Clique com botao direito nesta pagina</span>
+              </div>
+              <div className="flex items-center gap-3 text-sm text-slate-300">
+                <div className="w-8 h-8 bg-slate-700 rounded-lg flex items-center justify-center shrink-0">
+                  <span className="text-blue-400 font-bold text-xs">2</span>
+                </div>
+                <span>Selecione <strong className="text-white">Criar atalho</strong> ou <strong className="text-white">Salvar como atalho</strong></span>
+              </div>
+              <div className="flex items-center gap-3 text-sm text-slate-300">
+                <div className="w-8 h-8 bg-slate-700 rounded-lg flex items-center justify-center shrink-0">
+                  <span className="text-blue-400 font-bold text-xs">3</span>
+                </div>
+                <span>Ou adicione aos favoritos com <strong className="text-white">Ctrl+D</strong></span>
               </div>
             </div>
           )}

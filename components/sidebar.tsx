@@ -62,16 +62,18 @@ export function Sidebar({ currentView, onViewChange }: SidebarProps) {
   const [showInstallButton, setShowInstallButton] = useState(false)
   const { currentUser, logout, isManutentor } = useAuth()
 
-  // Verificar se deve mostrar botao de instalacao
+  // Verificar se deve mostrar botao de instalacao (APENAS DESKTOP)
   useEffect(() => {
     const checkInstall = () => {
+      // Verificar se e mobile
+      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+      
       // Verificar se esta em modo standalone (ja instalado como PWA)
       const isInStandaloneMode = window.matchMedia('(display-mode: standalone)').matches 
         || (window.navigator as Navigator & { standalone?: boolean }).standalone === true
       
-      // Mostrar botao se NAO estiver em modo standalone
-      setShowInstallButton(!isInStandaloneMode)
-      console.log('[v0] showInstallButton:', !isInStandaloneMode, 'standalone:', isInStandaloneMode)
+      // Mostrar botao APENAS em desktop e se NAO estiver instalado
+      setShowInstallButton(!isMobile && !isInStandaloneMode)
     }
     
     checkInstall()
@@ -127,17 +129,6 @@ export function Sidebar({ currentView, onViewChange }: SidebarProps) {
             <div>
               <h1 className="text-base font-bold text-sidebar-foreground leading-tight">TMS ONE</h1>
             </div>
-            {/* Botao de instalacao mobile */}
-            {showInstallButton && (
-              <Button
-                variant="default"
-                size="icon"
-                onClick={handleInstallClick}
-                className="h-7 w-7 ml-1 bg-blue-600 hover:bg-blue-700 text-white"
-              >
-                <Download className="w-4 h-4" />
-              </Button>
-            )}
           </div>
           <div className="flex items-center gap-1">
             <NotificationBell />
