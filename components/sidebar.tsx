@@ -62,33 +62,23 @@ export function Sidebar({ currentView, onViewChange }: SidebarProps) {
   const [showInstallButton, setShowInstallButton] = useState(true)
   const { currentUser, logout, isManutentor } = useAuth()
 
-  // Verificar se deve mostrar botao de instalacao (APENAS DESKTOP)
+  // Verificar se deve mostrar botao de instalacao
   useEffect(() => {
     const checkInstall = () => {
-      // Verificar se e mobile
-      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
-      
       // Verificar se esta em modo standalone (ja instalado como PWA)
       const isInStandaloneMode = window.matchMedia('(display-mode: standalone)').matches 
         || (window.navigator as Navigator & { standalone?: boolean }).standalone === true
       
-      // Mostrar botao APENAS em desktop e se NAO estiver instalado
-      const shouldShow = !isMobile && !isInStandaloneMode
-      setShowInstallButton(shouldShow)
+      // Esconder botao se ja estiver instalado como PWA
+      setShowInstallButton(!isInStandaloneMode)
     }
     
-    // Executar imediatamente
     checkInstall()
     
-    // Escutar quando o prompt de instalacao ficar disponivel
     window.addEventListener('pwa-install-available', checkInstall)
-    
-    // Tambem verificar apos o carregamento completo
-    window.addEventListener('load', checkInstall)
     
     return () => {
       window.removeEventListener('pwa-install-available', checkInstall)
-      window.removeEventListener('load', checkInstall)
     }
   }, [])
 
@@ -135,6 +125,15 @@ export function Sidebar({ currentView, onViewChange }: SidebarProps) {
             <div>
               <h1 className="text-base font-bold text-sidebar-foreground leading-tight">TMS ONE</h1>
             </div>
+            {/* Botao de instalacao mobile */}
+            <Button
+              variant="default"
+              size="icon"
+              onClick={handleInstallClick}
+              className="h-7 w-7 bg-blue-600 hover:bg-blue-700 text-white"
+            >
+              <Download className="w-4 h-4" />
+            </Button>
           </div>
           <div className="flex items-center gap-1">
             <NotificationBell />
