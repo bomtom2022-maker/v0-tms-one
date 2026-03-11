@@ -3,7 +3,7 @@
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/lib/auth-context'
 import { NotificationBell } from '@/components/notification-bell'
-import { triggerInstall, canInstall, isInstalled, openInstallModal } from '@/components/install-prompt'
+import { triggerInstall, canInstall, openInstallModal } from '@/components/install-prompt'
 import { 
   LayoutDashboard, 
   Plus, 
@@ -62,11 +62,16 @@ export function Sidebar({ currentView, onViewChange }: SidebarProps) {
   const [showInstallButton, setShowInstallButton] = useState(false)
   const { currentUser, logout, isManutentor } = useAuth()
 
-  // Verificar se deve mostrar botao de instalacao (sempre que nao estiver instalado)
+  // Verificar se deve mostrar botao de instalacao
   useEffect(() => {
     const checkInstall = () => {
-      // Mostrar botao se nao estiver instalado
-      setShowInstallButton(!isInstalled())
+      // Verificar se esta em modo standalone (ja instalado como PWA)
+      const isInStandaloneMode = window.matchMedia('(display-mode: standalone)').matches 
+        || (window.navigator as Navigator & { standalone?: boolean }).standalone === true
+      
+      // Mostrar botao se NAO estiver em modo standalone
+      setShowInstallButton(!isInStandaloneMode)
+      console.log('[v0] showInstallButton:', !isInStandaloneMode, 'standalone:', isInStandaloneMode)
     }
     
     checkInstall()
@@ -125,10 +130,10 @@ export function Sidebar({ currentView, onViewChange }: SidebarProps) {
             {/* Botao de instalacao mobile */}
             {showInstallButton && (
               <Button
-                variant="ghost"
+                variant="default"
                 size="icon"
                 onClick={handleInstallClick}
-                className="h-7 w-7 ml-1 text-sidebar-foreground hover:bg-sidebar-accent animate-pulse"
+                className="h-7 w-7 ml-1 bg-blue-600 hover:bg-blue-700 text-white"
               >
                 <Download className="w-4 h-4" />
               </Button>
@@ -179,10 +184,10 @@ export function Sidebar({ currentView, onViewChange }: SidebarProps) {
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <Button
-                        variant="ghost"
+                        variant="default"
                         size="icon"
                         onClick={handleInstallClick}
-                        className="h-8 w-8 text-sidebar-foreground hover:bg-sidebar-accent animate-pulse"
+                        className="h-8 w-8 bg-blue-600 hover:bg-blue-700 text-white"
                       >
                         <Download className="w-4 h-4" />
                       </Button>
