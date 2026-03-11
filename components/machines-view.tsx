@@ -17,9 +17,7 @@ import {
 } from '@/components/ui/dialog'
 import { useData } from '@/lib/data-context'
 import { useAuth } from '@/lib/auth-context'
-import { MACHINE_STATUS_CONFIG, type MachineStatus } from '@/lib/types'
-import { Plus, Settings, AlertTriangle, AlertCircle, CheckCircle, Pencil } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import { Plus, Settings, Pencil, Cpu } from 'lucide-react'
 
 export function MachinesView() {
   const { machines, addMachine, updateMachine } = useData()
@@ -46,13 +44,7 @@ export function MachinesView() {
     setEditingMachine(null)
   }
 
-  const getStatusIcon = (status: MachineStatus) => {
-    switch (status) {
-      case 'critical': return AlertTriangle
-      case 'attention': return AlertCircle
-      case 'ok': return CheckCircle
-    }
-  }
+  
 
   return (
     <div className="space-y-6">
@@ -172,50 +164,38 @@ export function MachinesView() {
         </CardHeader>
         <CardContent>
           <div className="grid gap-3">
-            {machines.map((machine) => {
-              const config = MACHINE_STATUS_CONFIG[machine.status]
-              const Icon = getStatusIcon(machine.status)
-              
-              return (
-                <div 
-                  key={machine.id}
-                  className={cn(
-                    "flex items-center justify-between p-4 rounded-lg border-l-4",
-                    config.borderColor,
-                    "bg-card hover:bg-muted/50 transition-colors"
-                  )}
-                >
-                  <div className="flex items-center gap-3">
-                    <div className={cn("p-2 rounded-lg", config.bgLight)}>
-                      <Icon className={cn("w-4 h-4", config.textColor)} />
-                    </div>
-                    <div>
-                      <span className="font-medium">{machine.name}</span>
-                      <p className="text-sm text-muted-foreground">{machine.sector}</p>
-                    </div>
+            {machines.map((machine) => (
+              <div 
+                key={machine.id}
+                className="flex items-center justify-between p-4 rounded-lg border bg-card hover:bg-muted/50 transition-colors"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-lg bg-primary/10">
+                    <Cpu className="w-4 h-4 text-primary" />
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Badge 
-                      variant="secondary"
-                      className={cn(config.bgLight, config.textColor, "text-xs")}
-                    >
-                      {config.label}
-                    </Badge>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => setEditingMachine({ 
-                        id: machine.id, 
-                        name: machine.name, 
-                        sector: machine.sector
-                      })}
-                    >
-                      <Pencil className="w-4 h-4" />
-                    </Button>
+                  <div>
+                    <span className="font-medium">{machine.name}</span>
+                    <p className="text-sm text-muted-foreground">{machine.sector}</p>
                   </div>
                 </div>
-              )
-            })}
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline" className="text-xs">
+                    {machine.sector}
+                  </Badge>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setEditingMachine({ 
+                      id: machine.id, 
+                      name: machine.name, 
+                      sector: machine.sector
+                    })}
+                  >
+                    <Pencil className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
+            ))}
           </div>
         </CardContent>
       </Card>
