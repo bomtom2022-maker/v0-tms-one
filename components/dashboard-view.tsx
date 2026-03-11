@@ -119,82 +119,97 @@ export function DashboardView({ onSelectTicket }: DashboardViewProps) {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Header */}
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-2xl lg:text-3xl font-bold text-foreground">
-            Dashboard de Gestão
+          <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-foreground">
+            Dashboard
           </h1>
-          <p className="text-muted-foreground mt-1">
+          <p className="text-sm text-muted-foreground mt-1">
             {totalActive} chamados ativos
           </p>
         </div>
       </div>
 
-      {/* Status Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      {/* Status Cards - Grid responsivo */}
+      <div className="grid grid-cols-3 gap-2 sm:gap-4">
         {/* Chamados em Aberto */}
-        <Card className="border-l-4 border-l-blue-500">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Chamados em Aberto</p>
-                <p className="text-3xl font-bold text-blue-500">{dashboardStats.open}</p>
+        <Card className="border-l-2 sm:border-l-4 border-l-blue-500">
+          <CardContent className="p-2 sm:p-4">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
+              <div className="flex items-center gap-2 sm:block">
+                <div className="p-1.5 sm:p-3 bg-blue-50 dark:bg-blue-950 rounded-full sm:hidden">
+                  <AlertCircle className="w-4 h-4 text-blue-500" />
+                </div>
+                <div>
+                  <p className="text-[10px] sm:text-sm text-muted-foreground">Em Aberto</p>
+                  <p className="text-xl sm:text-3xl font-bold text-blue-500">{dashboardStats.open}</p>
+                </div>
               </div>
-              <div className="p-3 bg-blue-50 dark:bg-blue-950 rounded-full">
+              <div className="hidden sm:block p-3 bg-blue-50 dark:bg-blue-950 rounded-full">
                 <AlertCircle className="w-6 h-6 text-blue-500" />
               </div>
             </div>
-            <p className="text-xs text-muted-foreground mt-2">
-              Aguardando Atendimento
+            <p className="hidden sm:block text-xs text-muted-foreground mt-2">
+              Aguardando
             </p>
           </CardContent>
         </Card>
 
         {/* Em Manutenção */}
-        <Card className="border-l-4 border-l-orange-500">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Em Manutenção</p>
-                <p className="text-3xl font-bold text-orange-500">{dashboardStats.inMaintenance}</p>
+        <Card className="border-l-2 sm:border-l-4 border-l-orange-500">
+          <CardContent className="p-2 sm:p-4">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
+              <div className="flex items-center gap-2 sm:block">
+                <div className="p-1.5 sm:p-3 bg-orange-50 dark:bg-orange-950 rounded-full sm:hidden">
+                  <Wrench className="w-4 h-4 text-orange-500" />
+                </div>
+                <div>
+                  <p className="text-[10px] sm:text-sm text-muted-foreground">Manutencao</p>
+                  <p className="text-xl sm:text-3xl font-bold text-orange-500">{dashboardStats.inMaintenance}</p>
+                </div>
               </div>
-              <div className="p-3 bg-orange-50 dark:bg-orange-950 rounded-full">
+              <div className="hidden sm:block p-3 bg-orange-50 dark:bg-orange-950 rounded-full">
                 <Wrench className="w-6 h-6 text-orange-500" />
               </div>
             </div>
-            <p className="text-xs text-muted-foreground mt-2">
-              Mecânicos atuando
+            <p className="hidden sm:block text-xs text-muted-foreground mt-2">
+              Atuando
             </p>
           </CardContent>
         </Card>
 
         {/* Finalizadas - Com filtro de data */}
-        <Card className="border-l-4 border-l-green-500">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Finalizadas</p>
-                <p className="text-3xl font-bold text-green-500">{dashboardStats.completed}</p>
+        <Card className="border-l-2 sm:border-l-4 border-l-green-500">
+          <CardContent className="p-2 sm:p-4">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
+              <div className="flex items-center gap-2 sm:block">
+                <div className="p-1.5 sm:p-3 bg-green-50 dark:bg-green-950 rounded-full sm:hidden">
+                  <CheckCircle2 className="w-4 h-4 text-green-500" />
+                </div>
+                <div>
+                  <p className="text-[10px] sm:text-sm text-muted-foreground">Finalizadas</p>
+                  <p className="text-xl sm:text-3xl font-bold text-green-500">{dashboardStats.completed}</p>
+                </div>
               </div>
-              <div className="p-3 bg-green-50 dark:bg-green-950 rounded-full">
+              <div className="hidden sm:block p-3 bg-green-50 dark:bg-green-950 rounded-full">
                 <CheckCircle2 className="w-6 h-6 text-green-500" />
               </div>
             </div>
             {/* Filtro de Data */}
-            <div className="mt-3">
+            <div className="mt-2 sm:mt-3">
               <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
                 <PopoverTrigger asChild>
                   <Button 
                     variant="outline" 
                     size="sm" 
-                    className="w-full justify-start text-left font-normal h-8 text-xs"
+                    className="w-full justify-start text-left font-normal h-7 sm:h-8 text-[10px] sm:text-xs px-2"
                   >
-                    <CalendarIcon className="mr-2 h-3 w-3" />
+                    <CalendarIcon className="mr-1 sm:mr-2 h-3 w-3" />
                     {isToday(completedDateFilter) 
                       ? 'Hoje' 
-                      : format(completedDateFilter, "dd 'de' MMMM", { locale: ptBR })}
+                      : format(completedDateFilter, "dd/MM", { locale: ptBR })}
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0" align="start">
@@ -212,41 +227,41 @@ export function DashboardView({ onSelectTicket }: DashboardViewProps) {
         </Card>
       </div>
 
-      {/* Filters */}
+      {/* Filters - Compacto para mobile */}
       <Card>
-        <CardHeader className="pb-3">
+        <CardHeader className="p-3 sm:p-6 pb-2 sm:pb-3">
           <div className="flex items-center justify-between">
-            <CardTitle className="text-base flex items-center gap-2">
+            <CardTitle className="text-sm sm:text-base flex items-center gap-2">
               <Filter className="w-4 h-4" />
               Filtros
             </CardTitle>
             {hasActiveFilters && (
-              <Button variant="ghost" size="sm" onClick={clearFilters}>
-                Limpar Filtros
+              <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={clearFilters}>
+                Limpar
               </Button>
             )}
           </div>
         </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <CardContent className="p-3 sm:p-6 pt-0 sm:pt-0">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-4">
             {/* Search */}
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <div className="relative col-span-2">
+              <Search className="absolute left-2 sm:left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
                 placeholder="Buscar..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-9"
+                className="pl-8 sm:pl-9 h-9 text-sm"
               />
             </div>
 
             {/* Machine Filter */}
             <Select value={filterMachine} onValueChange={setFilterMachine}>
-              <SelectTrigger>
-                <SelectValue placeholder="Todas as Máquinas" />
+              <SelectTrigger className="h-9 text-xs sm:text-sm">
+                <SelectValue placeholder="Maquina" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Todas as Máquinas</SelectItem>
+                <SelectItem value="all">Todas</SelectItem>
                 {machines.map((machine) => (
                   <SelectItem key={machine.id} value={machine.id}>
                     {machine.name}
@@ -255,28 +270,13 @@ export function DashboardView({ onSelectTicket }: DashboardViewProps) {
               </SelectContent>
             </Select>
 
-            {/* Problem Filter */}
-            <Select value={filterProblem} onValueChange={setFilterProblem}>
-              <SelectTrigger>
-                <SelectValue placeholder="Todos os Problemas" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos os Problemas</SelectItem>
-                {problems.map((problem) => (
-                  <SelectItem key={problem.id} value={problem.id}>
-                    {problem.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
             {/* Priority Filter */}
             <Select value={filterPriority} onValueChange={setFilterPriority}>
-              <SelectTrigger>
-                <SelectValue placeholder="Todas as Prioridades" />
+              <SelectTrigger className="h-9 text-xs sm:text-sm">
+                <SelectValue placeholder="Prioridade" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Todas as Prioridades</SelectItem>
+                <SelectItem value="all">Todas</SelectItem>
                 {(Object.keys(PRIORITY_CONFIG) as Priority[]).map((p) => (
                   <SelectItem key={p} value={p}>
                     {PRIORITY_CONFIG[p].label}
@@ -290,8 +290,8 @@ export function DashboardView({ onSelectTicket }: DashboardViewProps) {
 
       {/* Reported Tickets Section - Somente Visualizacao */}
       <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">Manutenções Reportadas</CardTitle>
+        <CardHeader className="p-3 sm:p-6">
+          <CardTitle className="text-base sm:text-lg">Manutencoes Reportadas</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
           {activeTickets.length === 0 ? (
@@ -329,44 +329,38 @@ export function DashboardView({ onSelectTicket }: DashboardViewProps) {
                   <div
                     key={ticket.id}
                     className={cn(
-                      "p-4 hover:bg-muted/50 transition-colors border-l-4",
+                      "p-3 sm:p-4 hover:bg-muted/50 transition-colors border-l-2 sm:border-l-4",
                       priorityConfig.borderColor
                     )}
                   >
-                    <div className="flex items-start justify-between gap-4">
+                    <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 sm:gap-4">
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <h3 className="font-semibold text-foreground truncate">
-                            {machine?.name || 'Máquina Desconhecida'}
+                        <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+                          <h3 className="font-semibold text-sm sm:text-base text-foreground truncate">
+                            {machine?.name || 'Maquina'}
                           </h3>
                           <Badge 
                             variant="secondary"
-                            className={cn(priorityConfig.bgLight, priorityConfig.textColor, "text-xs")}
+                            className={cn(priorityConfig.bgLight, priorityConfig.textColor, "text-[10px] sm:text-xs px-1.5 py-0")}
                           >
                             {priorityConfig.label}
                           </Badge>
-                          <Badge variant="outline" className={cn("text-xs", statusColor)}>
-                            {ticket.status === 'in-progress' && <Play className="w-3 h-3 mr-1" />}
-                            {ticket.status === 'paused' && <Pause className="w-3 h-3 mr-1" />}
-                            {ticket.status === 'unresolved' && <AlertCircle className="w-3 h-3 mr-1" />}
-                            {statusLabel}
-                          </Badge>
                           {ticket.machineStopped && (
-                            <Badge variant="destructive" className="text-xs animate-pulse">
-                              <AlertCircle className="w-3 h-3 mr-1" />
-                              Máquina Parada
+                            <Badge variant="destructive" className="text-[10px] sm:text-xs animate-pulse px-1.5 py-0">
+                              PARADA
                             </Badge>
                           )}
                         </div>
-                        <p className="text-sm text-muted-foreground mt-1">
-                          {problem?.name || 'Problema não especificado'}
+                        <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
+                          {problem?.name || 'Problema'}
                         </p>
-                        {ticket.observation && (
-                          <p className="text-sm text-foreground/80 mt-2 line-clamp-2">
-                            {ticket.observation}
-                          </p>
-                        )}
-                        <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
+                        <div className="flex items-center gap-2 mt-1.5 text-[10px] sm:text-xs text-muted-foreground">
+                          <Badge variant="outline" className={cn("text-[10px] sm:text-xs px-1.5 py-0", statusColor)}>
+                            {ticket.status === 'in-progress' && <Play className="w-2.5 h-2.5 mr-0.5" />}
+                            {ticket.status === 'paused' && <Pause className="w-2.5 h-2.5 mr-0.5" />}
+                            {ticket.status === 'unresolved' && <AlertCircle className="w-2.5 h-2.5 mr-0.5" />}
+                            {statusLabel}
+                          </Badge>
                           <span className="flex items-center gap-1">
                             <Clock className="w-3 h-3" />
                             {formatDistanceToNow(ticket.createdAt, { 
@@ -374,12 +368,6 @@ export function DashboardView({ onSelectTicket }: DashboardViewProps) {
                               locale: ptBR 
                             })}
                           </span>
-                          {ticket.createdByName && (
-                            <span className="flex items-center gap-1">
-                              <User className="w-3 h-3" />
-                              {ticket.createdByName}
-                            </span>
-                          )}
                         </div>
                       </div>
                       
@@ -389,7 +377,10 @@ export function DashboardView({ onSelectTicket }: DashboardViewProps) {
                           <Button 
                             variant={ticket.status === 'unresolved' ? 'outline' : 'default'}
                             size="sm"
-                            className={ticket.status === 'unresolved' ? 'border-orange-500 text-orange-600 hover:bg-orange-50' : ''}
+                            className={cn(
+                              "w-full sm:w-auto h-8 text-xs sm:text-sm",
+                              ticket.status === 'unresolved' && 'border-orange-500 text-orange-600 hover:bg-orange-50'
+                            )}
                             onClick={() => onSelectTicket(ticket.id)}
                           >
                             {ticket.status === 'open' ? 'Iniciar' : ticket.status === 'unresolved' ? 'Continuar' : 'Gerenciar'}

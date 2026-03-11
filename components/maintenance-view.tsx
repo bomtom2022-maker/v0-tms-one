@@ -278,69 +278,71 @@ export function MaintenanceView({ ticketId, onBack, onComplete }: MaintenanceVie
       </Dialog>
 
       {/* Header */}
-      <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" onClick={onBack}>
-          <ArrowLeft className="w-5 h-5" />
+      <div className="flex items-center gap-2 sm:gap-4">
+        <Button variant="ghost" size="icon" className="h-8 w-8 sm:h-10 sm:w-10" onClick={onBack}>
+          <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5" />
         </Button>
         <div>
-          <h1 className="text-xl lg:text-2xl font-bold text-foreground">
-            Controle de Manutenção
+          <h1 className="text-lg sm:text-xl lg:text-2xl font-bold text-foreground">
+            Manutencao
           </h1>
-          <p className="text-muted-foreground text-sm">
-            Chamado #{ticket.id.split('-')[1]}
+          <p className="text-muted-foreground text-xs sm:text-sm">
+            #{ticket.id.split('-')[1]}
           </p>
         </div>
       </div>
 
       {/* Ticket Info */}
-      <Card className={cn("border-l-4", priorityConfig.borderColor)}>
-        <CardHeader>
-          <div className="flex items-start justify-between">
+      <Card className={cn("border-l-2 sm:border-l-4", priorityConfig.borderColor)}>
+        <CardHeader className="p-3 sm:p-6">
+          <div className="flex items-start justify-between gap-2">
             <div>
-              <CardTitle className="text-lg">{machine?.name}</CardTitle>
-              <CardDescription>{machine?.sector}</CardDescription>
+              <CardTitle className="text-base sm:text-lg">{machine?.name}</CardTitle>
+              <CardDescription className="text-xs sm:text-sm">{machine?.sector}</CardDescription>
             </div>
             <Badge 
-              className={cn(priorityConfig.bgLight, priorityConfig.textColor)}
+              className={cn(priorityConfig.bgLight, priorityConfig.textColor, "text-[10px] sm:text-xs")}
             >
               {priorityConfig.label}
             </Badge>
           </div>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="p-3 sm:p-6 pt-0 space-y-3">
           <div>
-            <p className="text-sm font-medium text-muted-foreground">Problema</p>
-            <p className="text-foreground">{problem?.name}</p>
+            <p className="text-xs sm:text-sm font-medium text-muted-foreground">Problema</p>
+            <p className="text-sm sm:text-base text-foreground">{problem?.name}</p>
           </div>
-          <div>
-            <p className="text-sm font-medium text-muted-foreground">Observação</p>
-            <p className="text-foreground">{ticket.observation || 'Nenhuma observação'}</p>
-          </div>
+          {ticket.observation && (
+            <div>
+              <p className="text-xs sm:text-sm font-medium text-muted-foreground">Obs</p>
+              <p className="text-sm text-foreground line-clamp-2">{ticket.observation}</p>
+            </div>
+          )}
         </CardContent>
       </Card>
 
       {/* Timer Card */}
       <Card className="bg-sidebar text-sidebar-foreground">
-        <CardContent className="py-8">
+        <CardContent className="py-5 sm:py-8">
           <div className="text-center">
-            <p className="text-sm text-sidebar-foreground/70 mb-2">Tempo de Manutenção</p>
-            <div className="font-mono text-5xl lg:text-6xl font-bold tracking-wider">
+            <p className="text-xs sm:text-sm text-sidebar-foreground/70 mb-1 sm:mb-2">Tempo</p>
+            <div className="font-mono text-4xl sm:text-5xl lg:text-6xl font-bold tracking-wider">
               {formatDuration(elapsedTime)}
             </div>
-            <p className="text-xs text-sidebar-foreground/50 mt-2">
+            <p className="text-[10px] sm:text-xs text-sidebar-foreground/50 mt-2">
               {ticket.status === 'in-progress' && (
-                <span className="flex items-center justify-center gap-2">
+                <span className="flex items-center justify-center gap-1.5">
                   <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-                  Cronômetro ativo
+                  Ativo
                 </span>
               )}
               {ticket.status === 'paused' && (
-                <span className="flex items-center justify-center gap-2">
+                <span className="flex items-center justify-center gap-1.5">
                   <span className="w-2 h-2 bg-yellow-500 rounded-full" />
                   Pausado
                 </span>
               )}
-              {ticket.status === 'open' && 'Aguardando início'}
+              {ticket.status === 'open' && 'Aguardando'}
             </p>
           </div>
         </CardContent>
@@ -348,58 +350,58 @@ export function MaintenanceView({ ticketId, onBack, onComplete }: MaintenanceVie
 
       {/* Action Buttons */}
       {!showCompletionForm && (
-        <div className="grid gap-4">
+        <div className="grid gap-3">
           {ticket.status === 'open' && (
             <Button 
               size="lg" 
-              className="w-full bg-green-600 hover:bg-green-700 text-white"
+              className="w-full h-12 bg-green-600 hover:bg-green-700 text-white text-sm sm:text-base"
               onClick={() => handleAction('start')}
             >
               <Play className="w-5 h-5 mr-2" />
-              Iniciar Manutenção
+              Iniciar Manutencao
             </Button>
           )}
           
           {ticket.status === 'in-progress' && (
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-2 sm:gap-4">
               <Button 
                 size="lg" 
                 variant="outline"
-                className="w-full border-yellow-500 text-yellow-600 hover:bg-yellow-50"
+                className="w-full h-12 border-yellow-500 text-yellow-600 hover:bg-yellow-50 text-sm"
                 onClick={handlePauseAction}
               >
-                <Pause className="w-5 h-5 mr-2" />
+                <Pause className="w-4 h-4 sm:w-5 sm:h-5 mr-1 sm:mr-2" />
                 Pausar
               </Button>
               <Button 
                 size="lg" 
                 variant="destructive"
-                className="w-full"
+                className="w-full h-12 text-sm"
                 onClick={() => setShowCompletionForm(true)}
               >
-                <Square className="w-5 h-5 mr-2" />
+                <Square className="w-4 h-4 sm:w-5 sm:h-5 mr-1 sm:mr-2" />
                 Finalizar
               </Button>
             </div>
           )}
 
           {ticket.status === 'paused' && (
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-2 sm:gap-4">
               <Button 
                 size="lg" 
-                className="w-full bg-green-600 hover:bg-green-700 text-white"
+                className="w-full h-12 bg-green-600 hover:bg-green-700 text-white text-sm"
                 onClick={() => handleAction('resume')}
               >
-                <Play className="w-5 h-5 mr-2" />
+                <Play className="w-4 h-4 sm:w-5 sm:h-5 mr-1 sm:mr-2" />
                 Continuar
               </Button>
               <Button 
                 size="lg" 
                 variant="destructive"
-                className="w-full"
+                className="w-full h-12 text-sm"
                 onClick={() => setShowCompletionForm(true)}
               >
-                <Square className="w-5 h-5 mr-2" />
+                <Square className="w-4 h-4 sm:w-5 sm:h-5 mr-1 sm:mr-2" />
                 Finalizar
               </Button>
             </div>

@@ -47,23 +47,23 @@ export function MachinesView() {
   
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-          <h1 className="text-2xl lg:text-3xl font-bold text-foreground">
-            Gestão de Máquinas
+          <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-foreground">
+            Maquinas
           </h1>
-          <p className="text-muted-foreground mt-1">
-            Cadastre e gerencie as máquinas do sistema
+          <p className="text-sm text-muted-foreground mt-1">
+            Cadastre e gerencie as maquinas
           </p>
         </div>
         
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
           <DialogTrigger asChild>
-            <Button>
+            <Button size="sm" className="w-full sm:w-auto">
               <Plus className="w-4 h-4 mr-2" />
-              Nova Máquina
+              Nova Maquina
             </Button>
           </DialogTrigger>
           <DialogContent className="sm:max-w-md">
@@ -153,47 +153,43 @@ export function MachinesView() {
 
       {/* Machines List */}
       <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Settings className="w-5 h-5" />
-            Máquinas Cadastradas
+        <CardHeader className="p-3 sm:p-6">
+          <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+            <Settings className="w-4 h-4 sm:w-5 sm:h-5" />
+            Maquinas Cadastradas
           </CardTitle>
-          <CardDescription>
-            Lista de todas as máquinas cadastradas no sistema
+          <CardDescription className="text-xs sm:text-sm">
+            Lista de todas as maquinas
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          <div className="grid gap-3">
+        <CardContent className="p-3 sm:p-6 pt-0">
+          <div className="grid gap-2 sm:gap-3">
             {machines.map((machine) => (
               <div 
                 key={machine.id}
-                className="flex items-center justify-between p-4 rounded-lg border bg-card hover:bg-muted/50 transition-colors"
+                className="flex items-center justify-between p-3 rounded-lg border bg-card hover:bg-muted/50 transition-colors"
               >
-                <div className="flex items-center gap-3">
-                  <div className="p-2 rounded-lg bg-primary/10">
+                <div className="flex items-center gap-2 sm:gap-3">
+                  <div className="p-1.5 sm:p-2 rounded-lg bg-primary/10">
                     <Cpu className="w-4 h-4 text-primary" />
                   </div>
                   <div>
-                    <span className="font-medium">{machine.name}</span>
-                    <p className="text-sm text-muted-foreground">{machine.sector}</p>
+                    <span className="font-medium text-sm sm:text-base">{machine.name}</span>
+                    <p className="text-xs sm:text-sm text-muted-foreground">{machine.sector}</p>
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <Badge variant="outline" className="text-xs">
-                    {machine.sector}
-                  </Badge>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => setEditingMachine({ 
-                      id: machine.id, 
-                      name: machine.name, 
-                      sector: machine.sector
-                    })}
-                  >
-                    <Pencil className="w-4 h-4" />
-                  </Button>
-                </div>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={() => setEditingMachine({ 
+                    id: machine.id, 
+                    name: machine.name, 
+                    sector: machine.sector
+                  })}
+                >
+                  <Pencil className="w-4 h-4" />
+                </Button>
               </div>
             ))}
           </div>

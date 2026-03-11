@@ -81,23 +81,23 @@ export function ProblemsView() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-          <h1 className="text-2xl lg:text-3xl font-bold text-foreground">
-            Cadastro de Problemas
+          <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-foreground">
+            Problemas
           </h1>
-          <p className="text-muted-foreground mt-1">
-            Gerencie os tipos de problemas e suas prioridades padrão
+          <p className="text-sm text-muted-foreground mt-1">
+            Tipos de problemas e prioridades
           </p>
         </div>
         
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
           <DialogTrigger asChild>
-            <Button>
+            <Button size="sm" className="w-full sm:w-auto">
               <Plus className="w-4 h-4 mr-2" />
-              Novo Problema
+              Novo
             </Button>
           </DialogTrigger>
           <DialogContent className="sm:max-w-md">
@@ -224,35 +224,35 @@ export function ProblemsView() {
 
       {/* Filtros */}
       <Card>
-        <CardHeader className="pb-4">
-          <CardTitle className="text-base">Filtros</CardTitle>
+        <CardHeader className="p-3 sm:p-6 pb-2 sm:pb-4">
+          <CardTitle className="text-sm sm:text-base">Filtros</CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="flex flex-col sm:flex-row gap-4">
+        <CardContent className="p-3 sm:p-6 pt-0">
+          <div className="flex flex-col sm:flex-row gap-2 sm:gap-4">
             {/* Busca por nome */}
             <div className="flex-1">
               <Label htmlFor="search" className="sr-only">Buscar problema</Label>
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Search className="absolute left-2 sm:left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input
                   id="search"
-                  placeholder="Buscar por nome do problema..."
+                  placeholder="Buscar..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
+                  className="pl-8 sm:pl-10 h-9 text-sm"
                 />
               </div>
             </div>
             
             {/* Filtro por prioridade */}
-            <div className="w-full sm:w-48">
+            <div className="w-full sm:w-40">
               <Label htmlFor="priority-filter" className="sr-only">Filtrar por prioridade</Label>
               <Select value={priorityFilter} onValueChange={(v) => setPriorityFilter(v as Priority | 'all')}>
-                <SelectTrigger id="priority-filter">
+                <SelectTrigger id="priority-filter" className="h-9 text-sm">
                   <SelectValue placeholder="Prioridade" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">Todas as prioridades</SelectItem>
+                  <SelectItem value="all">Todas</SelectItem>
                   {(Object.keys(PRIORITY_CONFIG) as Priority[]).map((p) => {
                     const config = PRIORITY_CONFIG[p]
                     const Icon = getPriorityIcon(p)
@@ -273,7 +273,7 @@ export function ProblemsView() {
 
             {/* Botao limpar filtros */}
             {hasActiveFilters && (
-              <Button variant="ghost" size="icon" onClick={clearFilters} className="shrink-0">
+              <Button variant="ghost" size="icon" onClick={clearFilters} className="shrink-0 h-9 w-9">
                 <X className="w-4 h-4" />
                 <span className="sr-only">Limpar filtros</span>
               </Button>
@@ -281,13 +281,13 @@ export function ProblemsView() {
           </div>
 
           {/* Resumo dos resultados */}
-          <div className="mt-4 flex items-center justify-between text-sm text-muted-foreground">
+          <div className="mt-3 flex items-center justify-between text-xs sm:text-sm text-muted-foreground">
             <span>
-              Mostrando {filteredProblems.length} de {problems.length} problemas
+              {filteredProblems.length} de {problems.length}
             </span>
             {hasActiveFilters && (
-              <Button variant="link" size="sm" onClick={clearFilters} className="h-auto p-0">
-                Limpar filtros
+              <Button variant="link" size="sm" onClick={clearFilters} className="h-auto p-0 text-xs">
+                Limpar
               </Button>
             )}
           </div>
@@ -296,19 +296,19 @@ export function ProblemsView() {
 
       {/* Problems List */}
       <Card>
-        <CardHeader>
-          <CardTitle>Problemas Cadastrados</CardTitle>
-          <CardDescription>
-            Lista de todos os problemas disponíveis para abertura de chamados
+        <CardHeader className="p-3 sm:p-6">
+          <CardTitle className="text-base sm:text-lg">Problemas Cadastrados</CardTitle>
+          <CardDescription className="text-xs sm:text-sm">
+            Problemas disponiveis para chamados
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          <div className="grid gap-3">
+        <CardContent className="p-3 sm:p-6 pt-0">
+          <div className="grid gap-2 sm:gap-3">
             {filteredProblems.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">
+              <div className="text-center py-6 text-sm text-muted-foreground">
                 {hasActiveFilters 
-                  ? 'Nenhum problema encontrado com os filtros aplicados.'
-                  : 'Nenhum problema cadastrado ainda.'}
+                  ? 'Nenhum encontrado.'
+                  : 'Nenhum cadastrado.'}
               </div>
             ) : filteredProblems.map((problem) => {
               const config = PRIORITY_CONFIG[problem.defaultPriority]
@@ -318,26 +318,26 @@ export function ProblemsView() {
                 <div 
                   key={problem.id}
                   className={cn(
-                    "flex items-center justify-between p-4 rounded-lg border-l-4",
+                    "flex items-center justify-between p-3 rounded-lg border-l-2 sm:border-l-4",
                     config.borderColor,
                     "bg-card hover:bg-muted/50 transition-colors"
                   )}
                 >
-                  <div className="flex items-center gap-3">
-                    <div className={cn("p-2 rounded-lg", config.bgLight)}>
-                      <Icon className={cn("w-4 h-4", config.textColor)} />
+                  <div className="flex items-center gap-2 sm:gap-3">
+                    <div className={cn("p-1.5 sm:p-2 rounded-lg", config.bgLight)}>
+                      <Icon className={cn("w-3 h-3 sm:w-4 sm:h-4", config.textColor)} />
                     </div>
-                    <span className="font-medium">{problem.name}</span>
+                    <span className="font-medium text-sm sm:text-base">{problem.name}</span>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1 sm:gap-2">
                     {problem.requiresManualPriority ? (
-                      <Badge variant="outline" className="text-xs text-muted-foreground">
-                        Prioridade definida pelo líder
+                      <Badge variant="outline" className="text-[10px] sm:text-xs text-muted-foreground px-1.5">
+                        Manual
                       </Badge>
                     ) : (
                       <Badge 
                         variant="secondary"
-                        className={cn(config.bgLight, config.textColor, "text-xs")}
+                        className={cn(config.bgLight, config.textColor, "text-[10px] sm:text-xs px-1.5")}
                       >
                         {config.label}
                       </Badge>
@@ -346,6 +346,7 @@ export function ProblemsView() {
                       <Button
                         variant="ghost"
                         size="icon"
+                        className="h-8 w-8"
                         onClick={() => setEditingProblem({ 
                           id: problem.id, 
                           name: problem.name, 

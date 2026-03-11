@@ -35,44 +35,45 @@ export function LoginView() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-muted/30 p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader className="text-center space-y-4">
-          <div className="mx-auto w-16 h-16 bg-primary rounded-xl flex items-center justify-center">
-            <Wrench className="w-8 h-8 text-primary-foreground" />
+    <div className="min-h-screen flex items-center justify-center bg-muted/30 p-3 sm:p-4">
+      <Card className="w-full max-w-sm sm:max-w-md">
+        <CardHeader className="text-center space-y-3 sm:space-y-4 p-4 sm:p-6">
+          <div className="mx-auto w-14 h-14 sm:w-16 sm:h-16 bg-primary rounded-xl flex items-center justify-center">
+            <Wrench className="w-7 h-7 sm:w-8 sm:h-8 text-primary-foreground" />
           </div>
           <div>
-            <CardTitle className="text-2xl font-bold">TMS One</CardTitle>
-            <CardDescription className="text-base mt-1">
-              Sistema de Gestão de Manutenção
+            <CardTitle className="text-xl sm:text-2xl font-bold">TMS One</CardTitle>
+            <CardDescription className="text-sm sm:text-base mt-1">
+              Sistema de Manutencao
             </CardDescription>
           </div>
         </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
+        <CardContent className="p-4 sm:p-6 pt-0">
+          <form onSubmit={handleSubmit} className="space-y-3 sm:space-y-4">
             {error && (
-              <Alert variant="destructive">
+              <Alert variant="destructive" className="text-sm">
                 <AlertCircle className="h-4 w-4" />
                 <AlertDescription>{error}</AlertDescription>
               </Alert>
             )}
 
-            <div className="space-y-2">
-              <Label htmlFor="email">Usuário</Label>
+            <div className="space-y-1.5">
+              <Label htmlFor="email" className="text-sm">Usuario</Label>
               <Input
                 id="email"
                 type="text"
-                placeholder="Digite seu usuário"
+                placeholder="Digite seu usuario"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
                 autoComplete="username"
                 disabled={isLoading}
+                className="h-11 text-base"
               />
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="password">Senha</Label>
+            <div className="space-y-1.5">
+              <Label htmlFor="password" className="text-sm">Senha</Label>
               <div className="relative">
                 <Input
                   id="password"
@@ -83,24 +84,24 @@ export function LoginView() {
                   required
                   autoComplete="current-password"
                   disabled={isLoading}
-                  className="pr-10"
+                  className="pr-10 h-11 text-base"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors p-1"
                   tabIndex={-1}
                 >
                   {showPassword ? (
-                    <EyeOff className="h-4 w-4" />
+                    <EyeOff className="h-5 w-5" />
                   ) : (
-                    <Eye className="h-4 w-4" />
+                    <Eye className="h-5 w-5" />
                   )}
                 </button>
               </div>
             </div>
 
-            <Button type="submit" className="w-full" disabled={isLoading}>
+            <Button type="submit" className="w-full h-11 text-base font-semibold" disabled={isLoading}>
               {isLoading ? 'Entrando...' : 'Entrar'}
             </Button>
           </form>

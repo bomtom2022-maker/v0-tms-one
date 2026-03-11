@@ -66,47 +66,47 @@ export function PartsView() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-          <h1 className="text-2xl lg:text-3xl font-bold text-foreground">
-            Gestão de Peças
+          <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-foreground">
+            Pecas
           </h1>
-          <p className="text-muted-foreground mt-1">
-            Cadastre e gerencie as peças do estoque
+          <p className="text-sm text-muted-foreground mt-1">
+            Gerencie as pecas do estoque
           </p>
         </div>
-        <Button onClick={() => setShowForm(!showForm)}>
+        <Button size="sm" onClick={() => setShowForm(!showForm)} className="w-full sm:w-auto">
           <Plus className="w-4 h-4 mr-2" />
-          Nova Peça
+          Nova Peca
         </Button>
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-2 gap-2 sm:gap-4">
         <Card>
-          <CardContent className="p-4 lg:p-6">
-            <div className="flex items-center gap-3">
-              <div className="p-2 lg:p-3 rounded-lg bg-primary">
-                <Package className="w-5 h-5 text-primary-foreground" />
+          <CardContent className="p-3 sm:p-4 lg:p-6">
+            <div className="flex items-center gap-2 sm:gap-3">
+              <div className="p-1.5 sm:p-2 lg:p-3 rounded-lg bg-primary">
+                <Package className="w-4 h-4 sm:w-5 sm:h-5 text-primary-foreground" />
               </div>
               <div>
-                <p className="text-sm text-muted-foreground">Total de Itens</p>
-                <p className="text-2xl font-bold">{parts.length}</p>
+                <p className="text-[10px] sm:text-sm text-muted-foreground">Itens</p>
+                <p className="text-lg sm:text-2xl font-bold">{parts.length}</p>
               </div>
             </div>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="p-4 lg:p-6">
-            <div className="flex items-center gap-3">
-              <div className="p-2 lg:p-3 rounded-lg bg-green-500">
-                <DollarSign className="w-5 h-5 text-white" />
+          <CardContent className="p-3 sm:p-4 lg:p-6">
+            <div className="flex items-center gap-2 sm:gap-3">
+              <div className="p-1.5 sm:p-2 lg:p-3 rounded-lg bg-green-500">
+                <DollarSign className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
               </div>
               <div>
-                <p className="text-sm text-muted-foreground">Valor Total</p>
-                <p className="text-2xl font-bold">{formatCurrency(totalValue)}</p>
+                <p className="text-[10px] sm:text-sm text-muted-foreground">Valor</p>
+                <p className="text-lg sm:text-2xl font-bold">{formatCurrency(totalValue)}</p>
               </div>
             </div>
           </CardContent>
@@ -238,41 +238,64 @@ export function PartsView() {
         </DialogContent>
       </Dialog>
 
-      {/* Parts Table */}
+      {/* Parts List - Mobile friendly */}
       <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">Lista de Peças</CardTitle>
-          <CardDescription>Todas as peças cadastradas no sistema</CardDescription>
+        <CardHeader className="p-3 sm:p-6">
+          <CardTitle className="text-base sm:text-lg">Lista de Pecas</CardTitle>
+          <CardDescription className="text-xs sm:text-sm">Todas as pecas cadastradas</CardDescription>
         </CardHeader>
-        <CardContent className="p-0">
-          <div className="overflow-x-auto">
+        <CardContent className="p-3 sm:p-6 pt-0">
+          {/* Mobile: Card layout */}
+          <div className="grid gap-2 sm:hidden">
+            {parts.map((part) => (
+              <div key={part.id} className="flex items-center justify-between p-3 rounded-lg border bg-card">
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium text-sm truncate">{part.name}</p>
+                  <p className="text-xs text-muted-foreground">{formatCurrency(part.price)}</p>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 shrink-0"
+                  onClick={() => setEditingPart({ 
+                    id: part.id, 
+                    name: part.name, 
+                    price: part.price,
+                    description: part.description 
+                  })}
+                >
+                  <Pencil className="w-4 h-4" />
+                </Button>
+              </div>
+            ))}
+          </div>
+          
+          {/* Desktop: Table layout */}
+          <div className="hidden sm:block overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-16">#</TableHead>
-                  <TableHead>Nome da Peça</TableHead>
-                  <TableHead>Descrição</TableHead>
-                  <TableHead className="text-right">Preço Unitário</TableHead>
-                  <TableHead className="w-16">Ações</TableHead>
+                  <TableHead className="w-12">#</TableHead>
+                  <TableHead>Nome da Peca</TableHead>
+                  <TableHead className="text-right">Preco</TableHead>
+                  <TableHead className="w-12">Acoes</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {parts.map((part, index) => (
                   <TableRow key={part.id}>
-                    <TableCell className="font-medium text-muted-foreground">
+                    <TableCell className="font-medium text-muted-foreground text-sm">
                       {index + 1}
                     </TableCell>
-                    <TableCell className="font-medium">{part.name}</TableCell>
-                    <TableCell className="text-muted-foreground text-sm">
-                      {part.description || '-'}
-                    </TableCell>
-                    <TableCell className="text-right">
+                    <TableCell className="font-medium text-sm">{part.name}</TableCell>
+                    <TableCell className="text-right text-sm">
                       {formatCurrency(part.price)}
                     </TableCell>
                     <TableCell>
                       <Button
                         variant="ghost"
                         size="icon"
+                        className="h-8 w-8"
                         onClick={() => setEditingPart({ 
                           id: part.id, 
                           name: part.name, 
