@@ -21,6 +21,43 @@ interface BeforeInstallPromptEvent extends Event {
 // Guardar o evento globalmente para poder usar depois
 let globalDeferredPrompt: BeforeInstallPromptEvent | null = null
 
+// Funcao exportada para instalar o app
+export async function triggerInstall(): Promise<boolean> {
+  if (!globalDeferredPrompt) {
+    return false
+  }
+  
+  try {
+    await globalDeferredPrompt.prompt()
+    const { outcome } = await globalDeferredPrompt.userChoice
+    
+    if (outcome === 'accepted') {
+      localStorage.setItem('pwa-installed', 'true')
+      globalDeferredPrompt = null
+      return true
+    }
+  } catch (error) {
+    console.log('[v0] Erro ao instalar PWA:', error)
+  }
+  
+  return false
+}
+
+// Verificar se pode instalar
+export function canInstall(): boolean {
+  return !!globalDeferredPrompt
+}
+
+// Verificar se ja esta instalado
+export function isInstalled(): boolean {
+  if (typeof window === 'undefined') return false
+  
+  const isInStandaloneMode = window.matchMedia('(display-mode: standalone)').matches 
+    || (window.navigator as Navigator & { standalone?: boolean }).standalone === true
+  
+  return isInStandaloneMode || localStorage.getItem('pwa-installed') === 'true'
+}
+
 export function InstallPrompt() {
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null)
   const [showModal, setShowModal] = useState(false)
@@ -74,6 +111,8 @@ export function InstallPrompt() {
       e.preventDefault()
       globalDeferredPrompt = e as BeforeInstallPromptEvent
       setDeferredPrompt(e as BeforeInstallPromptEvent)
+      // Disparar evento customizado para atualizar outros componentes
+      window.dispatchEvent(new CustomEvent('pwa-install-available'))
     }
     
     window.addEventListener('beforeinstallprompt', handleBeforeInstall)

@@ -3,6 +3,7 @@
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/lib/auth-context'
 import { NotificationBell } from '@/components/notification-bell'
+import { triggerInstall, canInstall, isInstalled } from '@/components/install-prompt'
 import { 
   LayoutDashboard, 
   Plus, 
@@ -17,7 +18,8 @@ import {
   Users,
   LogOut,
   Shield,
-  User
+  User,
+  Download
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -29,7 +31,13 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { useState } from 'react'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
+import { useState, useEffect } from 'react'
 
 type View = 'dashboard' | 'new-ticket' | 'problems' | 'machines' | 'maintenance' | 'parts' | 'reports' | 'scheduled' | 'users'
 
@@ -51,7 +59,31 @@ const allMenuItems = [
 
 export function Sidebar({ currentView, onViewChange }: SidebarProps) {
   const [mobileOpen, setMobileOpen] = useState(false)
+  const [showInstallButton, setShowInstallButton] = useState(false)
   const { currentUser, logout, isManutentor } = useAuth()
+
+  // Verificar se pode mostrar botao de instalacao
+  useEffect(() => {
+    const checkInstall = () => {
+      setShowInstallButton(canInstall() && !isInstalled())
+    }
+    
+    checkInstall()
+    
+    // Escutar quando o prompt de instalacao ficar disponivel
+    window.addEventListener('pwa-install-available', checkInstall)
+    
+    return () => {
+      window.removeEventListener('pwa-install-available', checkInstall)
+    }
+  }, [])
+
+  const handleInstallClick = async () => {
+    const success = await triggerInstall()
+    if (success) {
+      setShowInstallButton(false)
+    }
+  }
 
   const menuItems = allMenuItems.filter(item => 
     item.roles.includes(currentUser?.role || 'lider')
@@ -83,6 +115,17 @@ export function Sidebar({ currentView, onViewChange }: SidebarProps) {
             <div>
               <h1 className="text-base font-bold text-sidebar-foreground leading-tight">TMS ONE</h1>
             </div>
+            {/* Botao de instalacao mobile */}
+            {showInstallButton && (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={handleInstallClick}
+                className="h-7 w-7 ml-1 text-sidebar-foreground hover:bg-sidebar-accent animate-pulse"
+              >
+                <Download className="w-4 h-4" />
+              </Button>
+            )}
           </div>
           <div className="flex items-center gap-1">
             <NotificationBell />
@@ -118,9 +161,31 @@ export function Sidebar({ currentView, onViewChange }: SidebarProps) {
             <div className="w-10 h-10 bg-sidebar-primary rounded-xl flex items-center justify-center">
               <Settings className="w-6 h-6 text-sidebar-primary-foreground" />
             </div>
-            <div>
-              <h1 className="text-xl font-bold text-sidebar-foreground">TMS ONE</h1>
-              <p className="text-xs text-sidebar-foreground/60">TOOL MANAGER SYSTEM</p>
+            <div className="flex items-center gap-2">
+              <div>
+                <h1 className="text-xl font-bold text-sidebar-foreground">TMS ONE</h1>
+                <p className="text-xs text-sidebar-foreground/60">TOOL MANAGER SYSTEM</p>
+              </div>
+              {/* Botao de instalacao desktop */}
+              {showInstallButton && (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={handleInstallClick}
+                        className="h-8 w-8 text-sidebar-foreground hover:bg-sidebar-accent animate-pulse"
+                      >
+                        <Download className="w-4 h-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Instalar aplicativo</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )}
             </div>
           </div>
           <NotificationBell />
