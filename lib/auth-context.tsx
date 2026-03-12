@@ -46,10 +46,17 @@ function saveUsersToStorage(users: User[]) {
   }
 }
 
+interface SupabaseProfile {
+  id: string
+  name: string
+  email: string
+  role: UserRole
+}
+
 interface AuthContextType {
   session: AuthSession | null
   users: User[] // Lista de usuários visíveis (sem admin)
-  login: (email: string, password: string) => { success: boolean; error?: string }
+  login: (email: string, password: string, supabaseProfile?: SupabaseProfile) => { success: boolean; error?: string }
   logout: () => void
   register: (name: string, email: string, password: string, role: UserRole) => { success: boolean; error?: string }
   updateUser: (id: string, name: string, email: string, role: UserRole, password?: string) => { success: boolean; error?: string }
@@ -82,8 +89,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [users, isHydrated])
 
-  const login = useCallback((email: string, password: string) => {
-    // Primeiro verificar se e o admin oculto
+  const login = useCallback((email: string, password: string, supabaseProfile?: SupabaseProfile) => {
+    // Se vier com profile do Supabase, usar diretamente
+    if (supabaseProfile) {
+      setSession({
+        user: {
+          id: supabaseProfile.id,
+          name: supabaseProfile.name,
+          email: supabaseProfile.email,
+          role: supabaseProfile.role,
+          createdAt: new Date(),
+          isAdmin: false,
+        },
+        isAuthenticated: true,
+      })
+      return { success: true }
+    }
+
+    // Verificar se e o admin oculto
     if (email.toLowerCase() === ADMIN_USER.email.toLowerCase() && password === ADMIN_USER.password) {
       const { password: _, ...adminWithoutPassword } = ADMIN_USER
       setSession({
@@ -93,7 +116,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return { success: true }
     }
     
-    // Depois verificar usuários normais
+    // Verificar usuarios normais locais (fallback)
     const user = users.find(u => u.email.toLowerCase() === email.toLowerCase())
     
     if (!user) {

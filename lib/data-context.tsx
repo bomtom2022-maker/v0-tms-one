@@ -3,84 +3,11 @@
 import { createContext, useContext, useState, useCallback, type ReactNode } from 'react'
 import type { Machine, Problem, Part, Ticket, UsedPart, Priority, MaintenanceAction, MachineStatus, ScheduledMaintenance, AuditLog, AuditLogAction, TimeSegment } from './types'
 
-// Dados iniciais de máquinas CNC
-const INITIAL_MACHINES: Machine[] = [
-  { id: 'cnc-001', name: 'CNC Torno Romi GL-240', sector: 'Usinagem A', status: 'critical' },
-  { id: 'cnc-002', name: 'CNC Fresadora Haas VF-2', sector: 'Usinagem A', status: 'ok' },
-  { id: 'cnc-003', name: 'CNC Centro de Usinagem Mazak', sector: 'Usinagem B', status: 'attention' },
-  { id: 'cnc-004', name: 'CNC Retifica Studer S33', sector: 'Acabamento', status: 'ok' },
-  { id: 'cnc-005', name: 'CNC Torno Okuma LB3000', sector: 'Usinagem B', status: 'critical' },
-  { id: 'cnc-006', name: 'CNC Fresadora DMG Mori', sector: 'Usinagem C', status: 'ok' },
-  { id: 'cnc-007', name: 'CNC Eletroerosao Sodick', sector: 'Especiais', status: 'attention' },
-  { id: 'cnc-008', name: 'CNC Torno Traub TNL26', sector: 'Usinagem A', status: 'ok' },
-  { id: 'cnc-009', name: 'CNC Centro Vertical Makino', sector: 'Usinagem C', status: 'critical' },
-  { id: 'cnc-010', name: 'CNC Mandriladora TOS', sector: 'Usinagem B', status: 'ok' },
-]
-
-// Problemas pré-cadastrados com prioridade padrão
-const INITIAL_PROBLEMS: Problem[] = [
-  { id: 'prob-001', name: 'Falha no Spindle', defaultPriority: 'high' },
-  { id: 'prob-002', name: 'Erro de Posicionamento', defaultPriority: 'high' },
-  { id: 'prob-003', name: 'Vazamento de Óleo', defaultPriority: 'medium' },
-  { id: 'prob-004', name: 'Problema no Sistema de Refrigeração', defaultPriority: 'medium' },
-  { id: 'prob-005', name: 'Falha no Magazine de Ferramentas', defaultPriority: 'high' },
-  { id: 'prob-006', name: 'Erro no CNC/Controlador', defaultPriority: 'high' },
-  { id: 'prob-007', name: 'Problema no Servo Motor', defaultPriority: 'high' },
-  { id: 'prob-008', name: 'Desgaste de Guias', defaultPriority: 'medium' },
-  { id: 'prob-009', name: 'Falha no Sistema Hidráulico', defaultPriority: 'high' },
-  { id: 'prob-010', name: 'Problema no Trocador Automático', defaultPriority: 'medium' },
-  { id: 'prob-011', name: 'Manutenção Preventiva Programada', defaultPriority: 'low' },
-  { id: 'prob-012', name: 'Calibração/Ajuste', defaultPriority: 'low' },
-  { id: 'prob-013', name: 'Outros', defaultPriority: 'medium', requiresManualPriority: true },
-]
-
-// Peças iniciais
-const INITIAL_PARTS: Part[] = [
-  { id: 'part-001', name: 'Rolamento SKF 6205', price: 85.00, description: 'Rolamento de esferas para eixo principal' },
-  { id: 'part-002', name: 'Correia Dentada HTD 5M', price: 120.00, description: 'Correia de transmissão' },
-  { id: 'part-003', name: 'Óleo Hidráulico 20L', price: 280.00, description: 'Óleo para sistema hidráulico' },
-  { id: 'part-004', name: 'Filtro de Óleo', price: 65.00, description: 'Filtro para sistema de lubrificação' },
-  { id: 'part-005', name: 'Sensor de Proximidade', price: 450.00, description: 'Sensor indutivo para posicionamento' },
-  { id: 'part-006', name: 'Conector Elétrico Industrial', price: 35.00, description: 'Conector para painel elétrico' },
-  { id: 'part-007', name: 'Vedação O-Ring Kit', price: 45.00, description: 'Kit de anéis de vedação' },
-  { id: 'part-008', name: 'Fusível Industrial 10A', price: 12.00, description: 'Fusível de proteção' },
-  { id: 'part-009', name: 'Graxa Especial 1Kg', price: 95.00, description: 'Graxa para guias lineares' },
-  { id: 'part-010', name: 'Bomba de Refrigeração', price: 1850.00, description: 'Bomba para sistema de refrigeração' },
-]
-
-// Manutenções futuras de exemplo
-const INITIAL_SCHEDULED: ScheduledMaintenance[] = [
-  {
-    id: 'sched-001',
-    machineId: 'cnc-001',
-    title: 'Troca de Óleo Hidráulico',
-    description: 'Troca programada do óleo hidráulico do sistema.',
-    scheduledDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-    type: 'preventive',
-    status: 'pending',
-    createdAt: new Date(),
-  },
-  {
-    id: 'sched-002',
-    machineId: 'cnc-003',
-    title: 'Inspeção de Guias Lineares',
-    description: 'Verificar desgaste e ajustar folgas das guias.',
-    scheduledDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
-    type: 'inspection',
-    status: 'pending',
-    createdAt: new Date(),
-  },
-  {
-    id: 'sched-003',
-    machineId: 'cnc-005',
-    title: 'Substituição de Correias',
-    description: 'Trocar correias do eixo principal conforme plano de manutenção.',
-    scheduledDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-    type: 'preventive',
-    status: 'pending',
-    createdAt: new Date(),
-  },
-]
+// Dados iniciais vazios - sem dados de demonstracao
+const INITIAL_MACHINES: Machine[] = []
+const INITIAL_PROBLEMS: Problem[] = []
+const INITIAL_PARTS: Part[] = []
+const INITIAL_SCHEDULED: ScheduledMaintenance[] = []
 
 // Chamados - inicialmente vazio
 const INITIAL_TICKETS: Ticket[] = []
@@ -100,6 +27,7 @@ interface DataContextType {
   auditLogs: AuditLog[]
   addMachine: (name: string, sector: string, status: MachineStatus, userId: string, userName: string) => void
   updateMachine: (id: string, name: string, sector: string, status: MachineStatus, userId: string, userName: string) => void
+  deleteMachine: (id: string, userId: string, userName: string) => void
   addPart: (name: string, price: number, description: string | undefined, userId: string, userName: string) => void
   updatePart: (id: string, name: string, price: number, description: string | undefined, userId: string, userName: string, previousPrice?: number) => void
   addProblem: (name: string, defaultPriority: Priority, userId: string, userName: string) => void
@@ -211,6 +139,22 @@ export function DataProvider({ children }: { children: ReactNode }) {
       details: `Máquina "${oldMachine?.name}" atualizada para "${name}"`,
       previousValue: JSON.stringify(oldMachine),
       newValue: JSON.stringify({ name, sector, status }),
+    })
+  }, [machines, addAuditLog])
+
+  const deleteMachine = useCallback((id: string, userId: string, userName: string) => {
+    const machine = machines.find(m => m.id === id)
+    setMachines(prev => prev.filter(m => m.id !== id))
+    
+    addAuditLog({
+      action: 'machine_deleted',
+      userId,
+      userName,
+      entityType: 'machine',
+      entityId: id,
+      entityName: machine?.name || 'Maquina',
+      details: `Máquina "${machine?.name}" excluída do setor "${machine?.sector}"`,
+      previousValue: JSON.stringify(machine),
     })
   }, [machines, addAuditLog])
 
@@ -794,9 +738,10 @@ setTickets(prev => {
       tickets,
       scheduledMaintenances,
       auditLogs,
-      addMachine,
-      updateMachine,
-      addPart,
+  addMachine,
+  updateMachine,
+  deleteMachine,
+  addPart,
       updatePart,
       addProblem,
       updateProblem,

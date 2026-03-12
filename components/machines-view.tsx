@@ -5,7 +5,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Badge } from '@/components/ui/badge'
 import {
   Dialog,
   DialogContent,
@@ -15,21 +14,31 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { useData } from '@/lib/data-context'
 import { useAuth } from '@/lib/auth-context'
-import { Plus, Settings, Pencil, Cpu } from 'lucide-react'
+import { Plus, Settings, Pencil, Cpu, Trash2 } from 'lucide-react'
 
 export function MachinesView() {
-  const { machines, addMachine, updateMachine } = useData()
+  const { machines, addMachine, updateMachine, deleteMachine } = useData()
   const { currentUser } = useAuth()
   const [isOpen, setIsOpen] = useState(false)
   const [editingMachine, setEditingMachine] = useState<{ id: string; name: string; sector: string } | null>(null)
+  const [deletingMachineId, setDeletingMachineId] = useState<string | null>(null)
   const [newMachineName, setNewMachineName] = useState('')
   const [newMachineSector, setNewMachineSector] = useState('')
 
   const handleAddMachine = () => {
     if (!newMachineName.trim() || !newMachineSector.trim()) return
-    
     addMachine(newMachineName.trim(), newMachineSector.trim(), 'ok', currentUser?.id || '', currentUser?.name || '')
     setNewMachineName('')
     setNewMachineSector('')
@@ -38,10 +47,15 @@ export function MachinesView() {
 
   const handleEditMachine = () => {
     if (!editingMachine || !editingMachine.name.trim() || !editingMachine.sector.trim()) return
-    
     const machine = machines.find(m => m.id === editingMachine.id)
     updateMachine(editingMachine.id, editingMachine.name.trim(), editingMachine.sector.trim(), machine?.status || 'ok', currentUser?.id || '', currentUser?.name || '')
     setEditingMachine(null)
+  }
+
+  const handleDeleteMachine = () => {
+    if (!deletingMachineId) return
+    deleteMachine(deletingMachineId, currentUser?.id || '', currentUser?.name || '')
+    setDeletingMachineId(null)
   }
 
   
@@ -159,42 +173,83 @@ export function MachinesView() {
             Maquinas Cadastradas
           </CardTitle>
           <CardDescription className="text-xs sm:text-sm">
-            Lista de todas as maquinas
+            {machines.length === 0 ? 'Nenhuma maquina cadastrada' : `${machines.length} maquina(s) cadastrada(s)`}
           </CardDescription>
         </CardHeader>
         <CardContent className="p-3 sm:p-6 pt-0">
-          <div className="grid gap-2 sm:gap-3">
-            {machines.map((machine) => (
-              <div 
-                key={machine.id}
-                className="flex items-center justify-between p-3 rounded-lg border bg-card hover:bg-muted/50 transition-colors"
-              >
-                <div className="flex items-center gap-2 sm:gap-3">
-                  <div className="p-1.5 sm:p-2 rounded-lg bg-primary/10">
-                    <Cpu className="w-4 h-4 text-primary" />
+          {machines.length === 0 ? (
+            <div className="text-center py-10 text-muted-foreground">
+              <Cpu className="w-10 h-10 mx-auto mb-3 opacity-30" />
+              <p className="text-sm">Nenhuma maquina cadastrada ainda.</p>
+              <p className="text-xs mt-1">Clique em "Nova Maquina" para comecar.</p>
+            </div>
+          ) : (
+            <div className="grid gap-2 sm:gap-3">
+              {machines.map((machine) => (
+                <div 
+                  key={machine.id}
+                  className="flex items-center justify-between p-3 rounded-lg border bg-card hover:bg-muted/50 transition-colors"
+                >
+                  <div className="flex items-center gap-2 sm:gap-3">
+                    <div className="p-1.5 sm:p-2 rounded-lg bg-primary/10">
+                      <Cpu className="w-4 h-4 text-primary" />
+                    </div>
+                    <div>
+                      <span className="font-medium text-sm sm:text-base">{machine.name}</span>
+                      <p className="text-xs sm:text-sm text-muted-foreground">{machine.sector}</p>
+                    </div>
                   </div>
-                  <div>
-                    <span className="font-medium text-sm sm:text-base">{machine.name}</span>
-                    <p className="text-xs sm:text-sm text-muted-foreground">{machine.sector}</p>
+                  <div className="flex items-center gap-1">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8"
+                      onClick={() => setEditingMachine({ 
+                        id: machine.id, 
+                        name: machine.name, 
+                        sector: machine.sector
+                      })}
+                    >
+                      <Pencil className="w-4 h-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                      onClick={() => setDeletingMachineId(machine.id)}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
                   </div>
                 </div>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8"
-                  onClick={() => setEditingMachine({ 
-                    id: machine.id, 
-                    name: machine.name, 
-                    sector: machine.sector
-                  })}
-                >
-                  <Pencil className="w-4 h-4" />
-                </Button>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
+
+      {/* Confirmacao de exclusao */}
+      <AlertDialog open={!!deletingMachineId} onOpenChange={(open) => !open && setDeletingMachineId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir Maquina</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir a maquina{' '}
+              <strong>{machines.find(m => m.id === deletingMachineId)?.name}</strong>?
+              Esta acao nao pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteMachine}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }
