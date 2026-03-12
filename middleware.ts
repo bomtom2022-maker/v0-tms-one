@@ -1,15 +1,13 @@
-import { type NextRequest } from 'next/server'
-import { updateSession } from '@/lib/supabase/middleware'
+import { type NextRequest, NextResponse } from 'next/server'
 
+// Middleware temporariamente passivo ate a tela de login ser implementada.
+// Apenas atualiza cookies de sessao do Supabase sem redirecionar.
 export async function middleware(request: NextRequest) {
-  return await updateSession(request)
+  return NextResponse.next()
 }
 
 export const config = {
   matcher: [
-    /*
-     * Proteger todas as rotas exceto arquivos estaticos e auth
-     */
     '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
 }
