@@ -1,6 +1,6 @@
 'use client'
 
-import { createContext, useContext, useState, useCallback, useEffect, useRef, type ReactNode } from 'react'
+import { createContext, useContext, useState, useCallback, useRef, type ReactNode } from 'react'
 import type { Machine, Problem, Part, Ticket, UsedPart, Priority, MaintenanceAction, MachineStatus, ScheduledMaintenance, AuditLog, TimeSegment } from './types'
 import {
   fetchMachines, insertMachine, updateMachineDb, deleteMachineDb,
@@ -61,7 +61,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [tickets, setTickets] = useState<Ticket[]>([])
   const [scheduledMaintenances, setScheduledMaintenances] = useState<ScheduledMaintenance[]>([])
   const [auditLogs] = useState<AuditLog[]>([]) // logs vem do Supabase via triggers
-  const [isLoading, setIsLoading] = useState(true)
+  const [isLoading, setIsLoading] = useState(false)
   const notifyRef = useRef<NotificationCallback | null>(null)
 
   const setNotificationCallback = useCallback((callback: NotificationCallback | null) => {
@@ -99,10 +99,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
-  // Nao carrega dados no mount — aguarda o login disparar reloadData
-  useEffect(() => {
-    setIsLoading(false)
-  }, [])
+
 
   // ─── MAQUINAS ────────────────────────────────────────────
 
