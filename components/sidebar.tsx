@@ -59,7 +59,7 @@ const allMenuItems = [
 
 export function Sidebar({ currentView, onViewChange }: SidebarProps) {
   const [mobileOpen, setMobileOpen] = useState(false)
-  const [showInstallButton, setShowInstallButton] = useState(false)
+  const [showInstallButton, setShowInstallButton] = useState(true)
   const { currentUser, logout, isManutentor } = useAuth()
 
   // Verificar se deve mostrar botao de instalacao
@@ -69,14 +69,12 @@ export function Sidebar({ currentView, onViewChange }: SidebarProps) {
       const isInStandaloneMode = window.matchMedia('(display-mode: standalone)').matches 
         || (window.navigator as Navigator & { standalone?: boolean }).standalone === true
       
-      // Mostrar botao se NAO estiver em modo standalone
+      // Esconder botao se ja estiver instalado como PWA
       setShowInstallButton(!isInStandaloneMode)
-      console.log('[v0] showInstallButton:', !isInStandaloneMode, 'standalone:', isInStandaloneMode)
     }
     
     checkInstall()
     
-    // Escutar quando o prompt de instalacao ficar disponivel
     window.addEventListener('pwa-install-available', checkInstall)
     
     return () => {
@@ -128,16 +126,14 @@ export function Sidebar({ currentView, onViewChange }: SidebarProps) {
               <h1 className="text-base font-bold text-sidebar-foreground leading-tight">TMS ONE</h1>
             </div>
             {/* Botao de instalacao mobile */}
-            {showInstallButton && (
-              <Button
-                variant="default"
-                size="icon"
-                onClick={handleInstallClick}
-                className="h-7 w-7 ml-1 bg-blue-600 hover:bg-blue-700 text-white"
-              >
-                <Download className="w-4 h-4" />
-              </Button>
-            )}
+            <Button
+              variant="default"
+              size="icon"
+              onClick={handleInstallClick}
+              className="h-7 w-7 bg-blue-600 hover:bg-blue-700 text-white"
+            >
+              <Download className="w-4 h-4" />
+            </Button>
           </div>
           <div className="flex items-center gap-1">
             <NotificationBell />
@@ -178,26 +174,24 @@ export function Sidebar({ currentView, onViewChange }: SidebarProps) {
                 <h1 className="text-xl font-bold text-sidebar-foreground">TMS ONE</h1>
                 <p className="text-xs text-sidebar-foreground/60">TOOL MANAGER SYSTEM</p>
               </div>
-              {/* Botao de instalacao desktop */}
-              {showInstallButton && (
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        variant="default"
-                        size="icon"
-                        onClick={handleInstallClick}
-                        className="h-8 w-8 bg-blue-600 hover:bg-blue-700 text-white"
-                      >
-                        <Download className="w-4 h-4" />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>Instalar aplicativo</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              )}
+              {/* Botao de instalacao desktop - sempre visivel no desktop */}
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="default"
+                      size="icon"
+                      onClick={handleInstallClick}
+                      className="h-8 w-8 bg-blue-600 hover:bg-blue-700 text-white"
+                    >
+                      <Download className="w-4 h-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Instalar aplicativo</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             </div>
           </div>
           <NotificationBell />
