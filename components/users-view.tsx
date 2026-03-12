@@ -78,12 +78,12 @@ export function UsersView() {
     resetForm()
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
 
     if (editingUser) {
-      const result = updateUser(editingUser, name, email, role, password || undefined)
+      const result = await updateUser(editingUser, name, email, role, password || undefined)
       if (!result.success) {
         setError(result.error || 'Erro ao atualizar usuário')
         return
@@ -93,7 +93,7 @@ export function UsersView() {
         setError('Senha é obrigatória para novos usuários')
         return
       }
-      const result = register(name, email, password, role)
+      const result = await register(name, email, password, role)
       if (!result.success) {
         setError(result.error || 'Erro ao cadastrar usuário')
         return
@@ -103,8 +103,8 @@ export function UsersView() {
     handleCloseDialog()
   }
 
-  const handleDelete = (userId: string) => {
-    const result = deleteUser(userId)
+  const handleDelete = async (userId: string) => {
+    const result = await deleteUser(userId)
     if (!result.success) {
       setError(result.error || 'Erro ao deletar usuário')
     }

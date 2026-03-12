@@ -3,6 +3,7 @@
 import { useState, useCallback, useEffect } from 'react'
 import { DataProvider, useData } from '@/lib/data-context'
 import { AuthProvider, useAuth } from '@/lib/auth-context'
+import { Wrench } from 'lucide-react'
 import { NotificationProvider, useNotification } from '@/lib/notification-context'
 import { Sidebar } from '@/components/sidebar'
 import { DashboardView } from '@/components/dashboard-view'
@@ -21,10 +22,17 @@ type View = 'dashboard' | 'new-ticket' | 'problems' | 'machines' | 'maintenance'
 
 function TMSApp() {
   const { isAuthenticated, isManutentor, isLider } = useAuth()
-  const { setNotificationCallback } = useData()
+  const { setNotificationCallback, isLoading, reloadData } = useData()
   const { notify } = useNotification()
   const [currentView, setCurrentView] = useState<View>('dashboard')
   const [selectedTicketId, setSelectedTicketId] = useState<string | null>(null)
+
+  // Carregar dados do Supabase assim que usuario autenticar
+  useEffect(() => {
+    if (isAuthenticated) {
+      reloadData()
+    }
+  }, [isAuthenticated, reloadData])
 
   // Integrar notificações do data-context com notification-context
   useEffect(() => {
@@ -73,6 +81,18 @@ function TMSApp() {
   // Se nao estiver autenticado, mostrar tela de login
   if (!isAuthenticated) {
     return <LoginView />
+  }
+
+  // Enquanto carrega dados do Supabase, mostrar loading
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-muted/30 gap-4">
+        <div className="w-14 h-14 bg-primary rounded-xl flex items-center justify-center animate-pulse">
+          <Wrench className="w-7 h-7 text-primary-foreground" />
+        </div>
+        <p className="text-muted-foreground text-sm">Carregando dados...</p>
+      </div>
+    )
   }
 
   const renderView = () => {

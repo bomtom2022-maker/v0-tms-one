@@ -1,10 +1,12 @@
 'use client'
 
 import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react'
+import { createClient } from '@/lib/supabase/client'
+import { fetchProfiles, createUserInSupabase, updateProfileDb, deactivateUserDb } from '@/lib/supabase-data'
 import type { User, UserRole, AuthSession } from './types'
 
-// Admin oculto - não aparece na lista de usuários
-const ADMIN_USER: User = {
+// Admin oculto — nao aparece na lista, login puramente local
+const ADMIN_USER: User & { password: string } = {
   id: 'admin-001',
   name: 'Renan Bassinelo',
   email: 'renan bassinelo',
@@ -14,46 +16,15 @@ const ADMIN_USER: User = {
   isAdmin: true,
 }
 
-// Chave para localStorage
-const USERS_STORAGE_KEY = 'tms-one-users'
-
-// Função para carregar usuários do localStorage
-function loadUsersFromStorage(): User[] {
-  if (typeof window === 'undefined') return []
-  try {
-    const stored = localStorage.getItem(USERS_STORAGE_KEY)
-    if (stored) {
-      const parsed = JSON.parse(stored)
-      // Converter strings de data de volta para objetos Date
-      return parsed.map((u: User) => ({
-        ...u,
-        createdAt: new Date(u.createdAt)
-      }))
-    }
-  } catch (e) {
-    console.error('Erro ao carregar usuários:', e)
-  }
-  return []
-}
-
-// Função para salvar usuários no localStorage
-function saveUsersToStorage(users: User[]) {
-  if (typeof window === 'undefined') return
-  try {
-    localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(users))
-  } catch (e) {
-    console.error('Erro ao salvar usuários:', e)
-  }
-}
-
 interface AuthContextType {
   session: AuthSession | null
-  users: User[] // Lista de usuários visíveis (sem admin)
-  login: (email: string, password: string) => { success: boolean; error?: string }
-  logout: () => void
-  register: (name: string, email: string, password: string, role: UserRole) => { success: boolean; error?: string }
-  updateUser: (id: string, name: string, email: string, role: UserRole, password?: string) => { success: boolean; error?: string }
-  deleteUser: (id: string) => { success: boolean; error?: string }
+  users: User[]
+  login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>
+  logout: () => Promise<void>
+  register: (name: string, email: string, password: string, role: UserRole) => Promise<{ success: boolean; error?: string }>
+  updateUser: (id: string, name: string, email: string, role: UserRole, password?: string) => Promise<{ success: boolean; error?: string }>
+  deleteUser: (id: string) => Promise<{ success: boolean; error?: string }>
+  reloadUsers: () => Promise<void>
   isAuthenticated: boolean
   isManutentor: boolean
   isLider: boolean
@@ -66,113 +37,181 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined)
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [users, setUsers] = useState<User[]>([])
   const [session, setSession] = useState<AuthSession | null>(null)
-  const [isHydrated, setIsHydrated] = useState(false)
 
-  // Carregar usuários do localStorage na inicialização
-  useEffect(() => {
-    const storedUsers = loadUsersFromStorage()
-    setUsers(storedUsers)
-    setIsHydrated(true)
+  const reloadUsers = useCallback(async () => {
+    try {
+      const profiles = await fetchProfiles()
+      setUsers(profiles.map(p => ({
+        id: p.id,
+        name: p.name,
+        email: p.email,
+        role: p.role as UserRole,
+        createdAt: new Date(p.created_at),
+        password: '',
+      })))
+    } catch {
+      // silencioso — nao autenticado ainda
+    }
   }, [])
 
-  // Salvar usuários no localStorage quando mudar
+  // Verificar sessao Supabase existente ao montar
   useEffect(() => {
-    if (isHydrated) {
-      saveUsersToStorage(users)
-    }
-  }, [users, isHydrated])
+    const supabase = createClient()
 
-  const login = useCallback((email: string, password: string) => {
-    // Primeiro verificar se e o admin oculto
+    const restoreSession = async () => {
+      const { data: { session: sbSession } } = await supabase.auth.getSession()
+      if (sbSession?.user) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', sbSession.user.id)
+          .single()
+
+        if (profile) {
+          setSession({
+            user: {
+              id: profile.id,
+              name: profile.name,
+              email: profile.email,
+              role: profile.role as UserRole,
+              createdAt: new Date(profile.created_at),
+              isAdmin: false,
+            },
+            isAuthenticated: true,
+          })
+          await reloadUsers()
+        }
+      }
+    }
+
+    restoreSession()
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, sbSession) => {
+      if (event === 'SIGNED_OUT' || !sbSession) {
+        setSession(null)
+        setUsers([])
+        return
+      }
+      if (event === 'SIGNED_IN' && sbSession.user) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', sbSession.user.id)
+          .single()
+        if (profile) {
+          setSession({
+            user: {
+              id: profile.id,
+              name: profile.name,
+              email: profile.email,
+              role: profile.role as UserRole,
+              createdAt: new Date(profile.created_at),
+              isAdmin: false,
+            },
+            isAuthenticated: true,
+          })
+          await reloadUsers()
+        }
+      }
+    })
+
+    return () => subscription.unsubscribe()
+  }, [reloadUsers])
+
+  const login = useCallback(async (email: string, password: string) => {
+    // Admin oculto — login local sem Supabase
     if (email.toLowerCase() === ADMIN_USER.email.toLowerCase() && password === ADMIN_USER.password) {
-      const { password: _, ...adminWithoutPassword } = ADMIN_USER
       setSession({
-        user: adminWithoutPassword,
+        user: {
+          id: ADMIN_USER.id,
+          name: ADMIN_USER.name,
+          email: ADMIN_USER.email,
+          role: ADMIN_USER.role,
+          createdAt: ADMIN_USER.createdAt,
+          isAdmin: true,
+        },
         isAuthenticated: true,
       })
+      await reloadUsers()
       return { success: true }
     }
-    
-    // Depois verificar usuários normais
-    const user = users.find(u => u.email.toLowerCase() === email.toLowerCase())
-    
-    if (!user) {
-      return { success: false, error: 'Usuário não encontrado' }
-    }
-    
-    if (user.password !== password) {
-      return { success: false, error: 'Senha incorreta' }
-    }
 
-    const { password: _, ...userWithoutPassword } = user
-    setSession({
-      user: userWithoutPassword,
-      isAuthenticated: true,
-    })
-    
-    return { success: true }
-  }, [users])
-
-  const logout = useCallback(() => {
-    setSession(null)
-  }, [])
-
-  const register = useCallback((name: string, email: string, password: string, role: UserRole) => {
-    // Verificar se email já existe
-    if (users.some(u => u.email.toLowerCase() === email.toLowerCase())) {
-      return { success: false, error: 'Email já cadastrado' }
-    }
-
-    const newUser: User = {
-      id: `user-${Date.now()}`,
-      name,
-      email,
+    // Login via Supabase Auth
+    const supabase = createClient()
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email: email.toLowerCase().trim(),
       password,
-      role,
-      createdAt: new Date(),
-    }
+    })
 
-    setUsers(prev => [...prev, newUser])
-    return { success: true }
-  }, [users])
-
-  const updateUser = useCallback((id: string, name: string, email: string, role: UserRole, password?: string) => {
-    // Verificar se email já existe em outro usuário
-    if (users.some(u => u.email.toLowerCase() === email.toLowerCase() && u.id !== id)) {
-      return { success: false, error: 'Email já cadastrado em outro usuário' }
-    }
-
-    setUsers(prev => prev.map(u => {
-      if (u.id !== id) return u
-      return {
-        ...u,
-        name,
-        email,
-        role,
-        ...(password ? { password } : {}),
+    if (error) {
+      if (error.message.includes('Invalid login credentials')) {
+        return { success: false, error: 'Email ou senha incorretos' }
       }
-    }))
-
-    // Atualizar sessão se for o usuário logado
-    if (session?.user.id === id) {
-      setSession(prev => prev ? {
-        ...prev,
-        user: { ...prev.user, name, email, role },
-      } : null)
+      if (error.message.includes('Email not confirmed')) {
+        return { success: false, error: 'Aguarde a confirmacao de email pelo administrador' }
+      }
+      return { success: false, error: 'Erro ao fazer login. Tente novamente.' }
     }
 
-    return { success: true }
-  }, [users, session])
+    if (!data.user) return { success: false, error: 'Falha ao autenticar' }
 
-  const deleteUser = useCallback((id: string) => {
-    // Não pode deletar a si mesmo
-    if (session?.user.id === id) {
-      return { success: false, error: 'Você não pode deletar seu próprio usuário' }
+    // Profile sera setado pelo onAuthStateChange
+    return { success: true }
+  }, [reloadUsers])
+
+  const logout = useCallback(async () => {
+    const supabase = createClient()
+    // Se for admin local, apenas limpar sessao
+    if (session?.user.isAdmin) {
+      setSession(null)
+      setUsers([])
+      return
     }
-
-    setUsers(prev => prev.filter(u => u.id !== id))
-    return { success: true }
+    await supabase.auth.signOut()
+    setSession(null)
+    setUsers([])
   }, [session])
+
+  const register = useCallback(async (name: string, email: string, password: string, role: UserRole) => {
+    try {
+      await createUserInSupabase(name, email, password, role)
+      await reloadUsers()
+      return { success: true }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Erro ao cadastrar usuario'
+      if (msg.includes('already registered') || msg.includes('duplicate')) {
+        return { success: false, error: 'Email ja cadastrado' }
+      }
+      return { success: false, error: msg }
+    }
+  }, [reloadUsers])
+
+  const updateUser = useCallback(async (id: string, name: string, email: string, role: UserRole) => {
+    try {
+      await updateProfileDb(id, { name, email, role })
+      await reloadUsers()
+      // Atualizar sessao se for o usuario logado
+      if (session?.user.id === id) {
+        setSession(prev => prev ? { ...prev, user: { ...prev.user, name, email, role } } : null)
+      }
+      return { success: true }
+    } catch (err: unknown) {
+      return { success: false, error: err instanceof Error ? err.message : 'Erro ao atualizar usuario' }
+    }
+  }, [session, reloadUsers])
+
+  const deleteUser = useCallback(async (id: string) => {
+    if (session?.user.id === id) {
+      return { success: false, error: 'Voce nao pode desativar seu proprio usuario' }
+    }
+    try {
+      await deactivateUserDb(id)
+      await reloadUsers()
+      return { success: true }
+    } catch (err: unknown) {
+      return { success: false, error: err instanceof Error ? err.message : 'Erro ao excluir usuario' }
+    }
+  }, [session, reloadUsers])
 
   const isAuthenticated = session?.isAuthenticated ?? false
   const isAdmin = session?.user.isAdmin === true
@@ -189,6 +228,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       register,
       updateUser,
       deleteUser,
+      reloadUsers,
       isAuthenticated,
       isManutentor,
       isLider,
@@ -202,8 +242,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
 export function useAuth() {
   const context = useContext(AuthContext)
-  if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider')
-  }
+  if (!context) throw new Error('useAuth must be used within an AuthProvider')
   return context
 }

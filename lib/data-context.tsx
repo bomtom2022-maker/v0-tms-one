@@ -1,94 +1,16 @@
 'use client'
 
-import { createContext, useContext, useState, useCallback, type ReactNode } from 'react'
-import type { Machine, Problem, Part, Ticket, UsedPart, Priority, MaintenanceAction, MachineStatus, ScheduledMaintenance, AuditLog, AuditLogAction, TimeSegment } from './types'
+import { createContext, useContext, useState, useCallback, useRef, type ReactNode } from 'react'
+import type { Machine, Problem, Part, Ticket, UsedPart, Priority, MaintenanceAction, MachineStatus, ScheduledMaintenance, AuditLog, TimeSegment } from './types'
+import {
+  fetchMachines, insertMachine, updateMachineDb, deleteMachineDb,
+  fetchProblems, insertProblem, updateProblemDb,
+  fetchParts, insertPart, updatePartDb,
+  fetchTickets, insertTicket, updateTicketDb, insertTicketAction, insertTicketSegment, closeTicketSegment, insertUsedParts,
+  fetchScheduledMaintenances, insertScheduledMaintenance, updateScheduledMaintenanceDb, deleteScheduledMaintenanceDb,
+} from './supabase-data'
 
-// Dados iniciais de máquinas CNC
-const INITIAL_MACHINES: Machine[] = [
-  { id: 'cnc-001', name: 'CNC Torno Romi GL-240', sector: 'Usinagem A', status: 'critical' },
-  { id: 'cnc-002', name: 'CNC Fresadora Haas VF-2', sector: 'Usinagem A', status: 'ok' },
-  { id: 'cnc-003', name: 'CNC Centro de Usinagem Mazak', sector: 'Usinagem B', status: 'attention' },
-  { id: 'cnc-004', name: 'CNC Retifica Studer S33', sector: 'Acabamento', status: 'ok' },
-  { id: 'cnc-005', name: 'CNC Torno Okuma LB3000', sector: 'Usinagem B', status: 'critical' },
-  { id: 'cnc-006', name: 'CNC Fresadora DMG Mori', sector: 'Usinagem C', status: 'ok' },
-  { id: 'cnc-007', name: 'CNC Eletroerosao Sodick', sector: 'Especiais', status: 'attention' },
-  { id: 'cnc-008', name: 'CNC Torno Traub TNL26', sector: 'Usinagem A', status: 'ok' },
-  { id: 'cnc-009', name: 'CNC Centro Vertical Makino', sector: 'Usinagem C', status: 'critical' },
-  { id: 'cnc-010', name: 'CNC Mandriladora TOS', sector: 'Usinagem B', status: 'ok' },
-]
-
-// Problemas pré-cadastrados com prioridade padrão
-const INITIAL_PROBLEMS: Problem[] = [
-  { id: 'prob-001', name: 'Falha no Spindle', defaultPriority: 'high' },
-  { id: 'prob-002', name: 'Erro de Posicionamento', defaultPriority: 'high' },
-  { id: 'prob-003', name: 'Vazamento de Óleo', defaultPriority: 'medium' },
-  { id: 'prob-004', name: 'Problema no Sistema de Refrigeração', defaultPriority: 'medium' },
-  { id: 'prob-005', name: 'Falha no Magazine de Ferramentas', defaultPriority: 'high' },
-  { id: 'prob-006', name: 'Erro no CNC/Controlador', defaultPriority: 'high' },
-  { id: 'prob-007', name: 'Problema no Servo Motor', defaultPriority: 'high' },
-  { id: 'prob-008', name: 'Desgaste de Guias', defaultPriority: 'medium' },
-  { id: 'prob-009', name: 'Falha no Sistema Hidráulico', defaultPriority: 'high' },
-  { id: 'prob-010', name: 'Problema no Trocador Automático', defaultPriority: 'medium' },
-  { id: 'prob-011', name: 'Manutenção Preventiva Programada', defaultPriority: 'low' },
-  { id: 'prob-012', name: 'Calibração/Ajuste', defaultPriority: 'low' },
-  { id: 'prob-013', name: 'Outros', defaultPriority: 'medium', requiresManualPriority: true },
-]
-
-// Peças iniciais
-const INITIAL_PARTS: Part[] = [
-  { id: 'part-001', name: 'Rolamento SKF 6205', price: 85.00, description: 'Rolamento de esferas para eixo principal' },
-  { id: 'part-002', name: 'Correia Dentada HTD 5M', price: 120.00, description: 'Correia de transmissão' },
-  { id: 'part-003', name: 'Óleo Hidráulico 20L', price: 280.00, description: 'Óleo para sistema hidráulico' },
-  { id: 'part-004', name: 'Filtro de Óleo', price: 65.00, description: 'Filtro para sistema de lubrificação' },
-  { id: 'part-005', name: 'Sensor de Proximidade', price: 450.00, description: 'Sensor indutivo para posicionamento' },
-  { id: 'part-006', name: 'Conector Elétrico Industrial', price: 35.00, description: 'Conector para painel elétrico' },
-  { id: 'part-007', name: 'Vedação O-Ring Kit', price: 45.00, description: 'Kit de anéis de vedação' },
-  { id: 'part-008', name: 'Fusível Industrial 10A', price: 12.00, description: 'Fusível de proteção' },
-  { id: 'part-009', name: 'Graxa Especial 1Kg', price: 95.00, description: 'Graxa para guias lineares' },
-  { id: 'part-010', name: 'Bomba de Refrigeração', price: 1850.00, description: 'Bomba para sistema de refrigeração' },
-]
-
-// Manutenções futuras de exemplo
-const INITIAL_SCHEDULED: ScheduledMaintenance[] = [
-  {
-    id: 'sched-001',
-    machineId: 'cnc-001',
-    title: 'Troca de Óleo Hidráulico',
-    description: 'Troca programada do óleo hidráulico do sistema.',
-    scheduledDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-    type: 'preventive',
-    status: 'pending',
-    createdAt: new Date(),
-  },
-  {
-    id: 'sched-002',
-    machineId: 'cnc-003',
-    title: 'Inspeção de Guias Lineares',
-    description: 'Verificar desgaste e ajustar folgas das guias.',
-    scheduledDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
-    type: 'inspection',
-    status: 'pending',
-    createdAt: new Date(),
-  },
-  {
-    id: 'sched-003',
-    machineId: 'cnc-005',
-    title: 'Substituição de Correias',
-    description: 'Trocar correias do eixo principal conforme plano de manutenção.',
-    scheduledDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-    type: 'preventive',
-    status: 'pending',
-    createdAt: new Date(),
-  },
-]
-
-// Chamados - inicialmente vazio
-const INITIAL_TICKETS: Ticket[] = []
-
-// Logs de auditoria - inicialmente vazio
-const INITIAL_AUDIT_LOGS: AuditLog[] = []
-
-// Callback para notificações
+// Callback para notificacoes em tempo real
 type NotificationCallback = (title: string, message: string, type?: 'info' | 'warning' | 'success' | 'error') => void
 
 interface DataContextType {
@@ -98,22 +20,25 @@ interface DataContextType {
   tickets: Ticket[]
   scheduledMaintenances: ScheduledMaintenance[]
   auditLogs: AuditLog[]
-  addMachine: (name: string, sector: string, status: MachineStatus, userId: string, userName: string) => void
-  updateMachine: (id: string, name: string, sector: string, status: MachineStatus, userId: string, userName: string) => void
-  addPart: (name: string, price: number, description: string | undefined, userId: string, userName: string) => void
-  updatePart: (id: string, name: string, price: number, description: string | undefined, userId: string, userName: string, previousPrice?: number) => void
-  addProblem: (name: string, defaultPriority: Priority, userId: string, userName: string) => void
-  updateProblem: (id: string, name: string, defaultPriority: Priority, userId: string, userName: string) => void
-  addTicket: (ticket: Omit<Ticket, 'id' | 'createdAt' | 'usedParts' | 'totalCost' | 'downtime' | 'accumulatedTime' | 'actions' | 'status'>) => void
-  updateTicketObservation: (ticketId: string, observation: string, userId: string, userName: string) => void
-  cancelTicket: (ticketId: string, userId: string, userName: string) => void
-  addScheduledMaintenance: (data: Omit<ScheduledMaintenance, 'id' | 'createdAt' | 'status'>, userId: string, userName: string) => void
-  updateScheduledMaintenance: (id: string, data: Partial<Omit<ScheduledMaintenance, 'id' | 'createdAt'>>, userId: string, userName: string) => void
-  deleteScheduledMaintenance: (id: string, userId: string, userName: string) => void
-  startMaintenance: (ticketId: string, operatorName: string, userId: string) => void
-  pauseMaintenance: (ticketId: string, operatorName: string, reason: string, userId: string) => void
-  resumeMaintenance: (ticketId: string, operatorName: string, userId: string) => void
-  completeMaintenance: (ticketId: string, usedParts: UsedPart[], operatorName: string, completionNotes: string | undefined, resolved: boolean | undefined, userId: string) => void
+  isLoading: boolean
+  reloadData: () => Promise<void>
+  addMachine: (name: string, sector: string, status: MachineStatus, userId: string, userName: string) => Promise<void>
+  updateMachine: (id: string, name: string, sector: string, status: MachineStatus, userId: string, userName: string) => Promise<void>
+  deleteMachine: (id: string, userId: string, userName: string) => Promise<void>
+  addPart: (name: string, price: number, description: string | undefined, userId: string, userName: string) => Promise<void>
+  updatePart: (id: string, name: string, price: number, description: string | undefined, userId: string, userName: string, previousPrice?: number) => Promise<void>
+  addProblem: (name: string, defaultPriority: Priority, userId: string, userName: string) => Promise<void>
+  updateProblem: (id: string, name: string, defaultPriority: Priority, userId: string, userName: string) => Promise<void>
+  addTicket: (ticket: Omit<Ticket, 'id' | 'createdAt' | 'usedParts' | 'totalCost' | 'downtime' | 'accumulatedTime' | 'actions' | 'status' | 'timeSegments'>) => Promise<void>
+  updateTicketObservation: (ticketId: string, observation: string, userId: string, userName: string) => Promise<void>
+  cancelTicket: (ticketId: string, userId: string, userName: string) => Promise<void>
+  addScheduledMaintenance: (data: Omit<ScheduledMaintenance, 'id' | 'createdAt' | 'status'>, userId: string, userName: string) => Promise<void>
+  updateScheduledMaintenance: (id: string, data: Partial<Omit<ScheduledMaintenance, 'id' | 'createdAt'>>, userId: string, userName: string) => Promise<void>
+  deleteScheduledMaintenance: (id: string, userId: string, userName: string) => Promise<void>
+  startMaintenance: (ticketId: string, operatorName: string, userId: string) => Promise<void>
+  pauseMaintenance: (ticketId: string, operatorName: string, reason: string, userId: string) => Promise<void>
+  resumeMaintenance: (ticketId: string, operatorName: string, userId: string) => Promise<void>
+  completeMaintenance: (ticketId: string, usedParts: UsedPart[], operatorName: string, completionNotes: string | undefined, resolved: boolean | undefined, userId: string) => Promise<void>
   getTicketById: (id: string) => Ticket | undefined
   getMachineById: (id: string) => Machine | undefined
   getProblemById: (id: string) => Problem | undefined
@@ -130,29 +55,357 @@ interface DataContextType {
 const DataContext = createContext<DataContextType | undefined>(undefined)
 
 export function DataProvider({ children }: { children: ReactNode }) {
-  const [machines, setMachines] = useState<Machine[]>(INITIAL_MACHINES)
-  const [problems, setProblems] = useState<Problem[]>(INITIAL_PROBLEMS)
-  const [parts, setParts] = useState<Part[]>(INITIAL_PARTS)
-  const [tickets, setTickets] = useState<Ticket[]>(INITIAL_TICKETS)
-  const [scheduledMaintenances, setScheduledMaintenances] = useState<ScheduledMaintenance[]>(INITIAL_SCHEDULED)
-  const [auditLogs, setAuditLogs] = useState<AuditLog[]>(INITIAL_AUDIT_LOGS)
-  const [notifyCallback, setNotifyCallback] = useState<NotificationCallback | null>(null)
+  const [machines, setMachines] = useState<Machine[]>([])
+  const [problems, setProblems] = useState<Problem[]>([])
+  const [parts, setParts] = useState<Part[]>([])
+  const [tickets, setTickets] = useState<Ticket[]>([])
+  const [scheduledMaintenances, setScheduledMaintenances] = useState<ScheduledMaintenance[]>([])
+  const [auditLogs] = useState<AuditLog[]>([]) // logs vem do Supabase via triggers
+  const [isLoading, setIsLoading] = useState(false)
+  const notifyRef = useRef<NotificationCallback | null>(null)
 
   const setNotificationCallback = useCallback((callback: NotificationCallback | null) => {
-    setNotifyCallback(() => callback)
+    notifyRef.current = callback
   }, [])
 
-  // Função para adicionar log de auditoria
-  const addAuditLog = useCallback((logData: Omit<AuditLog, 'id' | 'timestamp'>) => {
-    const newLog: AuditLog = {
-      ...logData,
-      id: `log-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-      timestamp: new Date(),
+  const notify = (title: string, message: string, type?: 'info' | 'warning' | 'success' | 'error') => {
+    notifyRef.current?.(title, message, type)
+  }
+
+  // Log local (nao persiste — triggers do Supabase cuidam da persistencia)
+  const addAuditLog = useCallback((_log: Omit<AuditLog, 'id' | 'timestamp'>) => {
+    // Intencional: os triggers do banco ja gravam em audit_logs automaticamente
+  }, [])
+
+  const reloadData = useCallback(async () => {
+    setIsLoading(true)
+    try {
+      const [m, pr, pa, t, s] = await Promise.all([
+        fetchMachines(),
+        fetchProblems(),
+        fetchParts(),
+        fetchTickets(),
+        fetchScheduledMaintenances(),
+      ])
+      setMachines(m)
+      setProblems(pr)
+      setParts(pa)
+      setTickets(t)
+      setScheduledMaintenances(s)
+    } catch {
+      // silencioso quando nao autenticado
+    } finally {
+      setIsLoading(false)
     }
-    setAuditLogs(prev => [newLog, ...prev])
   }, [])
 
-  // Funções para buscar logs
+
+
+  // ─── MAQUINAS ────────────────────────────────────────────
+
+  const addMachine = useCallback(async (name: string, sector: string, status: MachineStatus, _userId: string, _userName: string) => {
+    const newMachine = await insertMachine(name, sector, status)
+    setMachines(prev => [...prev, newMachine])
+  }, [])
+
+  const updateMachine = useCallback(async (id: string, name: string, sector: string, status: MachineStatus, _userId: string, _userName: string) => {
+    await updateMachineDb(id, name, sector, status)
+    setMachines(prev => prev.map(m => m.id === id ? { ...m, name, sector, status } : m))
+  }, [])
+
+  const deleteMachine = useCallback(async (id: string, _userId: string, _userName: string) => {
+    await deleteMachineDb(id)
+    setMachines(prev => prev.filter(m => m.id !== id))
+  }, [])
+
+  // ─── PECAS ───────────────────────────────────────────────
+
+  const addPart = useCallback(async (name: string, price: number, description: string | undefined, _userId: string, _userName: string) => {
+    const newPart = await insertPart(name, price, description)
+    setParts(prev => [...prev, newPart])
+  }, [])
+
+  const updatePart = useCallback(async (id: string, name: string, price: number, description: string | undefined, _userId: string, _userName: string) => {
+    await updatePartDb(id, name, price, description)
+    setParts(prev => prev.map(p => p.id === id ? { ...p, name, price, description } : p))
+  }, [])
+
+  // ─── PROBLEMAS ───────────────────────────────────────────
+
+  const addProblem = useCallback(async (name: string, defaultPriority: Priority, _userId: string, _userName: string) => {
+    const newProblem = await insertProblem(name, defaultPriority)
+    setProblems(prev => [...prev, newProblem])
+  }, [])
+
+  const updateProblem = useCallback(async (id: string, name: string, defaultPriority: Priority, _userId: string, _userName: string) => {
+    await updateProblemDb(id, name, defaultPriority)
+    setProblems(prev => prev.map(p => p.id === id ? { ...p, name, defaultPriority } : p))
+  }, [])
+
+  // ─── TICKETS ─────────────────────────────────────────────
+
+  const addTicket = useCallback(async (ticketData: Omit<Ticket, 'id' | 'createdAt' | 'usedParts' | 'totalCost' | 'downtime' | 'accumulatedTime' | 'actions' | 'status' | 'timeSegments'>) => {
+    const newTicket = await insertTicket(ticketData)
+    setTickets(prev => [newTicket, ...prev])
+
+    const machine = machines.find(m => m.id === ticketData.machineId)
+    const problem = problems.find(p => p.id === ticketData.problemId)
+    notify(
+      'Novo Chamado Aberto',
+      `${machine?.name || 'Maquina'} - ${problem?.name || 'Problema'}`,
+      ticketData.priority === 'high' ? 'warning' : 'info'
+    )
+  }, [machines, problems])
+
+  const updateTicketObservation = useCallback(async (ticketId: string, observation: string, _userId: string, _userName: string) => {
+    await updateTicketDb(ticketId, { observation })
+    setTickets(prev => prev.map(t => t.id === ticketId ? { ...t, observation } : t))
+  }, [])
+
+  const cancelTicket = useCallback(async (ticketId: string, _userId: string, _userName: string) => {
+    await updateTicketDb(ticketId, { status: 'cancelled' })
+    setTickets(prev => prev.map(t =>
+      t.id === ticketId && t.status === 'open' ? { ...t, status: 'cancelled' as const } : t
+    ))
+  }, [])
+
+  // ─── MANUTENCOES PROGRAMADAS ─────────────────────────────
+
+  const addScheduledMaintenance = useCallback(async (data: Omit<ScheduledMaintenance, 'id' | 'createdAt' | 'status'>, userId: string, userName: string) => {
+    const newSched = await insertScheduledMaintenance(data, userId, userName)
+    setScheduledMaintenances(prev => [...prev, newSched])
+  }, [])
+
+  const updateScheduledMaintenance = useCallback(async (id: string, data: Partial<Omit<ScheduledMaintenance, 'id' | 'createdAt'>>, _userId: string, _userName: string) => {
+    await updateScheduledMaintenanceDb(id, data)
+    setScheduledMaintenances(prev => prev.map(s => s.id === id ? { ...s, ...data } : s))
+  }, [])
+
+  const deleteScheduledMaintenance = useCallback(async (id: string, _userId: string, _userName: string) => {
+    await deleteScheduledMaintenanceDb(id)
+    setScheduledMaintenances(prev => prev.filter(s => s.id !== id))
+  }, [])
+
+  // ─── OPERACOES DE MANUTENCAO ─────────────────────────────
+
+  const startMaintenance = useCallback(async (ticketId: string, operatorName: string, userId: string) => {
+    const now = new Date()
+    const ticket = tickets.find(t => t.id === ticketId)
+    const machine = ticket ? machines.find(m => m.id === ticket.machineId) : null
+
+    await Promise.all([
+      updateTicketDb(ticketId, {
+        status: 'in-progress',
+        started_at: ticket?.startedAt ? ticket.startedAt.toISOString() : now.toISOString(),
+        accepted_by: userId,
+        accepted_by_name: operatorName,
+      }),
+      insertTicketAction(ticketId, 'start', operatorName, userId),
+      insertTicketSegment(ticketId, operatorName, userId, now),
+    ])
+
+    const newAction: MaintenanceAction = { type: 'start', operatorName, timestamp: now }
+    const newSegment: TimeSegment = { operatorName, startTime: now, duration: 0 }
+
+    setTickets(prev => prev.map(t => {
+      if (t.id !== ticketId) return t
+      return {
+        ...t,
+        status: 'in-progress' as const,
+        startedAt: t.startedAt || now,
+        acceptedBy: userId,
+        acceptedByName: operatorName,
+        actions: [...t.actions, newAction],
+        timeSegments: [...(t.timeSegments || []), newSegment],
+        resolved: t.status === 'unresolved' ? undefined : t.resolved,
+      }
+    }))
+
+    if (machine) notify('Manutencao Iniciada', `${machine.name} - por ${operatorName}`, 'info')
+  }, [tickets, machines])
+
+  const pauseMaintenance = useCallback(async (ticketId: string, operatorName: string, reason: string, userId: string) => {
+    const now = new Date()
+    const ticket = tickets.find(t => t.id === ticketId)
+    const machine = ticket ? machines.find(m => m.id === ticket.machineId) : null
+
+    // Calcular tempo adicional desde o ultimo start/resume
+    let additionalTime = 0
+    if (ticket) {
+      const lastAction = [...ticket.actions].reverse().find(a => a.type === 'start' || a.type === 'resume')
+      if (lastAction) {
+        additionalTime = Math.floor((now.getTime() - new Date(lastAction.timestamp).getTime()) / 1000)
+      }
+    }
+
+    await Promise.all([
+      updateTicketDb(ticketId, {
+        status: 'paused',
+        accumulated_time: (ticket?.accumulatedTime || 0) + additionalTime,
+      }),
+      insertTicketAction(ticketId, 'pause', operatorName, userId, reason),
+      closeTicketSegment(ticketId, operatorName, now, additionalTime),
+    ])
+
+    const newAction: MaintenanceAction = { type: 'pause', operatorName, timestamp: now, reason }
+
+    setTickets(prev => prev.map(t => {
+      if (t.id !== ticketId) return t
+      const updatedSegments = [...(t.timeSegments || [])]
+      const lastIdx = updatedSegments.length - 1
+      if (lastIdx >= 0 && !updatedSegments[lastIdx].endTime) {
+        updatedSegments[lastIdx] = { ...updatedSegments[lastIdx], endTime: now, duration: additionalTime }
+      }
+      return {
+        ...t,
+        status: 'paused' as const,
+        accumulatedTime: t.accumulatedTime + additionalTime,
+        actions: [...t.actions, newAction],
+        timeSegments: updatedSegments,
+      }
+    }))
+
+    if (machine) notify('Manutencao Pausada', `${machine.name} - ${reason}`, 'warning')
+  }, [tickets, machines])
+
+  const resumeMaintenance = useCallback(async (ticketId: string, operatorName: string, userId: string) => {
+    const now = new Date()
+    const ticket = tickets.find(t => t.id === ticketId)
+    const machine = ticket ? machines.find(m => m.id === ticket.machineId) : null
+
+    await Promise.all([
+      updateTicketDb(ticketId, { status: 'in-progress' }),
+      insertTicketAction(ticketId, 'resume', operatorName, userId),
+      insertTicketSegment(ticketId, operatorName, userId, now),
+    ])
+
+    const newAction: MaintenanceAction = { type: 'resume', operatorName, timestamp: now }
+    const newSegment: TimeSegment = { operatorName, startTime: now, duration: 0 }
+
+    setTickets(prev => prev.map(t => {
+      if (t.id !== ticketId) return t
+      return {
+        ...t,
+        status: 'in-progress' as const,
+        actions: [...t.actions, newAction],
+        timeSegments: [...(t.timeSegments || []), newSegment],
+      }
+    }))
+
+    if (machine) notify('Manutencao Retomada', `${machine.name} - por ${operatorName}`, 'info')
+  }, [tickets, machines])
+
+  const completeMaintenance = useCallback(async (ticketId: string, usedParts: UsedPart[], operatorName: string, completionNotes: string | undefined, resolved: boolean | undefined, userId: string) => {
+    const now = new Date()
+    const ticket = tickets.find(t => t.id === ticketId)
+    const machine = ticket ? machines.find(m => m.id === ticket.machineId) : null
+
+    let additionalTime = 0
+    if (ticket?.status === 'in-progress') {
+      const lastAction = [...ticket.actions].reverse().find(a => a.type === 'start' || a.type === 'resume')
+      if (lastAction) {
+        additionalTime = Math.floor((now.getTime() - new Date(lastAction.timestamp).getTime()) / 1000)
+      }
+    }
+
+    // Calcular segmentos finais
+    const updatedSegments = [...(ticket?.timeSegments || [])]
+    const lastIdx = updatedSegments.length - 1
+    if (lastIdx >= 0 && !updatedSegments[lastIdx].endTime) {
+      updatedSegments[lastIdx] = {
+        ...updatedSegments[lastIdx],
+        endTime: now,
+        duration: updatedSegments[lastIdx].duration + additionalTime,
+      }
+    }
+    const totalDowntime = updatedSegments.reduce((sum, seg) => sum + seg.duration, 0)
+
+    // Combinar pecas anteriores com novas
+    const previousParts = ticket?.usedParts || []
+    const combinedParts: UsedPart[] = [...previousParts]
+    usedParts.forEach(np => {
+      const idx = combinedParts.findIndex(p => p.partId === np.partId)
+      if (idx >= 0) combinedParts[idx] = { ...combinedParts[idx], quantity: combinedParts[idx].quantity + np.quantity }
+      else combinedParts.push(np)
+    })
+
+    const totalCost = combinedParts.reduce((sum, up) => {
+      const part = parts.find(p => p.id === up.partId)
+      return sum + (part ? part.price * up.quantity : 0)
+    }, 0)
+
+    const finalStatus = resolved === false ? 'unresolved' : 'completed'
+
+    await Promise.all([
+      updateTicketDb(ticketId, {
+        status: finalStatus,
+        completed_at: resolved === false ? null : now.toISOString(),
+        total_cost: totalCost,
+        downtime: totalDowntime,
+        accumulated_time: totalDowntime,
+        completion_notes: completionNotes || null,
+        resolved: resolved ?? null,
+      }),
+      insertTicketAction(ticketId, 'complete', operatorName, userId),
+      closeTicketSegment(ticketId, operatorName, now, additionalTime),
+      insertUsedParts(ticketId, usedParts),
+    ])
+
+    if (resolved === false && machine) {
+      await updateMachineDb(machine.id, machine.name, machine.sector, 'attention')
+      setMachines(prev => prev.map(m => m.id === machine.id ? { ...m, status: 'attention' as const } : m))
+    }
+
+    const newAction: MaintenanceAction = { type: 'complete', operatorName, timestamp: now }
+
+    setTickets(prev => prev.map(t => {
+      if (t.id !== ticketId) return t
+      return {
+        ...t,
+        status: finalStatus as Ticket['status'],
+        completedAt: resolved === false ? undefined : now,
+        usedParts: combinedParts,
+        totalCost,
+        downtime: totalDowntime,
+        accumulatedTime: totalDowntime,
+        timeSegments: updatedSegments,
+        actions: [...t.actions, newAction],
+        completionNotes: resolved === false
+          ? (t.completionNotes ? `${t.completionNotes}\n---\n${completionNotes || ''}` : completionNotes)
+          : completionNotes,
+        resolved,
+      }
+    }))
+
+    if (machine) notify('Manutencao Finalizada', `${machine.name} - ${resolved ? 'Resolvido' : 'Nao Resolvido'}`, resolved ? 'success' : 'warning')
+  }, [tickets, machines, parts])
+
+  // ─── HELPERS ─────────────────────────────────────────────
+
+  const getTicketById = useCallback((id: string) => tickets.find(t => t.id === id), [tickets])
+  const getMachineById = useCallback((id: string) => machines.find(m => m.id === id), [machines])
+  const getProblemById = useCallback((id: string) => problems.find(p => p.id === id), [problems])
+  const getPartById = useCallback((id: string) => parts.find(p => p.id === id), [parts])
+
+  const getLastTicketByUser = useCallback((userId: string) => {
+    return tickets
+      .filter(t => t.createdBy === userId)
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0]
+  }, [tickets])
+
+  const getMaintenanceStats = useCallback(() => {
+    const stats = new Map<string, { totalDowntime: number; ticketCount: number }>()
+    tickets.filter(t => t.status === 'completed').forEach(ticket => {
+      const cur = stats.get(ticket.machineId) || { totalDowntime: 0, ticketCount: 0 }
+      stats.set(ticket.machineId, { totalDowntime: cur.totalDowntime + ticket.downtime, ticketCount: cur.ticketCount + 1 })
+    })
+    return Array.from(stats.entries()).map(([machineId, data]) => ({
+      machineId,
+      machineName: machines.find(m => m.id === machineId)?.name || machineId,
+      ...data,
+    })).sort((a, b) => b.ticketCount - a.ticketCount)
+  }, [tickets, machines])
+
   const getAuditLogsByEntity = useCallback((entityType: AuditLog['entityType'], entityId?: string) => {
     return auditLogs.filter(log => {
       if (log.entityType !== entityType) return false
@@ -167,660 +420,25 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   const getAuditLogsByDateRange = useCallback((startDate: Date, endDate: Date) => {
     return auditLogs.filter(log => {
-      const logDate = new Date(log.timestamp)
-      return logDate >= startDate && logDate <= endDate
+      const d = new Date(log.timestamp)
+      return d >= startDate && d <= endDate
     })
   }, [auditLogs])
 
-  const addMachine = useCallback((name: string, sector: string, status: MachineStatus, userId: string, userName: string) => {
-    const newMachine: Machine = {
-      id: `machine-${Date.now()}`,
-      name,
-      sector,
-      status,
-    }
-    setMachines(prev => [...prev, newMachine])
-    
-    // Log de auditoria
-    addAuditLog({
-      action: 'machine_created',
-      userId,
-      userName,
-      entityType: 'machine',
-      entityId: newMachine.id,
-      entityName: name,
-      details: `Máquina "${name}" criada no setor "${sector}" com status "${status}"`,
-      newValue: JSON.stringify({ name, sector, status }),
-    })
-  }, [addAuditLog])
-
-  const updateMachine = useCallback((id: string, name: string, sector: string, status: MachineStatus, userId: string, userName: string) => {
-    const oldMachine = machines.find(m => m.id === id)
-    setMachines(prev => prev.map(m => 
-      m.id === id ? { ...m, name, sector, status } : m
-    ))
-    
-    // Log de auditoria
-    addAuditLog({
-      action: 'machine_updated',
-      userId,
-      userName,
-      entityType: 'machine',
-      entityId: id,
-      entityName: name,
-      details: `Máquina "${oldMachine?.name}" atualizada para "${name}"`,
-      previousValue: JSON.stringify(oldMachine),
-      newValue: JSON.stringify({ name, sector, status }),
-    })
-  }, [machines, addAuditLog])
-
-  const addPart = useCallback((name: string, price: number, description: string | undefined, userId: string, userName: string) => {
-    const newPart: Part = {
-      id: `part-${Date.now()}`,
-      name,
-      price,
-      description,
-    }
-    setParts(prev => [...prev, newPart])
-    
-    // Log de auditoria
-    addAuditLog({
-      action: 'part_created',
-      userId,
-      userName,
-      entityType: 'part',
-      entityId: newPart.id,
-      entityName: name,
-      details: `Peça "${name}" criada com preço R$ ${price.toFixed(2)}`,
-      newValue: JSON.stringify({ name, price, description }),
-    })
-  }, [addAuditLog])
-
-  const updatePart = useCallback((id: string, name: string, price: number, description: string | undefined, userId: string, userName: string, previousPrice?: number) => {
-    const oldPart = parts.find(p => p.id === id)
-    setParts(prev => prev.map(p => 
-      p.id === id ? { ...p, name, price, description } : p
-    ))
-    
-    // Log de auditoria com destaque para mudança de preço
-    let details = `Peça "${oldPart?.name}" atualizada`
-    if (previousPrice !== undefined && previousPrice !== price) {
-      details += ` - Preço alterado de R$ ${previousPrice.toFixed(2)} para R$ ${price.toFixed(2)}`
-    }
-    
-    addAuditLog({
-      action: 'part_updated',
-      userId,
-      userName,
-      entityType: 'part',
-      entityId: id,
-      entityName: name,
-      details,
-      previousValue: JSON.stringify(oldPart),
-      newValue: JSON.stringify({ name, price, description }),
-      metadata: previousPrice !== undefined ? { priceChange: { from: previousPrice, to: price } } : undefined,
-    })
-  }, [parts, addAuditLog])
-
-  const addProblem = useCallback((name: string, defaultPriority: Priority, userId: string, userName: string) => {
-    const newProblem: Problem = {
-      id: `prob-${Date.now()}`,
-      name,
-      defaultPriority,
-    }
-    setProblems(prev => [...prev, newProblem])
-    
-    // Log de auditoria
-    addAuditLog({
-      action: 'problem_created',
-      userId,
-      userName,
-      entityType: 'problem',
-      entityId: newProblem.id,
-      entityName: name,
-      details: `Problema "${name}" criado com prioridade padrão "${defaultPriority}"`,
-      newValue: JSON.stringify({ name, defaultPriority }),
-    })
-  }, [addAuditLog])
-
-  const updateProblem = useCallback((id: string, name: string, defaultPriority: Priority, userId: string, userName: string) => {
-    const oldProblem = problems.find(p => p.id === id)
-    setProblems(prev => prev.map(p => 
-      p.id === id ? { ...p, name, defaultPriority } : p
-    ))
-    
-    // Log de auditoria
-    addAuditLog({
-      action: 'problem_updated',
-      userId,
-      userName,
-      entityType: 'problem',
-      entityId: id,
-      entityName: name,
-      details: `Problema "${oldProblem?.name}" atualizado para "${name}"`,
-      previousValue: JSON.stringify(oldProblem),
-      newValue: JSON.stringify({ name, defaultPriority }),
-    })
-  }, [problems, addAuditLog])
-
-const addTicket = useCallback((ticketData: Omit<Ticket, 'id' | 'createdAt' | 'usedParts' | 'totalCost' | 'downtime' | 'accumulatedTime' | 'actions' | 'status' | 'timeSegments'>) => {
-  const newTicket: Ticket = {
-  ...ticketData,
-  id: `ticket-${Date.now()}`,
-  status: 'open',
-  createdAt: new Date(),
-  usedParts: [],
-  totalCost: 0,
-  downtime: 0,
-  accumulatedTime: 0,
-  actions: [],
-  timeSegments: [],
-  }
-    setTickets(prev => [newTicket, ...prev])
-    
-    // Buscar nomes para o log
-    const machine = machines.find(m => m.id === ticketData.machineId)
-    const problem = problems.find(p => p.id === ticketData.problemId)
-    
-    // Log de auditoria
-    addAuditLog({
-      action: 'ticket_created',
-      userId: ticketData.createdBy,
-      userName: ticketData.createdByName,
-      entityType: 'ticket',
-      entityId: newTicket.id,
-      entityName: `${machine?.name || 'Máquina'} - ${problem?.name || 'Problema'}`,
-      details: `Chamado aberto para ${machine?.name || 'Máquina'} - Problema: ${problem?.name || 'N/A'} - Prioridade: ${ticketData.priority}${ticketData.machineStopped ? ' - MÁQUINA PARADA' : ''}`,
-      newValue: JSON.stringify(ticketData),
-      metadata: {
-        machineName: machine?.name,
-        problemName: problem?.name,
-        priority: ticketData.priority,
-        machineStopped: ticketData.machineStopped,
-      },
-    })
-    
-    // Notificar sobre novo chamado
-    if (notifyCallback) {
-      notifyCallback(
-        'Novo Chamado Aberto',
-        `${machine?.name || 'Máquina'} - ${problem?.name || 'Problema'}`,
-        ticketData.priority === 'high' ? 'warning' : 'info'
-      )
-    }
-  }, [machines, problems, notifyCallback, addAuditLog])
-
-  const updateTicketObservation = useCallback((ticketId: string, observation: string, userId: string, userName: string) => {
-    const ticket = tickets.find(t => t.id === ticketId)
-    const machine = ticket ? machines.find(m => m.id === ticket.machineId) : null
-    
-    setTickets(prev => prev.map(t => 
-      t.id === ticketId ? { ...t, observation } : t
-    ))
-    
-    // Log de auditoria
-    addAuditLog({
-      action: 'ticket_edited',
-      userId,
-      userName,
-      entityType: 'ticket',
-      entityId: ticketId,
-      entityName: machine?.name || 'Chamado',
-      details: `Observação do chamado editada`,
-      previousValue: ticket?.observation,
-      newValue: observation,
-    })
-  }, [tickets, machines, addAuditLog])
-
-  const cancelTicket = useCallback((ticketId: string, userId: string, userName: string) => {
-    const ticket = tickets.find(t => t.id === ticketId)
-    const machine = ticket ? machines.find(m => m.id === ticket.machineId) : null
-    
-    setTickets(prev => prev.map(t => 
-      t.id === ticketId && t.status === 'open' 
-        ? { ...t, status: 'cancelled' as const } 
-        : t
-    ))
-    
-    // Log de auditoria
-    addAuditLog({
-      action: 'ticket_cancelled',
-      userId,
-      userName,
-      entityType: 'ticket',
-      entityId: ticketId,
-      entityName: machine?.name || 'Chamado',
-      details: `Chamado cancelado para ${machine?.name || 'Máquina'}`,
-    })
-  }, [tickets, machines, addAuditLog])
-
-  const addScheduledMaintenance = useCallback((data: Omit<ScheduledMaintenance, 'id' | 'createdAt' | 'status'>, userId: string, userName: string) => {
-    const newScheduled: ScheduledMaintenance = {
-      ...data,
-      id: `sched-${Date.now()}`,
-      status: 'pending',
-      createdAt: new Date(),
-    }
-    setScheduledMaintenances(prev => [...prev, newScheduled])
-    
-    const machine = machines.find(m => m.id === data.machineId)
-    
-    // Log de auditoria
-    addAuditLog({
-      action: 'scheduled_created',
-      userId,
-      userName,
-      entityType: 'scheduled',
-      entityId: newScheduled.id,
-      entityName: data.title,
-      details: `Manutenção programada "${data.title}" criada para ${machine?.name || 'Máquina'} - Tipo: ${data.type}`,
-      newValue: JSON.stringify(data),
-    })
-  }, [machines, addAuditLog])
-
-  const updateScheduledMaintenance = useCallback((id: string, data: Partial<Omit<ScheduledMaintenance, 'id' | 'createdAt'>>, userId: string, userName: string) => {
-    const oldScheduled = scheduledMaintenances.find(s => s.id === id)
-    const machine = oldScheduled ? machines.find(m => m.id === oldScheduled.machineId) : null
-    
-    setScheduledMaintenances(prev => prev.map(s => 
-      s.id === id ? { ...s, ...data } : s
-    ))
-    
-    // Log de auditoria
-    const action = data.status === 'completed' ? 'scheduled_completed' : 'scheduled_updated'
-    addAuditLog({
-      action,
-      userId,
-      userName,
-      entityType: 'scheduled',
-      entityId: id,
-      entityName: oldScheduled?.title || 'Manutenção Programada',
-      details: data.status === 'completed' 
-        ? `Manutenção programada "${oldScheduled?.title}" marcada como concluída`
-        : `Manutenção programada "${oldScheduled?.title}" atualizada`,
-      previousValue: JSON.stringify(oldScheduled),
-      newValue: JSON.stringify(data),
-      metadata: { machineName: machine?.name },
-    })
-  }, [scheduledMaintenances, machines, addAuditLog])
-
-  const deleteScheduledMaintenance = useCallback((id: string, userId: string, userName: string) => {
-    const scheduled = scheduledMaintenances.find(s => s.id === id)
-    const machine = scheduled ? machines.find(m => m.id === scheduled.machineId) : null
-    
-    setScheduledMaintenances(prev => prev.filter(s => s.id !== id))
-    
-    // Log de auditoria
-    addAuditLog({
-      action: 'scheduled_deleted',
-      userId,
-      userName,
-      entityType: 'scheduled',
-      entityId: id,
-      entityName: scheduled?.title || 'Manutenção Programada',
-      details: `Manutenção programada "${scheduled?.title}" excluída - Máquina: ${machine?.name || 'N/A'}`,
-      previousValue: JSON.stringify(scheduled),
-    })
-  }, [scheduledMaintenances, machines, addAuditLog])
-
-  const startMaintenance = useCallback((ticketId: string, operatorName: string, userId: string) => {
-    const ticket = tickets.find(t => t.id === ticketId)
-    const machine = ticket ? machines.find(m => m.id === ticket.machineId) : null
-    
-setTickets(prev => {
-    const updated = prev.map(t => {
-      if (t.id !== ticketId) return t
-      const now = new Date()
-      const action: MaintenanceAction = {
-        type: 'start',
-        operatorName,
-        timestamp: now,
-      }
-      // Criar novo segmento de tempo para este manutentor
-      const newSegment: TimeSegment = {
-        operatorName,
-        startTime: now,
-        duration: 0,
-      }
-      return {
-        ...t,
-        status: 'in-progress' as const,
-        startedAt: t.startedAt || now, // Manter data original se existir
-        actions: [...t.actions, action],
-        timeSegments: [...(t.timeSegments || []), newSegment],
-        // Resetar resolved se estava como unresolved (permitir nova tentativa)
-        resolved: t.status === 'unresolved' ? undefined : t.resolved,
-      }
-    })
-    return updated
-  })
-    
-    // Log de auditoria
-    addAuditLog({
-      action: 'ticket_started',
-      userId,
-      userName: operatorName,
-      entityType: 'ticket',
-      entityId: ticketId,
-      entityName: machine?.name || 'Chamado',
-      details: `Manutenção iniciada por ${operatorName} - ${machine?.name || 'Máquina'}`,
-      metadata: { machineName: machine?.name },
-    })
-    
-    // Notificar
-    if (notifyCallback && machine) {
-      notifyCallback(
-        'Manutenção Iniciada',
-        `${machine.name} - por ${operatorName}`,
-        'info'
-      )
-    }
-  }, [tickets, machines, notifyCallback, addAuditLog])
-
-  const pauseMaintenance = useCallback((ticketId: string, operatorName: string, reason: string, userId: string) => {
-    const ticket = tickets.find(t => t.id === ticketId)
-    const machine = ticket ? machines.find(m => m.id === ticket.machineId) : null
-    
-    setTickets(prev => prev.map(t => {
-      if (t.id !== ticketId) return t
-      
-      const now = new Date()
-      const lastStartOrResume = [...t.actions]
-        .reverse()
-        .find(a => a.type === 'start' || a.type === 'resume')
-      
-      let additionalTime = 0
-      if (lastStartOrResume) {
-        additionalTime = Math.floor((now.getTime() - new Date(lastStartOrResume.timestamp).getTime()) / 1000)
-      }
-      
-      const action: MaintenanceAction = {
-        type: 'pause',
-        operatorName,
-        timestamp: now,
-        reason,
-      }
-      
-      // Fechar o segmento de tempo atual
-      const updatedSegments = [...(t.timeSegments || [])]
-      const lastSegmentIndex = updatedSegments.length - 1
-      if (lastSegmentIndex >= 0 && !updatedSegments[lastSegmentIndex].endTime) {
-        updatedSegments[lastSegmentIndex] = {
-          ...updatedSegments[lastSegmentIndex],
-          endTime: now,
-          duration: additionalTime,
-        }
-      }
-      
-      return { 
-        ...t, 
-        status: 'paused' as const,
-        accumulatedTime: t.accumulatedTime + additionalTime,
-        actions: [...t.actions, action],
-        timeSegments: updatedSegments,
-      }
-    }))
-    
-    // Log de auditoria
-    addAuditLog({
-      action: 'ticket_paused',
-      userId,
-      userName: operatorName,
-      entityType: 'ticket',
-      entityId: ticketId,
-      entityName: machine?.name || 'Chamado',
-      details: `Manutenção pausada por ${operatorName} - Motivo: ${reason}`,
-      metadata: { machineName: machine?.name, reason },
-    })
-  }, [tickets, machines, addAuditLog])
-
-  const resumeMaintenance = useCallback((ticketId: string, operatorName: string, userId: string) => {
-    const ticket = tickets.find(t => t.id === ticketId)
-    const machine = ticket ? machines.find(m => m.id === ticket.machineId) : null
-    
-    setTickets(prev => prev.map(t => {
-      if (t.id !== ticketId) return t
-      
-      const now = new Date()
-      const action: MaintenanceAction = {
-        type: 'resume',
-        operatorName,
-        timestamp: now,
-      }
-      
-      // Criar novo segmento de tempo para este manutentor
-      const newSegment: TimeSegment = {
-        operatorName,
-        startTime: now,
-        duration: 0,
-      }
-      
-      return { 
-        ...t, 
-        status: 'in-progress' as const,
-        actions: [...t.actions, action],
-        timeSegments: [...(t.timeSegments || []), newSegment],
-      }
-    }))
-    
-    // Log de auditoria
-    addAuditLog({
-      action: 'ticket_resumed',
-      userId,
-      userName: operatorName,
-      entityType: 'ticket',
-      entityId: ticketId,
-      entityName: machine?.name || 'Chamado',
-      details: `Manutenção retomada por ${operatorName} - ${machine?.name || 'Máquina'}`,
-      metadata: { machineName: machine?.name },
-    })
-  }, [tickets, machines, addAuditLog])
-
-  const completeMaintenance = useCallback((ticketId: string, usedParts: UsedPart[], operatorName: string, completionNotes: string | undefined, resolved: boolean | undefined, userId: string) => {
-    const ticketToComplete = tickets.find(t => t.id === ticketId)
-    const machine = ticketToComplete ? machines.find(m => m.id === ticketToComplete.machineId) : null
-    
-    let calculatedCost = 0
-    let calculatedDowntime = 0
-    
-    setTickets(prev => prev.map(ticket => {
-      if (ticket.id !== ticketId) return ticket
-      
-      const now = new Date()
-      
-      // Calcular tempo adicional se estava em progresso
-      let additionalTime = 0
-      if (ticket.status === 'in-progress') {
-        const lastStartOrResume = [...ticket.actions]
-          .reverse()
-          .find(a => a.type === 'start' || a.type === 'resume')
-        
-        if (lastStartOrResume) {
-          additionalTime = Math.floor((now.getTime() - new Date(lastStartOrResume.timestamp).getTime()) / 1000)
-        }
-      }
-      
-      // Fechar o segmento de tempo atual
-      const updatedSegments = [...(ticket.timeSegments || [])]
-      const lastSegmentIndex = updatedSegments.length - 1
-      if (lastSegmentIndex >= 0 && !updatedSegments[lastSegmentIndex].endTime) {
-        updatedSegments[lastSegmentIndex] = {
-          ...updatedSegments[lastSegmentIndex],
-          endTime: now,
-          duration: updatedSegments[lastSegmentIndex].duration + additionalTime,
-        }
-      }
-      
-      // Calcular downtime total (soma de todos os segmentos)
-      const totalDowntime = updatedSegments.reduce((sum, seg) => sum + seg.duration, 0)
-      calculatedDowntime = totalDowntime
-      
-      // Combinar peças anteriores com novas peças
-      const previousParts = ticket.usedParts || []
-      const combinedParts: UsedPart[] = [...previousParts]
-      
-      // Para cada peça nova, verificar se já existe e somar quantidades
-      usedParts.forEach(newPart => {
-        const existingIndex = combinedParts.findIndex(p => p.partId === newPart.partId)
-        if (existingIndex >= 0) {
-          // Somar quantidade se a peça já existe
-          combinedParts[existingIndex] = {
-            ...combinedParts[existingIndex],
-            quantity: combinedParts[existingIndex].quantity + newPart.quantity
-          }
-        } else {
-          // Adicionar nova peça
-          combinedParts.push(newPart)
-        }
-      })
-      
-      // Calcular custo total de TODAS as peças (anteriores + novas)
-      calculatedCost = combinedParts.reduce((sum, up) => {
-        const part = parts.find(p => p.id === up.partId)
-        return sum + (part ? part.price * up.quantity : 0)
-      }, 0)
-
-      const action: MaintenanceAction = {
-        type: 'complete',
-        operatorName,
-        timestamp: now,
-      }
-
-      // Se problema nao foi resolvido, colocar maquina em observacao
-      if (resolved === false) {
-        setMachines(prevMachines => prevMachines.map(m => 
-          m.id === ticket.machineId ? { ...m, status: 'attention' as const } : m
-        ))
-      }
-
-      return {
-        ...ticket,
-        // Se não foi resolvido, usar status 'unresolved' para permitir continuidade
-        status: resolved === false ? 'unresolved' as const : 'completed' as const,
-        completedAt: resolved === false ? undefined : now,
-        usedParts: combinedParts, // Usar peças combinadas
-        totalCost: calculatedCost,
-        downtime: calculatedDowntime,
-        accumulatedTime: totalDowntime, // Manter acumulado atualizado
-        timeSegments: updatedSegments, // Historico de tempo por manutentor
-        actions: [...ticket.actions, action],
-        completionNotes: resolved === false 
-          ? (ticket.completionNotes ? `${ticket.completionNotes}\n---\n${completionNotes || ''}` : completionNotes) 
-          : completionNotes, // Acumular observações quando não resolvido
-        resolved,
-      }
-    }))
-    
-    // Montar lista de pecas para o log
-    const partsUsedList = usedParts.map(up => {
-      const part = parts.find(p => p.id === up.partId)
-      return `${part?.name || 'Peca'} (x${up.quantity})`
-    }).join(', ')
-    
-    // Log de auditoria
-    addAuditLog({
-      action: 'ticket_completed',
-      userId,
-      userName: operatorName,
-      entityType: 'ticket',
-      entityId: ticketId,
-      entityName: machine?.name || 'Chamado',
-      details: `Manutenção finalizada por ${operatorName} - ${machine?.name || 'Máquina'} - ${resolved ? 'RESOLVIDO' : 'NÃO RESOLVIDO'} - Custo: R$ ${calculatedCost.toFixed(2)}${partsUsedList ? ` - Peças: ${partsUsedList}` : ''}`,
-      metadata: {
-        machineName: machine?.name,
-        resolved,
-        totalCost: calculatedCost,
-        downtime: calculatedDowntime,
-        usedParts: usedParts.map(up => ({
-          partId: up.partId,
-          partName: parts.find(p => p.id === up.partId)?.name,
-          quantity: up.quantity,
-          unitPrice: parts.find(p => p.id === up.partId)?.price,
-        })),
-        completionNotes,
-      },
-    })
-    
-    // Notificar sobre manutenção concluída
-    if (notifyCallback && machine) {
-      notifyCallback(
-        'Manutenção Finalizada',
-        `${machine.name} - ${resolved ? 'Resolvido' : 'Não Resolvido'}`,
-        resolved ? 'success' : 'warning'
-      )
-    }
-  }, [parts, tickets, machines, notifyCallback, addAuditLog])
-
-  const getTicketById = useCallback((id: string) => tickets.find(t => t.id === id), [tickets])
-  const getMachineById = useCallback((id: string) => machines.find(m => m.id === id), [machines])
-  const getProblemById = useCallback((id: string) => problems.find(p => p.id === id), [problems])
-  const getPartById = useCallback((id: string) => parts.find(p => p.id === id), [parts])
-  
-  // Retorna o último chamado criado por um usuário (mais recente)
-  const getLastTicketByUser = useCallback((userId: string) => {
-    const userTickets = tickets
-      .filter(t => t.createdBy === userId)
-      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-    return userTickets[0]
-  }, [tickets])
-
-  const getMaintenanceStats = useCallback(() => {
-    const stats = new Map<string, { totalDowntime: number; ticketCount: number }>()
-    
-    tickets
-      .filter(t => t.status === 'completed')
-      .forEach(ticket => {
-        const current = stats.get(ticket.machineId) || { totalDowntime: 0, ticketCount: 0 }
-        stats.set(ticket.machineId, {
-          totalDowntime: current.totalDowntime + ticket.downtime,
-          ticketCount: current.ticketCount + 1,
-        })
-      })
-
-    return Array.from(stats.entries())
-      .map(([machineId, data]) => ({
-        machineId,
-        machineName: machines.find(m => m.id === machineId)?.name || machineId,
-        ...data,
-      }))
-      .sort((a, b) => b.ticketCount - a.ticketCount)
-  }, [tickets, machines])
-
   return (
     <DataContext.Provider value={{
-      machines,
-      problems,
-      parts,
-      tickets,
-      scheduledMaintenances,
-      auditLogs,
-      addMachine,
-      updateMachine,
-      addPart,
-      updatePart,
-      addProblem,
-      updateProblem,
-      addTicket,
-      updateTicketObservation,
-      cancelTicket,
-      addScheduledMaintenance,
-      updateScheduledMaintenance,
-      deleteScheduledMaintenance,
-      startMaintenance,
-      pauseMaintenance,
-      resumeMaintenance,
-      completeMaintenance,
-      getTicketById,
-      getMachineById,
-      getProblemById,
-      getPartById,
-      getMaintenanceStats,
-      getLastTicketByUser,
-      setNotificationCallback,
-      addAuditLog,
-      getAuditLogsByEntity,
-      getAuditLogsByUser,
-      getAuditLogsByDateRange,
+      machines, problems, parts, tickets, scheduledMaintenances, auditLogs,
+      isLoading, reloadData,
+      addMachine, updateMachine, deleteMachine,
+      addPart, updatePart,
+      addProblem, updateProblem,
+      addTicket, updateTicketObservation, cancelTicket,
+      addScheduledMaintenance, updateScheduledMaintenance, deleteScheduledMaintenance,
+      startMaintenance, pauseMaintenance, resumeMaintenance, completeMaintenance,
+      getTicketById, getMachineById, getProblemById, getPartById,
+      getMaintenanceStats, getLastTicketByUser,
+      setNotificationCallback, addAuditLog,
+      getAuditLogsByEntity, getAuditLogsByUser, getAuditLogsByDateRange,
     }}>
       {children}
     </DataContext.Provider>
@@ -829,8 +447,6 @@ setTickets(prev => {
 
 export function useData() {
   const context = useContext(DataContext)
-  if (!context) {
-    throw new Error('useData must be used within a DataProvider')
-  }
+  if (!context) throw new Error('useData must be used within a DataProvider')
   return context
 }

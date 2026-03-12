@@ -22,16 +22,16 @@ export function LoginView() {
     setError('')
     setIsLoading(true)
 
-    // Simular delay de rede
-    await new Promise(resolve => setTimeout(resolve, 500))
-
-    const result = login(email, password)
-    
-    if (!result.success) {
-      setError(result.error || 'Erro ao fazer login')
+    try {
+      const result = await login(email, password)
+      if (!result.success) {
+        setError(result.error || 'Erro ao fazer login')
+      }
+    } catch {
+      setError('Erro inesperado. Tente novamente.')
+    } finally {
+      setIsLoading(false)
     }
-    
-    setIsLoading(false)
   }
 
   return (
