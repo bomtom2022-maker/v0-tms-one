@@ -2,7 +2,6 @@
 
 import { useState } from 'react'
 import { useAuth } from '@/lib/auth-context'
-import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -24,64 +23,15 @@ export function LoginView() {
     setIsLoading(true)
 
     try {
-      // Verificar primeiro se e o admin oculto (login local)
-      const localResult = login(email, password)
-      if (localResult.success) {
-        setIsLoading(false)
-        return
-      }
-
-      // Tentar autenticacao via Supabase
-      const supabase = createClient()
-      const { data, error: supabaseError } = await supabase.auth.signInWithPassword({
-        email: email.toLowerCase().trim(),
-        password,
-      })
-
-      if (supabaseError) {
-        if (supabaseError.message.includes('Invalid login credentials')) {
-          setError('Email ou senha incorretos')
-        } else if (supabaseError.message.includes('Email not confirmed')) {
-          setError('Email nao confirmado. Verifique sua caixa de entrada.')
-        } else {
-          setError('Erro ao fazer login. Tente novamente.')
-        }
-        setIsLoading(false)
-        return
-      }
-
-      if (data.user) {
-        // Buscar profile do usuario
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', data.user.id)
-          .single()
-
-        if (profile) {
-          // Fazer login local com dados do Supabase
-          const result = login(email, password, {
-            id: data.user.id,
-            name: profile.name,
-            email: profile.email,
-            role: profile.role,
-          })
-          if (!result.success) {
-            // Se o login local falhar mas o Supabase funcionou, forcar sessao
-            login('__supabase__', '__bypass__', {
-              id: data.user.id,
-              name: profile.name,
-              email: profile.email,
-              role: profile.role,
-            })
-          }
-        }
+      const result = await login(email, password)
+      if (!result.success) {
+        setError(result.error || 'Erro ao fazer login')
       }
     } catch {
       setError('Erro inesperado. Tente novamente.')
+    } finally {
+      setIsLoading(false)
     }
-
-    setIsLoading(false)
   }
 
   return (
