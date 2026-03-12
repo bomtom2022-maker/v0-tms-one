@@ -78,6 +78,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const reloadData = useCallback(async () => {
+    setIsLoading(true)
     try {
       const [m, pr, pa, t, s] = await Promise.all([
         fetchMachines(),
@@ -98,9 +99,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
+  // Nao carrega dados no mount — aguarda o login disparar reloadData
   useEffect(() => {
-    reloadData()
-  }, [reloadData])
+    setIsLoading(false)
+  }, [])
 
   // ─── MAQUINAS ────────────────────────────────────────────
 

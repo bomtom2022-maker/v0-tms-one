@@ -22,10 +22,17 @@ type View = 'dashboard' | 'new-ticket' | 'problems' | 'machines' | 'maintenance'
 
 function TMSApp() {
   const { isAuthenticated, isManutentor, isLider } = useAuth()
-  const { setNotificationCallback, isLoading } = useData()
+  const { setNotificationCallback, isLoading, reloadData } = useData()
   const { notify } = useNotification()
   const [currentView, setCurrentView] = useState<View>('dashboard')
   const [selectedTicketId, setSelectedTicketId] = useState<string | null>(null)
+
+  // Carregar dados do Supabase assim que usuario autenticar
+  useEffect(() => {
+    if (isAuthenticated) {
+      reloadData()
+    }
+  }, [isAuthenticated, reloadData])
 
   // Integrar notificações do data-context com notification-context
   useEffect(() => {
