@@ -19,7 +19,7 @@ import {
 import { useData } from '@/lib/data-context'
 import { useAuth } from '@/lib/auth-context'
 import { PRIORITY_CONFIG, formatDuration, formatCurrency, type UsedPart } from '@/lib/types'
-import { Play, Pause, Square, ArrowLeft, Package, CheckCircle, User, History, MessageSquare, AlertTriangle, CheckCircle2, XCircle } from 'lucide-react'
+import { Play, Pause, Square, ArrowLeft, Package, CheckCircle, User, History, MessageSquare, AlertTriangle, CheckCircle2, XCircle, Clock } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
