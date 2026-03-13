@@ -106,14 +106,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   // ─── MAQUINAS ────────────────────────────────────────────
 
-  const addMachine = useCallback(async (name: string, sector: string, status: MachineStatus, _userId: string, _userName: string) => {
-    const newMachine = await insertMachine(name, sector, status)
+  const addMachine = useCallback(async (name: string, sector: string, status: MachineStatus, _userId: string, _userName: string, manufacturer?: string, model?: string, controller?: string) => {
+    const newMachine = await insertMachine(name, sector, status, manufacturer, model, controller)
     setMachines(prev => [...prev, newMachine])
   }, [])
 
-  const updateMachine = useCallback(async (id: string, name: string, sector: string, status: MachineStatus, _userId: string, _userName: string) => {
-    await updateMachineDb(id, name, sector, status)
-    setMachines(prev => prev.map(m => m.id === id ? { ...m, name, sector, status } : m))
+  const updateMachine = useCallback(async (id: string, name: string, sector: string, status: MachineStatus, _userId: string, _userName: string, manufacturer?: string, model?: string, controller?: string) => {
+    await updateMachineDb(id, name, sector, status, manufacturer, model, controller)
+    setMachines(prev => prev.map(m => m.id === id ? { ...m, name, sector, status, manufacturer, model, controller } : m))
   }, [])
 
   const deleteMachine = useCallback(async (id: string, _userId: string, _userName: string) => {

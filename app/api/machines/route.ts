@@ -17,11 +17,11 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const { name, sector, status } = await request.json()
+    const { name, sector, status, manufacturer, model, controller } = await request.json()
     const supabase = createAdminClient()
     const { data, error } = await supabase
       .from('machines')
-      .insert({ name, sector, status })
+      .insert({ name, sector, status, manufacturer: manufacturer || null, model: model || null, controller: controller || null })
       .select()
       .single()
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
@@ -33,9 +33,9 @@ export async function POST(request: Request) {
 
 export async function PUT(request: Request) {
   try {
-    const { id, name, sector, status } = await request.json()
+    const { id, name, sector, status, manufacturer, model, controller } = await request.json()
     const supabase = createAdminClient()
-    const { error } = await supabase.from('machines').update({ name, sector, status }).eq('id', id)
+    const { error } = await supabase.from('machines').update({ name, sector, status, manufacturer: manufacturer || null, model: model || null, controller: controller || null }).eq('id', id)
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     return NextResponse.json({ success: true })
   } catch (err: unknown) {
