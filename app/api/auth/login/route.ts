@@ -23,9 +23,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Usuario nao encontrado ou inativo' }, { status: 401 })
     }
 
-    // Usar a anon key disponivel (NEXT_PUBLIC_ chega ao servidor tambem)
     const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL
     const anonKey = process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+    console.log('[v0] login - SUPABASE_URL:', !!supabaseUrl)
+    console.log('[v0] login - SUPABASE_ANON_KEY:', !!process.env.SUPABASE_ANON_KEY)
+    console.log('[v0] login - NEXT_PUBLIC_SUPABASE_ANON_KEY:', !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
 
     if (!supabaseUrl || !anonKey) {
       return NextResponse.json({ error: 'Configuracao do servidor incompleta' }, { status: 500 })
@@ -45,6 +48,8 @@ export async function POST(request: NextRequest) {
     })
 
     const authData = await authResponse.json()
+    console.log('[v0] login - authResponse.ok:', authResponse.ok)
+    console.log('[v0] login - authData.error:', authData.error || 'nenhum')
 
     if (!authResponse.ok || authData.error) {
       return NextResponse.json({ error: 'Senha incorreta' }, { status: 401 })
