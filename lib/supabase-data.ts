@@ -348,30 +348,21 @@ export async function fetchProfiles() {
 }
 
 export async function createUserInSupabase(name: string, email: string, password: string, role: string): Promise<{ id: string }> {
-  const supabase = createClient()
-  // Criar usuario no Supabase Auth via Admin API nao esta disponivel client-side
-  // Usar a API de signup com confirmacao desabilitada no projeto
-  const { data, error } = await supabase.auth.signUp({
-    email,
-    password,
-    options: {
-      data: { name, role },
-      emailRedirectTo: undefined,
-    },
+  // Usar API Route server-side que utiliza o service_role_key
+  // Isso contorna a restricao de "Email signups are disabled"
+  const response = await fetch('/api/users/create', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name, email, password, role }),
   })
-  if (error) throw error
-  if (!data.user) throw new Error('Falha ao criar usuario')
 
-  // Garantir que o profile foi criado (trigger cuida disso, mas forcar por garantia)
-  await supabase.from('profiles').upsert({
-    id: data.user.id,
-    name,
-    email,
-    role,
-    active: true,
-  }, { onConflict: 'id' })
+  const result = await response.json()
 
-  return { id: data.user.id }
+  if (!response.ok) {
+    throw new Error(result.error || 'Erro ao criar usuario')
+  }
+
+  return { id: result.id }
 }
 
 export async function updateProfileDb(id: string, updates: { name?: string; email?: string; role?: string; active?: boolean }): Promise<void> {
