@@ -34,10 +34,11 @@ const ROLE_CONFIG = {
 } as const
 
 export function UsersView() {
-  const { users, register, updateUser, deleteUser, currentUser } = useAuth()
+  const { users, register, updateUser, deleteUser, currentUser, canManageUsers } = useAuth()
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [editingUser, setEditingUser] = useState<string | null>(null)
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
+  const [isSubmitting, setIsSubmitting] = useState(false)
   
   // Form state
   const [name, setName] = useState('')
@@ -80,26 +81,32 @@ export function UsersView() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (isSubmitting) return
     setError('')
+    setIsSubmitting(true)
 
     if (editingUser) {
       const result = await updateUser(editingUser, name, email, role, password || undefined)
       if (!result.success) {
         setError(result.error || 'Erro ao atualizar usuário')
+        setIsSubmitting(false)
         return
       }
     } else {
       if (!password) {
         setError('Senha é obrigatória para novos usuários')
+        setIsSubmitting(false)
         return
       }
       const result = await register(name, email, password, role)
       if (!result.success) {
         setError(result.error || 'Erro ao cadastrar usuário')
+        setIsSubmitting(false)
         return
       }
     }
 
+    setIsSubmitting(false)
     handleCloseDialog()
   }
 
@@ -125,12 +132,14 @@ export function UsersView() {
         </div>
 
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild>
-            <Button onClick={() => handleOpenDialog()}>
-              <Plus className="w-4 h-4 mr-2" />
-              Novo Usuário
-            </Button>
-          </DialogTrigger>
+          {canManageUsers && (
+            <DialogTrigger asChild>
+              <Button onClick={() => handleOpenDialog()}>
+                <Plus className="w-4 h-4 mr-2" />
+                Novo Usuário
+              </Button>
+            </DialogTrigger>
+          )}
           <DialogContent>
             <DialogHeader>
               <DialogTitle>{editingUser ? 'Editar Usuário' : 'Novo Usuário'}</DialogTitle>
@@ -234,8 +243,8 @@ export function UsersView() {
                 <Button type="button" variant="outline" onClick={handleCloseDialog}>
                   Cancelar
                 </Button>
-                <Button type="submit">
-                  {editingUser ? 'Salvar' : 'Cadastrar'}
+                <Button type="submit" disabled={isSubmitting}>
+                  {isSubmitting ? 'Salvando...' : editingUser ? 'Salvar' : 'Cadastrar'}
                 </Button>
               </DialogFooter>
             </form>
@@ -313,47 +322,49 @@ export function UsersView() {
                       {format(new Date(user.createdAt), "dd/MM/yyyy", { locale: ptBR })}
                     </TableCell>
                     <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleOpenDialog(user.id)}
-                        >
-                          <Pencil className="w-4 h-4" />
-                        </Button>
-                        
-                        {!isCurrentUser && (
-                          <Dialog open={deleteConfirmId === user.id} onOpenChange={(open) => !open && setDeleteConfirmId(null)}>
-                            <DialogTrigger asChild>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="text-destructive hover:text-destructive"
-                                onClick={() => setDeleteConfirmId(user.id)}
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </Button>
-                            </DialogTrigger>
-                            <DialogContent>
-                              <DialogHeader>
-                                <DialogTitle>Confirmar Exclusão</DialogTitle>
-                                <DialogDescription>
-                                  Tem certeza que deseja excluir o usuário <strong>{user.name}</strong>? 
-                                  Esta ação não pode ser desfeita.
-                                </DialogDescription>
-                              </DialogHeader>
-                              <DialogFooter>
-                                <Button variant="outline" onClick={() => setDeleteConfirmId(null)}>
-                                  Cancelar
+                      {canManageUsers && (
+                        <div className="flex items-center justify-end gap-2">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleOpenDialog(user.id)}
+                          >
+                            <Pencil className="w-4 h-4" />
+                          </Button>
+                          
+                          {!isCurrentUser && (
+                            <Dialog open={deleteConfirmId === user.id} onOpenChange={(open) => !open && setDeleteConfirmId(null)}>
+                              <DialogTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="text-destructive hover:text-destructive"
+                                  onClick={() => setDeleteConfirmId(user.id)}
+                                >
+                                  <Trash2 className="w-4 h-4" />
                                 </Button>
-                                <Button variant="destructive" onClick={() => handleDelete(user.id)}>
-                                  Excluir
-                                </Button>
-                              </DialogFooter>
-                            </DialogContent>
-                          </Dialog>
-                        )}
-                      </div>
+                              </DialogTrigger>
+                              <DialogContent>
+                                <DialogHeader>
+                                  <DialogTitle>Confirmar Exclusão</DialogTitle>
+                                  <DialogDescription>
+                                    Tem certeza que deseja excluir o usuário <strong>{user.name}</strong>? 
+                                    Esta ação não pode ser desfeita.
+                                  </DialogDescription>
+                                </DialogHeader>
+                                <DialogFooter>
+                                  <Button variant="outline" onClick={() => setDeleteConfirmId(null)}>
+                                    Cancelar
+                                  </Button>
+                                  <Button variant="destructive" onClick={() => handleDelete(user.id)}>
+                                    Excluir
+                                  </Button>
+                                </DialogFooter>
+                              </DialogContent>
+                            </Dialog>
+                          )}
+                        </div>
+                      )}
                     </TableCell>
                   </TableRow>
                 )

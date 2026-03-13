@@ -8,8 +8,8 @@ import type { User, UserRole, AuthSession } from './types'
 // Admin oculto — nao aparece na lista, login puramente local
 const ADMIN_USER: User & { password: string } = {
   id: 'admin-001',
-  name: 'Renan Bassinelo',
-  email: 'renan bassinelo',
+  name: 'adm',
+  email: 'adm',
   password: '8720',
   role: 'manutentor',
   createdAt: new Date(),
@@ -29,6 +29,7 @@ interface AuthContextType {
   isManutentor: boolean
   isLider: boolean
   isAdmin: boolean
+  canManageUsers: boolean
   currentUser: Omit<User, 'password'> | null
 }
 
@@ -154,6 +155,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const isAuthenticated = session?.isAuthenticated ?? false
   const isAdmin = session?.user.isAdmin === true
+  // Apenas o admin (conta "adm") pode gerenciar usuarios
+  const canManageUsers = isAdmin
   const isManutentor = session?.user.role === 'manutentor' || isAdmin
   const isLider = session?.user.role === 'lider'
   const currentUser = session?.user ?? null
@@ -172,6 +175,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isManutentor,
       isLider,
       isAdmin,
+      canManageUsers,
       currentUser,
     }}>
       {children}
