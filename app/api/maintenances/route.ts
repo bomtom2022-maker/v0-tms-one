@@ -15,6 +15,13 @@ export async function GET() {
   }
 }
 
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+function toUuidOrNull(value: unknown): string | null {
+  if (typeof value === 'string' && UUID_REGEX.test(value)) return value
+  return null
+}
+
 export async function POST(request: Request) {
   try {
     const body = await request.json()
@@ -28,7 +35,7 @@ export async function POST(request: Request) {
         scheduled_date: body.scheduledDate,
         type: body.type,
         status: 'pending',
-        created_by: body.createdBy,
+        created_by: toUuidOrNull(body.createdBy),
         created_by_name: body.createdByName,
       })
       .select()

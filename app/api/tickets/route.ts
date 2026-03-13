@@ -1,6 +1,12 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+function toUuidOrNull(value: unknown): string | null {
+  if (typeof value === 'string' && UUID_REGEX.test(value)) return value
+  return null
+}
+
 export async function GET() {
   try {
     const supabase = createAdminClient()
@@ -35,7 +41,7 @@ export async function POST(request: Request) {
         priority: body.priority,
         status: 'open',
         machine_stopped: body.machineStopped || false,
-        created_by: body.createdBy,
+        created_by: toUuidOrNull(body.createdBy),
         created_by_name: body.createdByName,
       })
       .select()
