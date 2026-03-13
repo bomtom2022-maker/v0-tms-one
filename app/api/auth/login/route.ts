@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { createHash } from 'crypto'
+
+function hashPassword(password: string): string {
+  return createHash('sha256').update(password).digest('hex')
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -9,18 +14,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Nome e senha sao obrigatorios' }, { status: 400 })
     }
 
-    const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL
-    const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-
-    if (!supabaseUrl || !anonKey) {
-      return NextResponse.json({ error: 'Variaveis de ambiente nao configuradas' }, { status: 500 })
-    }
-
-    // Buscar o profile pelo nome via admin client
     const adminClient = createAdminClient()
+
+    // Buscar o profile pelo nome incluindo password_hash
     const { data: profile, error: profileError } = await adminClient
       .from('profiles')
-      .select('id, name, email, role, active, created_at')
+      .select('id, name, email, role, active, created_at, password_hash')
       .ilike('name', name.trim())
       .eq('active', true)
       .single()
@@ -29,27 +28,20 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Usuario nao encontrado ou inativo' }, { status: 401 })
     }
 
-    // Autenticar com o email encontrado via API REST do Supabase
-    const authResponse = await fetch(`${supabaseUrl}/auth/v1/token?grant_type=password`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'apikey': anonKey,
-      },
-      body: JSON.stringify({ email: profile.email.toLowerCase().trim(), password }),
-    })
+    // Verificar senha via hash
+    if (!profile.password_hash) {
+      return NextResponse.json({ error: 'Senha nao configurada. Peça ao administrador para redefinir.' }, { status: 401 })
+    }
 
-    const authData = await authResponse.json()
-
-    if (!authResponse.ok || authData.error) {
-      const msg = authData.error_description || authData.error || ''
-      if (msg.includes('Invalid login credentials') || msg.includes('invalid_grant')) {
-        return NextResponse.json({ error: 'Senha incorreta' }, { status: 401 })
-      }
+    const inputHash = hashPassword(password)
+    if (inputHash !== profile.password_hash) {
       return NextResponse.json({ error: 'Senha incorreta' }, { status: 401 })
     }
 
-    return NextResponse.json({ profile })
+    // Remover password_hash da resposta
+    const { password_hash: _, ...safeProfile } = profile
+
+    return NextResponse.json({ profile: safeProfile })
   } catch (err: unknown) {
     return NextResponse.json(
       { error: err instanceof Error ? err.message : 'Erro interno do servidor' },
