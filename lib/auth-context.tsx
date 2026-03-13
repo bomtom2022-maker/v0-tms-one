@@ -1,6 +1,6 @@
 'use client'
 
-// v2 — sem useEffect, sem createClient browser
+// v3 — login por nome, sem useEffect, sem createClient browser
 import { createContext, useContext, useState, useCallback, type ReactNode } from 'react'
 import { fetchProfiles, createUserInSupabase, updateProfileDb, deactivateUserDb } from '@/lib/supabase-data'
 import type { User, UserRole, AuthSession } from './types'

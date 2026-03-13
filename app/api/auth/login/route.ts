@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { createClient } from '@supabase/supabase-js'
 
 export async function POST(request: NextRequest) {
   try {
@@ -23,35 +24,20 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Usuario nao encontrado ou inativo' }, { status: 401 })
     }
 
-    const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL
-    const anonKey = process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    // Autenticar usando o cliente Supabase com a anon key no servidor
+    const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || ''
+    const anonKey = process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
 
-    console.log('[v0] login - SUPABASE_URL:', !!supabaseUrl)
-    console.log('[v0] login - SUPABASE_ANON_KEY:', !!process.env.SUPABASE_ANON_KEY)
-    console.log('[v0] login - NEXT_PUBLIC_SUPABASE_ANON_KEY:', !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
-
-    if (!supabaseUrl || !anonKey) {
-      return NextResponse.json({ error: 'Configuracao do servidor incompleta' }, { status: 500 })
-    }
-
-    // Autenticar via REST com email encontrado
-    const authResponse = await fetch(`${supabaseUrl}/auth/v1/token?grant_type=password`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'apikey': anonKey,
-      },
-      body: JSON.stringify({
-        email: profile.email.toLowerCase().trim(),
-        password,
-      }),
+    const authClient = createClient(supabaseUrl, anonKey, {
+      auth: { autoRefreshToken: false, persistSession: false },
     })
 
-    const authData = await authResponse.json()
-    console.log('[v0] login - authResponse.ok:', authResponse.ok)
-    console.log('[v0] login - authData.error:', authData.error || 'nenhum')
+    const { error: signInError } = await authClient.auth.signInWithPassword({
+      email: profile.email.toLowerCase().trim(),
+      password,
+    })
 
-    if (!authResponse.ok || authData.error) {
+    if (signInError) {
       return NextResponse.json({ error: 'Senha incorreta' }, { status: 401 })
     }
 
