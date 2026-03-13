@@ -1,6 +1,6 @@
 import type { Machine, Problem, Part, Ticket, ScheduledMaintenance, UsedPart, MachineStatus, Priority, MaintenanceAction, TimeSegment } from '@/lib/types'
 
-// Helper para chamadas API com tratamento de erro
+// v2 — todas as operacoes via API Routes (sem createClient browser)
 async function apiFetch(url: string, options?: RequestInit) {
   const res = await fetch(url, options)
   const data = await res.json()
