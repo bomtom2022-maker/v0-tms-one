@@ -62,6 +62,9 @@ export interface Machine {
   id: string
   name: string
   sector: string
+  manufacturer?: string
+  model?: string
+  controller?: string
   status: MachineStatus
 }
 

@@ -28,51 +28,85 @@ import { useData } from '@/lib/data-context'
 import { useAuth } from '@/lib/auth-context'
 import { Plus, Settings, Pencil, Cpu, Trash2 } from 'lucide-react'
 
+interface MachineForm {
+  name: string
+  sector: string
+  manufacturer: string
+  model: string
+  controller: string
+}
+
+const emptyForm: MachineForm = {
+  name: '',
+  sector: '',
+  manufacturer: '',
+  model: '',
+  controller: '',
+}
+
 export function MachinesView() {
   const { machines, addMachine, updateMachine, deleteMachine } = useData()
   const { currentUser } = useAuth()
   const [isOpen, setIsOpen] = useState(false)
-  const [editingMachine, setEditingMachine] = useState<{ id: string; name: string; sector: string } | null>(null)
+  const [editingId, setEditingId] = useState<string | null>(null)
   const [deletingMachineId, setDeletingMachineId] = useState<string | null>(null)
-  const [newMachineName, setNewMachineName] = useState('')
-  const [newMachineSector, setNewMachineSector] = useState('')
+  const [form, setForm] = useState<MachineForm>(emptyForm)
+  const [editForm, setEditForm] = useState<MachineForm>(emptyForm)
 
-  const handleAddMachine = () => {
-    if (!newMachineName.trim() || !newMachineSector.trim()) return
-    addMachine(newMachineName.trim(), newMachineSector.trim(), 'ok', currentUser?.id || '', currentUser?.name || '')
-    setNewMachineName('')
-    setNewMachineSector('')
+  const handleAdd = () => {
+    if (!form.name.trim() || !form.sector.trim()) return
+    addMachine(
+      form.name.trim(), form.sector.trim(), 'ok',
+      currentUser?.id || '', currentUser?.name || '',
+      form.manufacturer.trim() || undefined,
+      form.model.trim() || undefined,
+      form.controller.trim() || undefined,
+    )
+    setForm(emptyForm)
     setIsOpen(false)
   }
 
-  const handleEditMachine = () => {
-    if (!editingMachine || !editingMachine.name.trim() || !editingMachine.sector.trim()) return
-    const machine = machines.find(m => m.id === editingMachine.id)
-    updateMachine(editingMachine.id, editingMachine.name.trim(), editingMachine.sector.trim(), machine?.status || 'ok', currentUser?.id || '', currentUser?.name || '')
-    setEditingMachine(null)
+  const handleEdit = () => {
+    if (!editingId || !editForm.name.trim() || !editForm.sector.trim()) return
+    const machine = machines.find(m => m.id === editingId)
+    updateMachine(
+      editingId, editForm.name.trim(), editForm.sector.trim(), machine?.status || 'ok',
+      currentUser?.id || '', currentUser?.name || '',
+      editForm.manufacturer.trim() || undefined,
+      editForm.model.trim() || undefined,
+      editForm.controller.trim() || undefined,
+    )
+    setEditingId(null)
   }
 
-  const handleDeleteMachine = () => {
+  const handleDelete = () => {
     if (!deletingMachineId) return
     deleteMachine(deletingMachineId, currentUser?.id || '', currentUser?.name || '')
     setDeletingMachineId(null)
   }
 
-  
+  const openEdit = (id: string) => {
+    const m = machines.find(m => m.id === id)
+    if (!m) return
+    setEditForm({
+      name: m.name,
+      sector: m.sector,
+      manufacturer: m.manufacturer || '',
+      model: m.model || '',
+      controller: m.controller || '',
+    })
+    setEditingId(id)
+  }
 
   return (
     <div className="space-y-4 sm:space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-          <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-foreground">
-            Maquinas
-          </h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Cadastre e gerencie as maquinas
-          </p>
+          <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-foreground">Maquinas</h1>
+          <p className="text-sm text-muted-foreground mt-1">Cadastre e gerencie as maquinas</p>
         </div>
-        
+
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
           <DialogTrigger asChild>
             <Button size="sm" className="w-full sm:w-auto">
@@ -82,85 +116,71 @@ export function MachinesView() {
           </DialogTrigger>
           <DialogContent className="sm:max-w-md">
             <DialogHeader>
-              <DialogTitle>Cadastrar Nova Máquina</DialogTitle>
-              <DialogDescription>
-                Defina o nome e o setor da máquina.
-              </DialogDescription>
+              <DialogTitle>Cadastrar Nova Maquina</DialogTitle>
+              <DialogDescription>Preencha os dados da maquina.</DialogDescription>
             </DialogHeader>
-            
-            <div className="space-y-4 py-4">
+            <div className="space-y-3 py-4">
               <div className="space-y-2">
-                <Label htmlFor="machine-name">Nome da Máquina</Label>
-                <Input
-                  id="machine-name"
-                  placeholder="Ex: CNC Torno Romi GL-240"
-                  value={newMachineName}
-                  onChange={(e) => setNewMachineName(e.target.value)}
-                />
+                <Label htmlFor="new-name">Nome da Maquina *</Label>
+                <Input id="new-name" placeholder="Ex: Torno CNC Romi GL-240" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
               </div>
-              
               <div className="space-y-2">
-                <Label htmlFor="machine-sector">Setor</Label>
-                <Input
-                  id="machine-sector"
-                  placeholder="Ex: Usinagem A"
-                  value={newMachineSector}
-                  onChange={(e) => setNewMachineSector(e.target.value)}
-                />
+                <Label htmlFor="new-sector">Setor *</Label>
+                <Input id="new-sector" placeholder="Ex: Usinagem A" value={form.sector} onChange={e => setForm(f => ({ ...f, sector: e.target.value }))} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="new-manufacturer">Fabricante</Label>
+                <Input id="new-manufacturer" placeholder="Ex: Romi, Mazak, DMG Mori" value={form.manufacturer} onChange={e => setForm(f => ({ ...f, manufacturer: e.target.value }))} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="new-model">Modelo</Label>
+                <Input id="new-model" placeholder="Ex: GL-240" value={form.model} onChange={e => setForm(f => ({ ...f, model: e.target.value }))} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="new-controller">Comando (CNC)</Label>
+                <Input id="new-controller" placeholder="Ex: Fanuc 0i-TF, Siemens 840D" value={form.controller} onChange={e => setForm(f => ({ ...f, controller: e.target.value }))} />
               </div>
             </div>
-            
             <DialogFooter>
-              <Button variant="outline" onClick={() => setIsOpen(false)}>
-                Cancelar
-              </Button>
-              <Button onClick={handleAddMachine} disabled={!newMachineName.trim() || !newMachineSector.trim()}>
-                Cadastrar
-              </Button>
+              <Button variant="outline" onClick={() => { setIsOpen(false); setForm(emptyForm) }}>Cancelar</Button>
+              <Button onClick={handleAdd} disabled={!form.name.trim() || !form.sector.trim()}>Cadastrar</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
       </div>
 
-      {/* Edit Machine Dialog */}
-      <Dialog open={!!editingMachine} onOpenChange={(open) => !open && setEditingMachine(null)}>
+      {/* Edit Dialog */}
+      <Dialog open={!!editingId} onOpenChange={open => !open && setEditingId(null)}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Editar Máquina</DialogTitle>
-            <DialogDescription>
-              Altere os dados da máquina.
-            </DialogDescription>
+            <DialogTitle>Editar Maquina</DialogTitle>
+            <DialogDescription>Altere os dados da maquina.</DialogDescription>
           </DialogHeader>
-          
-          {editingMachine && (
-            <div className="space-y-4 py-4">
-              <div className="space-y-2">
-                <Label htmlFor="edit-machine-name">Nome da Máquina</Label>
-                <Input
-                  id="edit-machine-name"
-                  value={editingMachine.name}
-                  onChange={(e) => setEditingMachine({ ...editingMachine, name: e.target.value })}
-                />
-              </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="edit-machine-sector">Setor</Label>
-                <Input
-                  id="edit-machine-sector"
-                  value={editingMachine.sector}
-                  onChange={(e) => setEditingMachine({ ...editingMachine, sector: e.target.value })}
-                />
-              </div>
+          <div className="space-y-3 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="edit-name">Nome da Maquina *</Label>
+              <Input id="edit-name" value={editForm.name} onChange={e => setEditForm(f => ({ ...f, name: e.target.value }))} />
             </div>
-          )}
-          
+            <div className="space-y-2">
+              <Label htmlFor="edit-sector">Setor *</Label>
+              <Input id="edit-sector" value={editForm.sector} onChange={e => setEditForm(f => ({ ...f, sector: e.target.value }))} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-manufacturer">Fabricante</Label>
+              <Input id="edit-manufacturer" placeholder="Ex: Romi, Mazak, DMG Mori" value={editForm.manufacturer} onChange={e => setEditForm(f => ({ ...f, manufacturer: e.target.value }))} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-model">Modelo</Label>
+              <Input id="edit-model" placeholder="Ex: GL-240" value={editForm.model} onChange={e => setEditForm(f => ({ ...f, model: e.target.value }))} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-controller">Comando (CNC)</Label>
+              <Input id="edit-controller" placeholder="Ex: Fanuc 0i-TF, Siemens 840D" value={editForm.controller} onChange={e => setEditForm(f => ({ ...f, controller: e.target.value }))} />
+            </div>
+          </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setEditingMachine(null)}>
-              Cancelar
-            </Button>
-            <Button onClick={handleEditMachine} disabled={!editingMachine?.name.trim() || !editingMachine?.sector.trim()}>
-              Salvar
-            </Button>
+            <Button variant="outline" onClick={() => setEditingId(null)}>Cancelar</Button>
+            <Button onClick={handleEdit} disabled={!editForm.name.trim() || !editForm.sector.trim()}>Salvar</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -186,29 +206,30 @@ export function MachinesView() {
           ) : (
             <div className="grid gap-2 sm:gap-3">
               {machines.map((machine) => (
-                <div 
+                <div
                   key={machine.id}
                   className="flex items-center justify-between p-3 rounded-lg border bg-card hover:bg-muted/50 transition-colors"
                 >
-                  <div className="flex items-center gap-2 sm:gap-3">
-                    <div className="p-1.5 sm:p-2 rounded-lg bg-primary/10">
+                  <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+                    <div className="p-1.5 sm:p-2 rounded-lg bg-primary/10 shrink-0">
                       <Cpu className="w-4 h-4 text-primary" />
                     </div>
-                    <div>
-                      <span className="font-medium text-sm sm:text-base">{machine.name}</span>
-                      <p className="text-xs sm:text-sm text-muted-foreground">{machine.sector}</p>
+                    <div className="min-w-0">
+                      <span className="font-medium text-sm sm:text-base block truncate">{machine.name}</span>
+                      <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-0.5">
+                        <span className="text-xs text-muted-foreground">{machine.sector}</span>
+                        {machine.manufacturer && <span className="text-xs text-muted-foreground">Fab: {machine.manufacturer}</span>}
+                        {machine.model && <span className="text-xs text-muted-foreground">Mod: {machine.model}</span>}
+                        {machine.controller && <span className="text-xs text-muted-foreground">CNC: {machine.controller}</span>}
+                      </div>
                     </div>
                   </div>
-                  <div className="flex items-center gap-1">
+                  <div className="flex items-center gap-1 shrink-0">
                     <Button
                       variant="ghost"
                       size="icon"
                       className="h-8 w-8"
-                      onClick={() => setEditingMachine({ 
-                        id: machine.id, 
-                        name: machine.name, 
-                        sector: machine.sector
-                      })}
+                      onClick={() => openEdit(machine.id)}
                     >
                       <Pencil className="w-4 h-4" />
                     </Button>
@@ -229,7 +250,7 @@ export function MachinesView() {
       </Card>
 
       {/* Confirmacao de exclusao */}
-      <AlertDialog open={!!deletingMachineId} onOpenChange={(open) => !open && setDeletingMachineId(null)}>
+      <AlertDialog open={!!deletingMachineId} onOpenChange={open => !open && setDeletingMachineId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Excluir Maquina</AlertDialogTitle>
@@ -242,7 +263,7 @@ export function MachinesView() {
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction
-              onClick={handleDeleteMachine}
+              onClick={handleDelete}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               Excluir

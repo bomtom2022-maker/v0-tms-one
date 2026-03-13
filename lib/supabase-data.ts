@@ -16,24 +16,27 @@ export async function fetchMachines(): Promise<Machine[]> {
     id: row.id as string,
     name: row.name as string,
     sector: row.sector as string,
+    manufacturer: (row.manufacturer as string) || undefined,
+    model: (row.model as string) || undefined,
+    controller: (row.controller as string) || undefined,
     status: row.status as MachineStatus,
   }))
 }
 
-export async function insertMachine(name: string, sector: string, status: MachineStatus): Promise<Machine> {
+export async function insertMachine(name: string, sector: string, status: MachineStatus, manufacturer?: string, model?: string, controller?: string): Promise<Machine> {
   const row = await apiFetch('/api/machines', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name, sector, status }),
+    body: JSON.stringify({ name, sector, status, manufacturer, model, controller }),
   })
-  return { id: row.id, name: row.name, sector: row.sector, status: row.status }
+  return { id: row.id, name: row.name, sector: row.sector, status: row.status, manufacturer: row.manufacturer, model: row.model, controller: row.controller }
 }
 
-export async function updateMachineDb(id: string, name: string, sector: string, status: MachineStatus): Promise<void> {
+export async function updateMachineDb(id: string, name: string, sector: string, status: MachineStatus, manufacturer?: string, model?: string, controller?: string): Promise<void> {
   await apiFetch('/api/machines', {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ id, name, sector, status }),
+    body: JSON.stringify({ id, name, sector, status, manufacturer, model, controller }),
   })
 }
 
