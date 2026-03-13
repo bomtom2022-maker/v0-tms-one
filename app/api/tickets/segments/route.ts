@@ -27,13 +27,13 @@ export async function POST(request: Request) {
 
 export async function PUT(request: Request) {
   try {
-    const { ticketId, operatorName, endTime, duration } = await request.json()
+    const { ticketId, endTime, duration } = await request.json()
     const supabase = createAdminClient()
+    // Busca o segmento aberto mais recente do ticket (sem filtrar por operador)
     const { data } = await supabase
       .from('ticket_time_segments')
       .select('id')
       .eq('ticket_id', ticketId)
-      .eq('operator_name', operatorName)
       .is('end_time', null)
       .order('start_time', { ascending: false })
       .limit(1)

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -44,47 +44,51 @@ export function MaintenanceView({ ticketId, onBack, onComplete }: MaintenanceVie
   const { currentUser } = useAuth()
   
   const [elapsedTime, setElapsedTime] = useState(0)
-  const [selectedParts, setSelectedParts] = useState<Record<string, number>>({})
-  const [showCompletionForm, setShowCompletionForm] = useState(false)
-  const [showSuccess, setShowSuccess] = useState(false)
-  const [completionNotes, setCompletionNotes] = useState('')
-  const [problemResolved, setProblemResolved] = useState<boolean | null>(null)
-  
-  // Dialog states - apenas para pausa (que precisa de motivo)
-  const [showPauseDialog, setShowPauseDialog] = useState(false)
-  const [pauseReason, setPauseReason] = useState('')
-  
-  // Dialog de confirmação simples
-  const [showConfirmDialog, setShowConfirmDialog] = useState(false)
-  const [pendingAction, setPendingAction] = useState<'start' | 'resume' | 'complete' | null>(null)
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
-  const ticket = ticketId ? tickets.find(t => t.id === ticketId) : null
-
-  // Timer effect
+  // Timer: atualiza a cada segundo quando em manutenção ativa
   useEffect(() => {
-    if (!ticket || ticket.status !== 'in-progress') {
-      if (ticket?.status === 'paused' || ticket?.status === 'unresolved') {
-        setElapsedTime(ticket.accumulatedTime)
-      }
+    // Limpar interval anterior sempre
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current)
+      intervalRef.current = null
+    }
+
+    if (!ticket) return
+
+    // Se pausado ou não iniciado, exibir o tempo acumulado sem contar
+    if (ticket.status !== 'in-progress') {
+      setElapsedTime(ticket.accumulatedTime || 0)
       return
     }
 
-    // Encontrar o último start ou resume
+    // Encontrar o último start ou resume nas actions
     const lastStartOrResume = [...ticket.actions]
       .reverse()
       .find(a => a.type === 'start' || a.type === 'resume')
 
-    if (!lastStartOrResume) return
+    if (!lastStartOrResume) {
+      setElapsedTime(ticket.accumulatedTime || 0)
+      return
+    }
 
-    const interval = setInterval(() => {
-      const now = new Date()
-      const lastActionTime = new Date(lastStartOrResume.timestamp)
-      const currentSession = Math.floor((now.getTime() - lastActionTime.getTime()) / 1000)
-      setElapsedTime(ticket.accumulatedTime + currentSession)
+    const baseTime = ticket.accumulatedTime || 0
+    const lastActionMs = new Date(lastStartOrResume.timestamp).getTime()
+
+    // Calcular imediatamente antes do primeiro tick
+    setElapsedTime(baseTime + Math.floor((Date.now() - lastActionMs) / 1000))
+
+    intervalRef.current = setInterval(() => {
+      setElapsedTime(baseTime + Math.floor((Date.now() - lastActionMs) / 1000))
     }, 1000)
 
-    return () => clearInterval(interval)
-  }, [ticket])
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current)
+        intervalRef.current = null
+      }
+    }
+  }, [ticket?.id, ticket?.status, ticket?.accumulatedTime, ticket?.actions])
 
   // Nome do operador vem do usuário logado
   const operatorName = currentUser?.name || 'Usuário'

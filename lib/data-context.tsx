@@ -247,7 +247,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         accumulated_time: (ticket?.accumulatedTime || 0) + additionalTime,
       }),
       insertTicketAction(ticketId, 'pause', operatorName, userId, reason),
-      closeTicketSegment(ticketId, operatorName, now, additionalTime),
+      closeTicketSegment(ticketId, now, additionalTime),
     ])
 
     const newAction: MaintenanceAction = { type: 'pause', operatorName, timestamp: now, reason }
@@ -350,7 +350,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         resolved: resolved ?? null,
       }),
       insertTicketAction(ticketId, 'complete', operatorName, userId),
-      closeTicketSegment(ticketId, operatorName, now, additionalTime),
+      closeTicketSegment(ticketId, now, additionalTime),
       insertUsedParts(ticketId, usedParts),
     ])
 

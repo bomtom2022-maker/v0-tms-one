@@ -204,11 +204,11 @@ export async function insertTicketSegment(ticketId: string, operatorName: string
   return data.id
 }
 
-export async function closeTicketSegment(ticketId: string, operatorName: string, endTime: Date, duration: number): Promise<void> {
+export async function closeTicketSegment(ticketId: string, endTime: Date, duration: number): Promise<void> {
   await apiFetch('/api/tickets/segments', {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ticketId, operatorName, endTime: endTime.toISOString(), duration }),
+    body: JSON.stringify({ ticketId, endTime: endTime.toISOString(), duration }),
   })
 }
 
