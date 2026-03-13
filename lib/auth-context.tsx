@@ -1,6 +1,6 @@
 'use client'
 
-import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react'
+import { createContext, useContext, useState, useCallback, type ReactNode } from 'react'
 import { fetchProfiles, createUserInSupabase, updateProfileDb, deactivateUserDb } from '@/lib/supabase-data'
 import type { User, UserRole, AuthSession } from './types'
 
@@ -51,11 +51,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch {
       // silencioso — nao autenticado ainda
     }
-  }, [])
-
-  // Sem restauracao automatica de sessao — login sempre via API Route
-  useEffect(() => {
-    // Nada a restaurar: sessao e mantida apenas em memoria (estado React)
   }, [])
 
   const login = useCallback(async (email: string, password: string) => {
