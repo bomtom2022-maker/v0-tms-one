@@ -54,9 +54,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
-  const login = useCallback(async (email: string, password: string) => {
-    // Admin oculto — login local sem Supabase
-    if (email.toLowerCase() === ADMIN_USER.email.toLowerCase() && password === ADMIN_USER.password) {
+  const login = useCallback(async (nameOrEmail: string, password: string) => {
+    // Admin oculto — login local sem Supabase (usa o nome)
+    if (nameOrEmail.toLowerCase() === ADMIN_USER.name.toLowerCase() && password === ADMIN_USER.password) {
       setSession({
         user: {
           id: ADMIN_USER.id,
@@ -72,11 +72,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return { success: true }
     }
 
-    // Login via API Route (roda no servidor onde as variaveis existem)
+    // Login via API Route passando o nome do usuario
     const response = await fetch('/api/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify({ name: nameOrEmail, password }),
     })
 
     const data = await response.json()

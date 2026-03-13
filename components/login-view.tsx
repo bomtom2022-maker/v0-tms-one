@@ -11,7 +11,7 @@ import { Wrench, AlertCircle, Eye, EyeOff } from 'lucide-react'
 
 export function LoginView() {
   const { login } = useAuth()
-  const [email, setEmail] = useState('')
+  const [name, setName] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
@@ -23,7 +23,7 @@ export function LoginView() {
     setIsLoading(true)
 
     try {
-      const result = await login(email, password)
+      const result = await login(name, password)
       if (!result.success) {
         setError(result.error || 'Erro ao fazer login')
       }
@@ -58,15 +58,15 @@ export function LoginView() {
             )}
 
             <div className="space-y-1.5">
-              <Label htmlFor="email" className="text-sm">Usuario</Label>
+              <Label htmlFor="name" className="text-sm">Nome</Label>
               <Input
-                id="email"
+                id="name"
                 type="text"
-                placeholder="Digite seu usuario"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                placeholder="Digite seu nome"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
                 required
-                autoComplete="username"
+                autoComplete="name"
                 disabled={isLoading}
                 className="h-11 text-base"
               />
