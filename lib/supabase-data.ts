@@ -363,13 +363,21 @@ export async function createUserInSupabase(name: string, email: string, password
 }
 
 export async function updateProfileDb(id: string, updates: { name?: string; email?: string; role?: string; active?: boolean }): Promise<void> {
-  const supabase = createClient()
-  const { error } = await supabase.from('profiles').update(updates).eq('id', id)
-  if (error) throw error
+  const response = await fetch('/api/users/update', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id, ...updates }),
+  })
+  const result = await response.json()
+  if (!response.ok) throw new Error(result.error || 'Erro ao atualizar usuario')
 }
 
 export async function deactivateUserDb(id: string): Promise<void> {
-  const supabase = createClient()
-  const { error } = await supabase.from('profiles').update({ active: false }).eq('id', id)
-  if (error) throw error
+  const response = await fetch('/api/users/delete', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id }),
+  })
+  const result = await response.json()
+  if (!response.ok) throw new Error(result.error || 'Erro ao desativar usuario')
 }
