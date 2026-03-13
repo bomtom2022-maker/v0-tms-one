@@ -8,6 +8,7 @@ import {
   fetchParts, insertPart, updatePartDb,
   fetchTickets, insertTicket, updateTicketDb, insertTicketAction, insertTicketSegment, closeTicketSegment, insertUsedParts,
   fetchScheduledMaintenances, insertScheduledMaintenance, updateScheduledMaintenanceDb, deleteScheduledMaintenanceDb,
+  fetchAuditLogs,
 } from './supabase-data'
 
 // Callback para notificacoes em tempo real
@@ -60,7 +61,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [parts, setParts] = useState<Part[]>([])
   const [tickets, setTickets] = useState<Ticket[]>([])
   const [scheduledMaintenances, setScheduledMaintenances] = useState<ScheduledMaintenance[]>([])
-  const [auditLogs] = useState<AuditLog[]>([]) // logs vem do Supabase via triggers
+  const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]) // carregados via API
   const [isLoading, setIsLoading] = useState(false)
   const notifyRef = useRef<NotificationCallback | null>(null)
 
@@ -80,18 +81,20 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const reloadData = useCallback(async () => {
     setIsLoading(true)
     try {
-      const [m, pr, pa, t, s] = await Promise.all([
+      const [m, pr, pa, t, s, al] = await Promise.all([
         fetchMachines(),
         fetchProblems(),
         fetchParts(),
         fetchTickets(),
         fetchScheduledMaintenances(),
+        fetchAuditLogs(),
       ])
       setMachines(m)
       setProblems(pr)
       setParts(pa)
       setTickets(t)
       setScheduledMaintenances(s)
+      setAuditLogs(al)
     } catch {
       // silencioso quando nao autenticado
     } finally {

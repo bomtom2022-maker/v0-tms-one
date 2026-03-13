@@ -985,15 +985,21 @@ export function ReportsView() {
     filters.resolved !== 'all' ||
     filters.priority !== 'all'
 
-  // Filtrar tickets completados
+  // Filtrar tickets finalizados (completed + unresolved)
   const filteredTickets = useMemo(() => {
     return tickets.filter(t => {
-      if (t.status !== 'completed' || !t.completedAt) return false
+      // Incluir completed E unresolved (ambos são tickets finalizados)
+      if (t.status !== 'completed' && t.status !== 'unresolved') return false
+      // Data de referência: completedAt ou, para unresolved, a última action
+      const refDate = t.completedAt
+        ? new Date(t.completedAt)
+        : t.actions.length > 0
+          ? new Date(t.actions[t.actions.length - 1].timestamp)
+          : new Date(t.createdAt)
 
       // Filtro de data
       if (filters.dateRange?.from && filters.dateRange?.to) {
-        const ticketDate = new Date(t.completedAt)
-        if (!isWithinInterval(ticketDate, {
+        if (!isWithinInterval(refDate, {
           start: startOfDay(filters.dateRange.from),
           end: endOfDay(filters.dateRange.to)
         })) return false
@@ -1002,11 +1008,14 @@ export function ReportsView() {
       // Filtro de máquina
       if (filters.machineId !== 'all' && t.machineId !== filters.machineId) return false
 
-      // Filtro de usuário (quem finalizou)
+      // Filtro de usuário (qualquer operador que trabalhou no ticket)
       if (filters.userId !== 'all') {
-        const lastAction = t.actions[t.actions.length - 1]
-        const operatorMatch = lastAction?.operatorName === users.find(u => u.id === filters.userId)?.name
-        if (!operatorMatch) return false
+        const targetUser = users.find(u => u.id === filters.userId)
+        if (!targetUser) return false
+        const operatorWorked =
+          t.createdBy === filters.userId ||
+          t.actions.some(a => a.operatorName === targetUser.name)
+        if (!operatorWorked) return false
       }
 
       // Filtro de peças
@@ -1018,7 +1027,7 @@ export function ReportsView() {
       // Filtro de resolvido
       if (filters.resolved !== 'all') {
         if (filters.resolved === 'yes' && !t.resolved) return false
-        if (filters.resolved === 'no' && t.resolved) return false
+        if (filters.resolved === 'no' && t.resolved !== false) return false
       }
 
       // Filtro de prioridade
@@ -1198,8 +1207,13 @@ export function ReportsView() {
             const machine = getMachineById(t.machineId)
             const problem = getProblemById(t.problemId)
             const lastAction = t.actions[t.actions.length - 1]
+            const refDate = t.completedAt
+              ? new Date(t.completedAt)
+              : t.actions.length > 0
+                ? new Date(t.actions[t.actions.length - 1].timestamp)
+                : new Date(t.createdAt)
             return {
-              data: format(t.completedAt!, 'dd/MM/yyyy HH:mm', { locale: ptBR }),
+              data: format(refDate, 'dd/MM/yyyy HH:mm', { locale: ptBR }),
               maquina: machine?.name || '-',
               problema: problem?.name || '-',
               prioridade: PRIORITY_CONFIG[t.priority].label,
@@ -1245,7 +1259,7 @@ export function ReportsView() {
               }).join(', ')
 
               return {
-                date: format(t.completedAt!, 'dd/MM/yyyy', { locale: ptBR }),
+                date: format(t.completedAt ?? (t.actions.length > 0 ? new Date(t.actions[t.actions.length - 1].timestamp) : new Date(t.createdAt)), 'dd/MM/yyyy', { locale: ptBR }),
                 problem: problem?.name || '-',
                 priority: PRIORITY_CONFIG[t.priority].label,
                 resolved: t.resolved ?? true,
@@ -1341,114 +1355,87 @@ export function ReportsView() {
     const dayStart = startOfDay(dailyDate)
     const dayEnd = endOfDay(dailyDate)
 
-    // Filtrar logs do dia
-    const dayLogs = auditLogs.filter(log => {
-      const logDate = new Date(log.timestamp)
-      return isWithinInterval(logDate, { start: dayStart, end: dayEnd })
-    }).sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
+    // Tickets criados no dia
+    const createdOnDay = tickets.filter(t =>
+      isWithinInterval(new Date(t.createdAt), { start: dayStart, end: dayEnd })
+    ).sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
 
-    // Categorizar logs
-    const ticketsCreated = dayLogs
-      .filter(l => l.action === 'ticket_created')
-      .map(l => {
-        const machine = getMachineById(l.metadata?.machineId as string)
-        const problem = getProblemById(l.metadata?.problemId as string)
-        return {
-          time: format(l.timestamp, 'HH:mm', { locale: ptBR }),
-          machine: machine?.name || l.entityName,
-          problem: problem?.name || '-',
-          priority: (l.metadata?.priority as string) || '-',
-          createdBy: l.userName
-        }
-      })
+    // Tickets que tiveram actions no dia
+    const getActionsOnDay = (t: typeof tickets[0], type: string) =>
+      t.actions.filter(a =>
+        a.type === type && isWithinInterval(new Date(a.timestamp), { start: dayStart, end: dayEnd })
+      )
 
-    const ticketsStarted = dayLogs
-      .filter(l => l.action === 'ticket_started')
-      .map(l => {
-        const machine = getMachineById(l.metadata?.machineId as string)
-        return {
-          time: format(l.timestamp, 'HH:mm', { locale: ptBR }),
-          machine: machine?.name || l.entityName,
-          operator: l.userName
-        }
-      })
+    const allActionsOnDay = tickets.flatMap(t =>
+      t.actions
+        .filter(a => isWithinInterval(new Date(a.timestamp), { start: dayStart, end: dayEnd }))
+        .map(a => ({ ticket: t, action: a }))
+    ).sort((a, b) => new Date(a.action.timestamp).getTime() - new Date(b.action.timestamp).getTime())
 
-    const ticketsPaused = dayLogs
-      .filter(l => l.action === 'ticket_paused')
-      .map(l => {
-        const machine = getMachineById(l.metadata?.machineId as string)
-        return {
-          time: format(l.timestamp, 'HH:mm', { locale: ptBR }),
-          machine: machine?.name || l.entityName,
-          operator: l.userName,
-          reason: (l.metadata?.reason as string) || '-'
-        }
-      })
-
-    const ticketsCompleted = dayLogs
-      .filter(l => l.action === 'ticket_completed')
-      .map(l => {
-        const machine = getMachineById(l.metadata?.machineId as string)
-        const partsUsed = (l.metadata?.partsUsed as Array<{name: string; quantity: number}>) || []
-        return {
-          time: format(l.timestamp, 'HH:mm', { locale: ptBR }),
-          machine: machine?.name || l.entityName,
-          operator: l.userName,
-          resolved: l.metadata?.resolved as boolean ?? true,
-          duration: formatDuration((l.metadata?.downtime as number) || 0),
-          cost: formatCurrency((l.metadata?.totalCost as number) || 0),
-          parts: partsUsed.map(p => `${p.name} (x${p.quantity})`).join(', ')
-        }
-      })
-
-    const machineChanges = dayLogs
-      .filter(l => l.action.startsWith('machine_'))
-      .map(l => ({
-        time: format(l.timestamp, 'HH:mm', { locale: ptBR }),
-        machine: l.entityName,
-        action: l.action === 'machine_created' ? 'Criada' : 'Atualizada',
-        user: l.userName,
-        details: l.details
-      }))
-
-    const partChanges = dayLogs
-      .filter(l => l.action.startsWith('part_'))
-      .map(l => ({
-        time: format(l.timestamp, 'HH:mm', { locale: ptBR }),
-        part: l.entityName,
-        action: l.action === 'part_created' ? 'Criada' : 'Atualizada',
-        user: l.userName,
-        oldPrice: l.previousValue ? formatCurrency(parseFloat(l.previousValue)) : undefined,
-        newPrice: l.newValue ? formatCurrency(parseFloat(l.newValue)) : undefined
-      }))
-
-    const userChanges = dayLogs
-      .filter(l => l.action.startsWith('user_'))
-      .map(l => ({
-        time: format(l.timestamp, 'HH:mm', { locale: ptBR }),
-        targetUser: l.entityName,
-        action: l.action === 'user_created' ? 'Criado' : l.action === 'user_updated' ? 'Atualizado' : 'Excluido',
-        user: l.userName
-      }))
-
-    const scheduledChanges = dayLogs
-      .filter(l => l.action.startsWith('scheduled_'))
-      .map(l => ({
-        time: format(l.timestamp, 'HH:mm', { locale: ptBR }),
-        maintenance: l.entityName,
-        action: getActionLabel(l.action),
-        user: l.userName
-      }))
-
-    // Calcular totais
-    const completedTicketsData = tickets.filter(t => {
-      if (t.status !== 'completed' || !t.completedAt) return false
-      const completedDate = new Date(t.completedAt)
-      return isWithinInterval(completedDate, { start: dayStart, end: dayEnd })
+    const ticketsCreated = createdOnDay.map(t => {
+      const machine = getMachineById(t.machineId)
+      const problem = getProblemById(t.problemId)
+      return {
+        time: format(new Date(t.createdAt), 'HH:mm', { locale: ptBR }),
+        machine: machine?.name || '-',
+        problem: problem?.name || '-',
+        priority: PRIORITY_CONFIG[t.priority]?.label || t.priority,
+        createdBy: t.createdByName || '-',
+      }
     })
 
-    const totalDowntime = completedTicketsData.reduce((sum, t) => sum + t.downtime, 0)
-    const totalCost = completedTicketsData.reduce((sum, t) => sum + t.totalCost, 0)
+    const ticketsStarted = allActionsOnDay
+      .filter(({ action }) => action.type === 'start')
+      .map(({ ticket, action }) => ({
+        time: format(new Date(action.timestamp), 'HH:mm', { locale: ptBR }),
+        machine: getMachineById(ticket.machineId)?.name || '-',
+        operator: action.operatorName,
+      }))
+
+    const ticketsPaused = allActionsOnDay
+      .filter(({ action }) => action.type === 'pause')
+      .map(({ ticket, action }) => ({
+        time: format(new Date(action.timestamp), 'HH:mm', { locale: ptBR }),
+        machine: getMachineById(ticket.machineId)?.name || '-',
+        operator: action.operatorName,
+        reason: action.reason || '-',
+      }))
+
+    const ticketsCompleted = allActionsOnDay
+      .filter(({ action }) => action.type === 'complete')
+      .map(({ ticket, action }) => {
+        const partsUsed = ticket.usedParts.map(up => {
+          const part = getPartById(up.partId)
+          return `${part?.name || 'Peça'} (x${up.quantity})`
+        }).join(', ')
+        return {
+          time: format(new Date(action.timestamp), 'HH:mm', { locale: ptBR }),
+          machine: getMachineById(ticket.machineId)?.name || '-',
+          operator: action.operatorName,
+          resolved: ticket.resolved ?? true,
+          duration: formatDuration(ticket.downtime),
+          cost: formatCurrency(ticket.totalCost),
+          parts: partsUsed,
+        }
+      })
+
+    // Logs de auditoria do dia (derivados dos dados reais)
+    const dayAuditLogs = auditLogs
+      .filter(l => isWithinInterval(new Date(l.timestamp), { start: dayStart, end: dayEnd }))
+      .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
+
+    // Calcular totais
+    const completedOnDay = tickets.filter(t => {
+      const refDate = t.completedAt
+        ? new Date(t.completedAt)
+        : t.actions.length > 0 ? new Date(t.actions[t.actions.length - 1].timestamp) : null
+      return (t.status === 'completed' || t.status === 'unresolved') && refDate
+        ? isWithinInterval(refDate, { start: dayStart, end: dayEnd })
+        : false
+    })
+
+    const totalDowntime = completedOnDay.reduce((sum, t) => sum + t.downtime, 0)
+    const totalCost = completedOnDay.reduce((sum, t) => sum + t.totalCost, 0)
 
     generateDailyPDF(
       dailyDate,
@@ -1457,25 +1444,59 @@ export function ReportsView() {
         ticketsStarted,
         ticketsPaused,
         ticketsCompleted,
-        machineChanges,
-        partChanges,
-        problemChanges: [],
-        userChanges,
-        scheduledChanges,
-        allLogs: dayLogs.map(l => ({
-          time: format(l.timestamp, 'HH:mm:ss', { locale: ptBR }),
-          user: l.userName,
+        machineChanges: dayAuditLogs.filter(l => l.action.startsWith('machine_')).map(l => ({
+          time: format(new Date(l.timestamp), 'HH:mm', { locale: ptBR }),
+          machine: l.entityName,
           action: getActionLabel(l.action),
-          entity: l.entityName,
-          details: l.details
-        }))
+          user: l.userName,
+          details: l.details,
+        })),
+        partChanges: dayAuditLogs.filter(l => l.action.startsWith('part_')).map(l => ({
+          time: format(new Date(l.timestamp), 'HH:mm', { locale: ptBR }),
+          part: l.entityName,
+          action: getActionLabel(l.action),
+          user: l.userName,
+          oldPrice: l.previousValue ? formatCurrency(parseFloat(l.previousValue)) : undefined,
+          newPrice: l.newValue ? formatCurrency(parseFloat(l.newValue)) : undefined,
+        })),
+        problemChanges: [],
+        userChanges: dayAuditLogs.filter(l => l.action.startsWith('user_')).map(l => ({
+          time: format(new Date(l.timestamp), 'HH:mm', { locale: ptBR }),
+          targetUser: l.entityName,
+          action: getActionLabel(l.action),
+          user: l.userName,
+        })),
+        scheduledChanges: dayAuditLogs.filter(l => l.action.startsWith('scheduled_')).map(l => ({
+          time: format(new Date(l.timestamp), 'HH:mm', { locale: ptBR }),
+          maintenance: l.entityName,
+          action: getActionLabel(l.action),
+          user: l.userName,
+        })),
+        allLogs: [
+          // Tickets criados
+          ...createdOnDay.map(t => ({
+            time: format(new Date(t.createdAt), 'HH:mm:ss', { locale: ptBR }),
+            user: t.createdByName || '-',
+            action: 'Chamado Criado',
+            entity: getMachineById(t.machineId)?.name || '-',
+            details: `${getProblemById(t.problemId)?.name || '-'} | ${PRIORITY_CONFIG[t.priority]?.label}`,
+          })),
+          // Todas as actions do dia
+          ...allActionsOnDay.map(({ ticket, action }) => ({
+            time: format(new Date(action.timestamp), 'HH:mm:ss', { locale: ptBR }),
+            user: action.operatorName,
+            action: getActionLabel(`ticket_${action.type}`),
+            entity: getMachineById(ticket.machineId)?.name || '-',
+            details: action.reason || (action.type === 'complete' ? (ticket.resolved ? 'Resolvido' : 'Não Resolvido') : ''),
+          })),
+        ].sort((a, b) => a.time.localeCompare(b.time)),
       },
       {
         totalTicketsCreated: ticketsCreated.length,
         totalTicketsCompleted: ticketsCompleted.length,
         totalDowntime: formatDuration(totalDowntime),
         totalCost: formatCurrency(totalCost),
-        totalLogs: dayLogs.length
+        totalLogs: ticketsCreated.length + allActionsOnDay.length,
       }
     )
   }
