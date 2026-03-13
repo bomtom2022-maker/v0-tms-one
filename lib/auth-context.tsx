@@ -1,7 +1,6 @@
 'use client'
 
 import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react'
-import { createClient } from '@/lib/supabase/client'
 import { fetchProfiles, createUserInSupabase, updateProfileDb, deactivateUserDb } from '@/lib/supabase-data'
 import type { User, UserRole, AuthSession } from './types'
 
@@ -54,69 +53,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
-  // Verificar sessao Supabase existente ao montar
+  // Sem restauracao automatica de sessao — login sempre via API Route
   useEffect(() => {
-    const supabase = createClient()
-
-    const restoreSession = async () => {
-      const { data: { session: sbSession } } = await supabase.auth.getSession()
-      if (sbSession?.user) {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', sbSession.user.id)
-          .single()
-
-        if (profile) {
-          setSession({
-            user: {
-              id: profile.id,
-              name: profile.name,
-              email: profile.email,
-              role: profile.role as UserRole,
-              createdAt: new Date(profile.created_at),
-              isAdmin: false,
-            },
-            isAuthenticated: true,
-          })
-          await reloadUsers()
-        }
-      }
-    }
-
-    restoreSession()
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, sbSession) => {
-      if (event === 'SIGNED_OUT' || !sbSession) {
-        setSession(null)
-        setUsers([])
-        return
-      }
-      if (event === 'SIGNED_IN' && sbSession.user) {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', sbSession.user.id)
-          .single()
-        if (profile) {
-          setSession({
-            user: {
-              id: profile.id,
-              name: profile.name,
-              email: profile.email,
-              role: profile.role as UserRole,
-              createdAt: new Date(profile.created_at),
-              isAdmin: false,
-            },
-            isAuthenticated: true,
-          })
-          await reloadUsers()
-        }
-      }
-    })
-
-    return () => subscription.unsubscribe()
-  }, [reloadUsers])
+    // Nada a restaurar: sessao e mantida apenas em memoria (estado React)
+  }, [])
 
   const login = useCallback(async (email: string, password: string) => {
     // Admin oculto — login local sem Supabase
@@ -136,41 +76,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return { success: true }
     }
 
-    // Login via Supabase Auth
-    const supabase = createClient()
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email: email.toLowerCase().trim(),
-      password,
+    // Login via API Route (roda no servidor onde as variaveis existem)
+    const response = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
     })
 
-    if (error) {
-      if (error.message.includes('Invalid login credentials')) {
-        return { success: false, error: 'Email ou senha incorretos' }
-      }
-      if (error.message.includes('Email not confirmed')) {
-        return { success: false, error: 'Aguarde a confirmacao de email pelo administrador' }
-      }
-      return { success: false, error: 'Erro ao fazer login. Tente novamente.' }
+    const data = await response.json()
+
+    if (!response.ok) {
+      return { success: false, error: data.error || 'Erro ao fazer login. Tente novamente.' }
     }
 
-    if (!data.user) return { success: false, error: 'Falha ao autenticar' }
-
-    // Profile sera setado pelo onAuthStateChange
+    const profile = data.profile
+    setSession({
+      user: {
+        id: profile.id,
+        name: profile.name,
+        email: profile.email,
+        role: profile.role as UserRole,
+        createdAt: new Date(profile.created_at),
+        isAdmin: false,
+      },
+      isAuthenticated: true,
+    })
+    await reloadUsers()
     return { success: true }
   }, [reloadUsers])
 
   const logout = useCallback(async () => {
-    const supabase = createClient()
-    // Se for admin local, apenas limpar sessao
-    if (session?.user.isAdmin) {
-      setSession(null)
-      setUsers([])
-      return
-    }
-    await supabase.auth.signOut()
     setSession(null)
     setUsers([])
-  }, [session])
+  }, [])
 
   const register = useCallback(async (name: string, email: string, password: string, role: UserRole) => {
     try {
