@@ -112,8 +112,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return { success: true }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Erro ao cadastrar usuario'
-      if (msg.includes('already registered') || msg.includes('duplicate')) {
-        return { success: false, error: 'Email ja cadastrado' }
+      if (
+        msg.toLowerCase().includes('already registered') ||
+        msg.toLowerCase().includes('already been registered') ||
+        msg.toLowerCase().includes('duplicate') ||
+        msg.toLowerCase().includes('ja cadastrado')
+      ) {
+        return { success: false, error: 'Este email ja esta cadastrado. Use outro email ou edite o usuario existente.' }
       }
       return { success: false, error: msg }
     }
