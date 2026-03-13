@@ -335,14 +335,13 @@ export async function deleteScheduledMaintenanceDb(id: string): Promise<void> {
 // ─── PROFILES (usuarios) ───────────────────────────────────
 
 export async function fetchProfiles() {
-  const supabase = createClient()
-  const { data, error } = await supabase
-    .from('profiles')
-    .select('id, name, email, role, active, created_at')
-    .eq('active', true)
-    .order('created_at', { ascending: true })
-  if (error) throw error
-  return data || []
+  // Usar API Route com service_role_key para funcionar mesmo com admin local (sem sessao Supabase)
+  const response = await fetch('/api/users/list')
+  if (!response.ok) {
+    const result = await response.json().catch(() => ({}))
+    throw new Error(result.error || 'Erro ao buscar usuarios')
+  }
+  return response.json()
 }
 
 export async function createUserInSupabase(name: string, email: string, password: string, role: string): Promise<{ id: string }> {
