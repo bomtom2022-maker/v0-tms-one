@@ -5,6 +5,10 @@ export async function PUT(request: Request) {
   try {
     const { id, name, email, role } = await request.json()
 
+    console.log('[v0] /api/users/update - SUPABASE_URL:', !!process.env.SUPABASE_URL)
+    console.log('[v0] /api/users/update - NEXT_PUBLIC_SUPABASE_URL:', !!process.env.NEXT_PUBLIC_SUPABASE_URL)
+    console.log('[v0] /api/users/update - SERVICE_ROLE_KEY:', !!process.env.SUPABASE_SERVICE_ROLE_KEY)
+
     if (!id) {
       return NextResponse.json({ error: 'ID do usuario e obrigatorio' }, { status: 400 })
     }
