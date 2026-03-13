@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { createClient } from '@supabase/supabase-js'
+import { createHash } from 'crypto'
+
+function hashPassword(password: string): string {
+  return createHash('sha256').update(password).digest('hex')
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -12,10 +16,10 @@ export async function POST(request: NextRequest) {
 
     const adminClient = createAdminClient()
 
-    // Buscar o profile pelo nome
+    // Buscar o profile pelo nome incluindo password_hash
     const { data: profile, error: profileError } = await adminClient
       .from('profiles')
-      .select('id, name, email, role, active, created_at')
+      .select('id, name, email, role, active, created_at, password_hash')
       .ilike('name', name.trim())
       .eq('active', true)
       .single()
@@ -24,27 +28,20 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Usuario nao encontrado ou inativo' }, { status: 401 })
     }
 
-    console.log('[v0] login - profile encontrado:', profile.name, '| email:', profile.email)
+    // Verificar senha via hash
+    if (!profile.password_hash) {
+      return NextResponse.json({ error: 'Senha nao configurada. Peça ao administrador para redefinir.' }, { status: 401 })
+    }
 
-    // Autenticar usando o cliente Supabase com a anon key no servidor
-    const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || ''
-    const anonKey = process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
-
-    const authClient = createClient(supabaseUrl, anonKey, {
-      auth: { autoRefreshToken: false, persistSession: false },
-    })
-
-    const { error: signInError } = await authClient.auth.signInWithPassword({
-      email: profile.email.toLowerCase().trim(),
-      password,
-    })
-
-    if (signInError) {
-      console.log('[v0] signInError:', signInError.message)
+    const inputHash = hashPassword(password)
+    if (inputHash !== profile.password_hash) {
       return NextResponse.json({ error: 'Senha incorreta' }, { status: 401 })
     }
 
-    return NextResponse.json({ profile })
+    // Remover password_hash da resposta
+    const { password_hash: _, ...safeProfile } = profile
+
+    return NextResponse.json({ profile: safeProfile })
   } catch (err: unknown) {
     return NextResponse.json(
       { error: err instanceof Error ? err.message : 'Erro interno do servidor' },

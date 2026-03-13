@@ -1,6 +1,11 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
+import { createHash } from 'crypto'
+
+function hashPassword(password: string): string {
+  return createHash('sha256').update(password).digest('hex')
+}
 
 export async function POST(request: Request) {
   try {
@@ -88,7 +93,7 @@ export async function POST(request: Request) {
       console.log('[v0] Usuario Auth criado:', userId)
     }
 
-    // Upsert do profile com role correta (o trigger pode criar com role errada)
+    // Upsert do profile com role correta e password_hash
     const { error: profileError } = await adminClient
       .from('profiles')
       .upsert({
@@ -97,6 +102,7 @@ export async function POST(request: Request) {
         email: email.toLowerCase().trim(),
         role,
         active: true,
+        password_hash: hashPassword(password),
       }, { onConflict: 'id' })
 
     if (profileError) {
