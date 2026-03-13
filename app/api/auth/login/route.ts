@@ -24,6 +24,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Usuario nao encontrado ou inativo' }, { status: 401 })
     }
 
+    console.log('[v0] login - profile encontrado:', profile.name, '| email:', profile.email)
+
     // Autenticar usando o cliente Supabase com a anon key no servidor
     const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || ''
     const anonKey = process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
@@ -38,6 +40,7 @@ export async function POST(request: NextRequest) {
     })
 
     if (signInError) {
+      console.log('[v0] signInError:', signInError.message)
       return NextResponse.json({ error: 'Senha incorreta' }, { status: 401 })
     }
 
