@@ -50,25 +50,49 @@ export async function POST(request: Request) {
       user_metadata: { name, role },
     })
 
+    let userId: string
+
     if (authError) {
-      console.error('[v0] Erro ao criar usuario no Auth:', authError.message)
-      if (authError.message.toLowerCase().includes('already registered') || authError.message.toLowerCase().includes('already been registered')) {
-        return NextResponse.json({ error: 'Email ja cadastrado' }, { status: 409 })
+      // Se o email ja existe no Auth, buscar o user existente e reutilizar
+      if (
+        authError.message.toLowerCase().includes('already registered') ||
+        authError.message.toLowerCase().includes('already been registered')
+      ) {
+        const { data: listData, error: listError } = await adminClient.auth.admin.listUsers()
+        if (listError) {
+          console.error('[v0] Erro ao buscar usuarios existentes:', listError.message)
+          return NextResponse.json({ error: listError.message }, { status: 500 })
+        }
+        const existingUser = listData.users.find(
+          (u) => u.email?.toLowerCase() === email.toLowerCase().trim()
+        )
+        if (!existingUser) {
+          return NextResponse.json({ error: 'Email ja cadastrado mas nao encontrado' }, { status: 409 })
+        }
+        // Atualizar senha e metadados do usuario existente
+        await adminClient.auth.admin.updateUserById(existingUser.id, {
+          password,
+          user_metadata: { name, role },
+        })
+        userId = existingUser.id
+        console.log('[v0] Usuario Auth reutilizado:', userId)
+      } else {
+        console.error('[v0] Erro ao criar usuario no Auth:', authError.message)
+        return NextResponse.json({ error: authError.message }, { status: 400 })
       }
-      return NextResponse.json({ error: authError.message }, { status: 400 })
+    } else {
+      if (!authData.user) {
+        return NextResponse.json({ error: 'Falha ao criar usuario no Auth' }, { status: 500 })
+      }
+      userId = authData.user.id
+      console.log('[v0] Usuario Auth criado:', userId)
     }
-
-    if (!authData.user) {
-      return NextResponse.json({ error: 'Falha ao criar usuario no Auth' }, { status: 500 })
-    }
-
-    console.log('[v0] Usuario Auth criado:', authData.user.id)
 
     // Upsert do profile com role correta (o trigger pode criar com role errada)
     const { error: profileError } = await adminClient
       .from('profiles')
       .upsert({
-        id: authData.user.id,
+        id: userId,
         name,
         email: email.toLowerCase().trim(),
         role,
@@ -81,7 +105,7 @@ export async function POST(request: Request) {
       console.log('[v0] Profile criado/atualizado com sucesso')
     }
 
-    return NextResponse.json({ id: authData.user.id, name, email, role }, { status: 201 })
+    return NextResponse.json({ id: userId, name, email, role }, { status: 201 })
 
   } catch (err: unknown) {
     console.error('[v0] Erro inesperado na API create user:', err)
