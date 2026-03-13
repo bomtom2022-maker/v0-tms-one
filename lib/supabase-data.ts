@@ -283,7 +283,23 @@ export async function deleteScheduledMaintenanceDb(id: string): Promise<void> {
   })
 }
 
-// ─── PROFILES (usuarios) ───────────────────────────────────
+// ─── AUDIT LOGS ────────────────────────────────────────────
+
+export async function fetchAuditLogs(): Promise<import('./types').AuditLog[]> {
+  const data = await apiFetch('/api/audit')
+  return (data || []).map((row: Record<string, unknown>) => ({
+    id: row.id as string,
+    action: row.action as import('./types').AuditLogAction,
+    userId: row.userId as string,
+    userName: row.userName as string,
+    timestamp: new Date(row.timestamp as string),
+    entityType: row.entityType as import('./types').AuditLog['entityType'],
+    entityId: row.entityId as string,
+    entityName: row.entityName as string,
+    details: row.details as string,
+    metadata: (row.metadata as Record<string, unknown>) || {},
+  }))
+}
 
 export async function fetchProfiles() {
   return apiFetch('/api/users/list')
