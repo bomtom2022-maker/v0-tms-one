@@ -4,14 +4,10 @@ import { createClient } from '@/lib/supabase/server'
 
 export async function POST(request: Request) {
   try {
-    // Verificar se o solicitante e admin ou manutentor autorizado
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-
-    // Permitir tambem o admin local (sem session Supabase)
-    // A autorizacao real e feita pela RLS + verificacao de role
     const body = await request.json()
     const { name, email, password, role } = body
+
+    console.log('[v0] /api/users/create chamado para:', email, '| role:', role)
 
     if (!name || !email || !password || !role) {
       return NextResponse.json({ error: 'Campos obrigatorios: name, email, password, role' }, { status: 400 })
@@ -22,42 +18,53 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Role invalida' }, { status: 400 })
     }
 
-    // Verificar role do solicitante (se tiver sessao Supabase)
+    // Verificar autorizacao: aceita admin Supabase OU admin local (sem sessao)
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+
+    console.log('[v0] Usuario na sessao Supabase:', user?.id ?? 'nenhum (admin local)')
+
     if (user) {
+      // Tem sessao Supabase — verificar se e admin ou manutentor
       const { data: profile } = await supabase
         .from('profiles')
         .select('role')
         .eq('id', user.id)
         .single()
 
-      if (!profile || (profile.role !== 'admin' && profile.role !== 'manutentor')) {
+      console.log('[v0] Role do solicitante:', profile?.role)
+
+      if (!profile || !['admin', 'manutentor'].includes(profile.role)) {
         return NextResponse.json({ error: 'Sem permissao para criar usuarios' }, { status: 403 })
       }
     }
+    // Se nao tiver sessao Supabase, assume admin local — permitir
 
-    // Usar Admin API para criar o usuario (ignora restricao de signups)
+    // Usar Admin API para criar o usuario (ignora restricao de signups publicos)
     const adminClient = createAdminClient()
 
     const { data: authData, error: authError } = await adminClient.auth.admin.createUser({
       email: email.toLowerCase().trim(),
       password,
-      email_confirm: true, // Confirmar email automaticamente
+      email_confirm: true,
       user_metadata: { name, role },
     })
 
     if (authError) {
-      if (authError.message.includes('already registered') || authError.message.includes('already been registered')) {
+      console.error('[v0] Erro ao criar usuario no Auth:', authError.message)
+      if (authError.message.toLowerCase().includes('already registered') || authError.message.toLowerCase().includes('already been registered')) {
         return NextResponse.json({ error: 'Email ja cadastrado' }, { status: 409 })
       }
       return NextResponse.json({ error: authError.message }, { status: 400 })
     }
 
     if (!authData.user) {
-      return NextResponse.json({ error: 'Falha ao criar usuario' }, { status: 500 })
+      return NextResponse.json({ error: 'Falha ao criar usuario no Auth' }, { status: 500 })
     }
 
-    // Garantir que o profile foi criado corretamente (o trigger handle_new_user cuida disso,
-    // mas fazemos upsert para garantir role correta)
+    console.log('[v0] Usuario Auth criado:', authData.user.id)
+
+    // Upsert do profile com role correta (o trigger pode criar com role errada)
     const { error: profileError } = await adminClient
       .from('profiles')
       .upsert({
@@ -69,13 +76,15 @@ export async function POST(request: Request) {
       }, { onConflict: 'id' })
 
     if (profileError) {
-      console.error('[v0] Erro ao criar profile:', profileError)
-      // Nao falha — o trigger pode ter criado com role errada, tentamos corrigir
+      console.error('[v0] Erro ao criar profile:', profileError.message)
+    } else {
+      console.log('[v0] Profile criado/atualizado com sucesso')
     }
 
     return NextResponse.json({ id: authData.user.id, name, email, role }, { status: 201 })
+
   } catch (err: unknown) {
-    console.error('[v0] Erro na API de criacao de usuario:', err)
+    console.error('[v0] Erro inesperado na API create user:', err)
     return NextResponse.json(
       { error: err instanceof Error ? err.message : 'Erro interno do servidor' },
       { status: 500 }

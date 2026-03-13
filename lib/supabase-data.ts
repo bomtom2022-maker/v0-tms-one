@@ -1,5 +1,3 @@
-'use client'
-
 import { createClient } from '@/lib/supabase/client'
 import type { Machine, Problem, Part, Ticket, ScheduledMaintenance, UsedPart, MachineStatus, Priority, MaintenanceAction, TimeSegment } from '@/lib/types'
 
