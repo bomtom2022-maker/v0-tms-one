@@ -60,7 +60,7 @@ export async function PUT(request: Request) {
 
     // Sanitizar campos UUID para nao quebrar com IDs locais como "admin-001"
     const updates: Record<string, unknown> = { ...rawUpdates }
-    const uuidFields = ['started_by', 'completed_by', 'created_by', 'operator_id']
+    const uuidFields = ['started_by', 'completed_by', 'created_by', 'operator_id', 'accepted_by']
     for (const field of uuidFields) {
       if (field in updates) {
         updates[field] = toUuidOrNull(updates[field])
