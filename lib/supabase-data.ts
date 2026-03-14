@@ -131,6 +131,7 @@ function rowToTicket(row: Record<string, unknown>, actions: MaintenanceAction[] 
     machineStopped: (row.machine_stopped as boolean) || false,
     createdBy: row.created_by as string,
     createdByName: row.created_by_name as string,
+    reportedDuration: row.reported_duration ? Number(row.reported_duration) : undefined,
   }
 }
 

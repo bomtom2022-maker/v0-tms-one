@@ -44,6 +44,7 @@ export function MaintenanceView({ ticketId, onBack, onComplete }: MaintenanceVie
   const { currentUser } = useAuth()
   
   const [elapsedTime, setElapsedTime] = useState(0)
+  const [reportedElapsed, setReportedElapsed] = useState(0)
   const [pendingAction, setPendingAction] = useState<'start' | 'resume' | 'complete' | null>(null)
   const [showConfirmDialog, setShowConfirmDialog] = useState(false)
   const [showPauseDialog, setShowPauseDialog] = useState(false)
@@ -54,13 +55,13 @@ export function MaintenanceView({ ticketId, onBack, onComplete }: MaintenanceVie
   const [problemResolved, setProblemResolved] = useState<boolean | null>(null)
   const [showSuccess, setShowSuccess] = useState(false)
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const reportedIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   // Derivar ticket a partir da lista — deve ser feito ANTES dos useEffects
   const ticket = tickets.find(t => t.id === ticketId) ?? null
 
-  // Timer: atualiza a cada segundo quando em manutenção ativa
+  // Timer principal: conta apenas quando in-progress; para em paused, unresolved, completed
   useEffect(() => {
-    // Limpar interval anterior sempre
     if (intervalRef.current) {
       clearInterval(intervalRef.current)
       intervalRef.current = null
@@ -68,13 +69,12 @@ export function MaintenanceView({ ticketId, onBack, onComplete }: MaintenanceVie
 
     if (!ticket) return
 
-    // Se pausado ou não iniciado, exibir o tempo acumulado sem contar
+    // Parar timer em qualquer status diferente de in-progress
     if (ticket.status !== 'in-progress') {
       setElapsedTime(ticket.accumulatedTime || 0)
       return
     }
 
-    // Encontrar o último start ou resume nas actions
     const lastStartOrResume = [...ticket.actions]
       .reverse()
       .find(a => a.type === 'start' || a.type === 'resume')
@@ -87,7 +87,6 @@ export function MaintenanceView({ ticketId, onBack, onComplete }: MaintenanceVie
     const baseTime = ticket.accumulatedTime || 0
     const lastActionMs = new Date(lastStartOrResume.timestamp).getTime()
 
-    // Calcular imediatamente antes do primeiro tick
     setElapsedTime(baseTime + Math.floor((Date.now() - lastActionMs) / 1000))
 
     intervalRef.current = setInterval(() => {
@@ -101,6 +100,37 @@ export function MaintenanceView({ ticketId, onBack, onComplete }: MaintenanceVie
       }
     }
   }, [ticket?.id, ticket?.status, ticket?.accumulatedTime, ticket?.actions])
+
+  // Timer secundário: tempo desde que o chamado foi reportado (corre sempre, para apenas no completed)
+  useEffect(() => {
+    if (reportedIntervalRef.current) {
+      clearInterval(reportedIntervalRef.current)
+      reportedIntervalRef.current = null
+    }
+
+    if (!ticket) return
+
+    // Parar apenas quando finalizado com sucesso
+    if (ticket.status === 'completed' || ticket.status === 'cancelled') {
+      const ref = ticket.completedAt ?? ticket.createdAt
+      setReportedElapsed(Math.floor((new Date(ref).getTime() - new Date(ticket.createdAt).getTime()) / 1000))
+      return
+    }
+
+    const createdMs = new Date(ticket.createdAt).getTime()
+    setReportedElapsed(Math.floor((Date.now() - createdMs) / 1000))
+
+    reportedIntervalRef.current = setInterval(() => {
+      setReportedElapsed(Math.floor((Date.now() - createdMs) / 1000))
+    }, 1000)
+
+    return () => {
+      if (reportedIntervalRef.current) {
+        clearInterval(reportedIntervalRef.current)
+        reportedIntervalRef.current = null
+      }
+    }
+  }, [ticket?.id, ticket?.status, ticket?.createdAt, ticket?.completedAt])
 
   // Nome do operador vem do usuário logado
   const operatorName = currentUser?.name || 'Usuário'
@@ -341,7 +371,7 @@ export function MaintenanceView({ ticketId, onBack, onComplete }: MaintenanceVie
       <Card className="bg-sidebar text-sidebar-foreground">
         <CardContent className="py-5 sm:py-8">
           <div className="text-center">
-            <p className="text-xs sm:text-sm text-sidebar-foreground/70 mb-1 sm:mb-2">Tempo</p>
+            <p className="text-xs sm:text-sm text-sidebar-foreground/70 mb-1 sm:mb-2">Tempo de Manutenção</p>
             <div className="font-mono text-4xl sm:text-5xl lg:text-6xl font-bold tracking-wider">
               {formatDuration(elapsedTime)}
             </div>
@@ -358,8 +388,21 @@ export function MaintenanceView({ ticketId, onBack, onComplete }: MaintenanceVie
                   Pausado
                 </span>
               )}
+              {ticket.status === 'unresolved' && (
+                <span className="flex items-center justify-center gap-1.5">
+                  <span className="w-2 h-2 bg-orange-500 rounded-full" />
+                  Aguardando continuidade
+                </span>
+              )}
               {ticket.status === 'open' && 'Aguardando'}
             </p>
+            {/* Tempo desde o reportado — sempre visível, discreto */}
+            <div className="mt-4 pt-3 border-t border-sidebar-foreground/10">
+              <p className="text-[10px] text-sidebar-foreground/50 mb-0.5">Desde o reportado</p>
+              <p className="font-mono text-sm text-sidebar-foreground/60 tracking-wide">
+                {formatDuration(reportedElapsed)}
+              </p>
+            </div>
           </div>
         </CardContent>
       </Card>
