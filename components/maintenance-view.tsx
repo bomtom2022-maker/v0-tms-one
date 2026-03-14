@@ -46,6 +46,9 @@ export function MaintenanceView({ ticketId, onBack, onComplete }: MaintenanceVie
   const [elapsedTime, setElapsedTime] = useState(0)
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
+  // Derivar ticket a partir da lista — deve ser feito ANTES dos useEffects
+  const ticket = tickets.find(t => t.id === ticketId) ?? null
+
   // Timer: atualiza a cada segundo quando em manutenção ativa
   useEffect(() => {
     // Limpar interval anterior sempre
