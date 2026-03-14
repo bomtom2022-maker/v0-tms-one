@@ -55,8 +55,18 @@ export async function POST(request: Request) {
 
 export async function PUT(request: Request) {
   try {
-    const { id, ...updates } = await request.json()
+    const { id, ...rawUpdates } = await request.json()
     const supabase = createAdminClient()
+
+    // Sanitizar campos UUID para nao quebrar com IDs locais como "admin-001"
+    const updates: Record<string, unknown> = { ...rawUpdates }
+    const uuidFields = ['started_by', 'completed_by', 'created_by', 'operator_id']
+    for (const field of uuidFields) {
+      if (field in updates) {
+        updates[field] = toUuidOrNull(updates[field])
+      }
+    }
+
     const { error } = await supabase.from('tickets').update(updates).eq('id', id)
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     return NextResponse.json({ success: true })
