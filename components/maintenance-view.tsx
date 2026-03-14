@@ -44,6 +44,15 @@ export function MaintenanceView({ ticketId, onBack, onComplete }: MaintenanceVie
   const { currentUser } = useAuth()
   
   const [elapsedTime, setElapsedTime] = useState(0)
+  const [pendingAction, setPendingAction] = useState<'start' | 'resume' | 'complete' | null>(null)
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false)
+  const [showPauseDialog, setShowPauseDialog] = useState(false)
+  const [pauseReason, setPauseReason] = useState('')
+  const [showCompletionForm, setShowCompletionForm] = useState(false)
+  const [selectedParts, setSelectedParts] = useState<Record<string, number>>({})
+  const [completionNotes, setCompletionNotes] = useState('')
+  const [problemResolved, setProblemResolved] = useState<boolean | null>(null)
+  const [showSuccess, setShowSuccess] = useState(false)
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   // Derivar ticket a partir da lista — deve ser feito ANTES dos useEffects
