@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { useData } from '@/lib/data-context'
 import { PRIORITY_CONFIG } from '@/lib/types'
-import { Clock, ArrowRight } from 'lucide-react'
+import { Clock, ArrowRight, User } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 
@@ -74,14 +74,20 @@ export function TicketList({ onSelectTicket }: TicketListProps) {
                     <p className="text-sm text-foreground/80 mt-2 line-clamp-2">
                       {ticket.observation}
                     </p>
-                    <div className="flex items-center gap-1 mt-2 text-xs text-muted-foreground">
-                      <Clock className="w-3 h-3" />
-                      <span>
+                    <div className="flex items-center gap-2 mt-2 text-xs text-muted-foreground flex-wrap">
+                      <span className="flex items-center gap-1">
+                        <Clock className="w-3 h-3" />
                         {formatDistanceToNow(ticket.createdAt, { 
                           addSuffix: true, 
                           locale: ptBR 
                         })}
                       </span>
+                      {ticket.createdByName && (
+                        <span className="flex items-center gap-1">
+                          <User className="w-3 h-3" />
+                          Reportado por <span className="font-medium text-foreground">{ticket.createdByName}</span>
+                        </span>
+                      )}
                     </div>
                   </div>
                   {onSelectTicket && (
