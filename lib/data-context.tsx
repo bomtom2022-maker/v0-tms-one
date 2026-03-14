@@ -360,8 +360,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
         accumulated_time: totalDowntime,
         completion_notes: completionNotes || null,
         resolved: resolved ?? null,
-        // Salvar tempo desde reportado apenas ao finalizar completamente
-        ...(resolved !== false ? { reported_duration: reportedDuration } : {}),
       }),
       insertTicketAction(ticketId, 'complete', operatorName, userId),
       closeTicketSegment(ticketId, now, additionalTime),
