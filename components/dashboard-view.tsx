@@ -368,6 +368,12 @@ export function DashboardView({ onSelectTicket }: DashboardViewProps) {
                               locale: ptBR 
                             })}
                           </span>
+                          {ticket.createdByName && (
+                            <span className="flex items-center gap-1">
+                              <User className="w-3 h-3" />
+                              Reportado por <span className="font-medium text-foreground">{ticket.createdByName}</span>
+                            </span>
+                          )}
                         </div>
                       </div>
                       

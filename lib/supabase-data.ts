@@ -131,6 +131,7 @@ function rowToTicket(row: Record<string, unknown>, actions: MaintenanceAction[] 
     machineStopped: (row.machine_stopped as boolean) || false,
     createdBy: row.created_by as string,
     createdByName: row.created_by_name as string,
+    reportedDuration: row.reported_duration ? Number(row.reported_duration) : undefined,
   }
 }
 
@@ -204,11 +205,11 @@ export async function insertTicketSegment(ticketId: string, operatorName: string
   return data.id
 }
 
-export async function closeTicketSegment(ticketId: string, operatorName: string, endTime: Date, duration: number): Promise<void> {
+export async function closeTicketSegment(ticketId: string, endTime: Date, duration: number): Promise<void> {
   await apiFetch('/api/tickets/segments', {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ticketId, operatorName, endTime: endTime.toISOString(), duration }),
+    body: JSON.stringify({ ticketId, endTime: endTime.toISOString(), duration }),
   })
 }
 

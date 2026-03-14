@@ -123,6 +123,8 @@ export interface Ticket {
   machineStopped?: boolean // maquina parada?
   createdBy: string // userId de quem criou o chamado
   createdByName: string // nome de quem criou o chamado
+  reportedAt?: Date // quando o problema foi reportado (= createdAt, para calculo de tempo total desde abertura)
+  reportedDuration?: number // tempo total desde reportado até resolução final (em segundos)
 }
 
 export interface ScheduledMaintenance {

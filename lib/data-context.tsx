@@ -195,19 +195,26 @@ export function DataProvider({ children }: { children: ReactNode }) {
     const now = new Date()
     const ticket = tickets.find(t => t.id === ticketId)
     const machine = ticket ? machines.find(m => m.id === ticket.machineId) : null
+    const isReopen = ticket?.status === 'unresolved'
 
     await Promise.all([
       updateTicketDb(ticketId, {
         status: 'in-progress',
+        // Preservar started_at original; se reaberto (unresolved), manter o existente
         started_at: ticket?.startedAt ? ticket.startedAt.toISOString() : now.toISOString(),
         accepted_by: userId,
         accepted_by_name: operatorName,
+        // NÃO resetar accumulated_time — herdado do ciclo anterior
       }),
-      insertTicketAction(ticketId, 'start', operatorName, userId),
+      insertTicketAction(ticketId, isReopen ? 'resume' : 'start', operatorName, userId),
       insertTicketSegment(ticketId, operatorName, userId, now),
     ])
 
-    const newAction: MaintenanceAction = { type: 'start', operatorName, timestamp: now }
+    const newAction: MaintenanceAction = {
+      type: isReopen ? 'resume' : 'start',
+      operatorName,
+      timestamp: now,
+    }
     const newSegment: TimeSegment = { operatorName, startTime: now, duration: 0 }
 
     setTickets(prev => prev.map(t => {
@@ -220,7 +227,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
         acceptedByName: operatorName,
         actions: [...t.actions, newAction],
         timeSegments: [...(t.timeSegments || []), newSegment],
-        resolved: t.status === 'unresolved' ? undefined : t.resolved,
+        // Manter resolved como undefined ao reiniciar
+        resolved: undefined,
       }
     }))
 
@@ -247,7 +255,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         accumulated_time: (ticket?.accumulatedTime || 0) + additionalTime,
       }),
       insertTicketAction(ticketId, 'pause', operatorName, userId, reason),
-      closeTicketSegment(ticketId, operatorName, now, additionalTime),
+      closeTicketSegment(ticketId, now, additionalTime),
     ])
 
     const newAction: MaintenanceAction = { type: 'pause', operatorName, timestamp: now, reason }
@@ -338,19 +346,23 @@ export function DataProvider({ children }: { children: ReactNode }) {
     }, 0)
 
     const finalStatus = resolved === false ? 'unresolved' : 'completed'
+    // Tempo desde que o problema foi reportado (createdAt até agora)
+    const reportedDuration = ticket ? Math.floor((now.getTime() - new Date(ticket.createdAt).getTime()) / 1000) : 0
 
     await Promise.all([
       updateTicketDb(ticketId, {
         status: finalStatus,
+        // Para unresolved: salvar completed_at como null, mas salvar downtime acumulado
         completed_at: resolved === false ? null : now.toISOString(),
         total_cost: totalCost,
         downtime: totalDowntime,
+        // accumulated_time = totalDowntime para que o próximo manutentor herde o tempo correto
         accumulated_time: totalDowntime,
         completion_notes: completionNotes || null,
         resolved: resolved ?? null,
       }),
       insertTicketAction(ticketId, 'complete', operatorName, userId),
-      closeTicketSegment(ticketId, operatorName, now, additionalTime),
+      closeTicketSegment(ticketId, now, additionalTime),
       insertUsedParts(ticketId, usedParts),
     ])
 
