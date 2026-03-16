@@ -1803,15 +1803,6 @@ export function ReportsView() {
           </CardContent>
         </Card>
       </div>
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground">Custo em Peças</p>
-                <p className="text-xl font-bold">{formatCurrency(stats.totalCost)}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
 
       {/* Tabs de Relatórios */}
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as ReportType)}>
