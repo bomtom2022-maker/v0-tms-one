@@ -197,18 +197,15 @@ export function DataProvider({ children }: { children: ReactNode }) {
     const machine = ticket ? machines.find(m => m.id === ticket.machineId) : null
     const isReopen = ticket?.status === 'unresolved'
 
-    await Promise.all([
-      updateTicketDb(ticketId, {
-        status: 'in-progress',
-        // Preservar started_at original; se reaberto (unresolved), manter o existente
-        started_at: ticket?.startedAt ? ticket.startedAt.toISOString() : now.toISOString(),
-        accepted_by: userId,
-        accepted_by_name: operatorName,
-        // NÃO resetar accumulated_time — herdado do ciclo anterior
-      }),
-      insertTicketAction(ticketId, isReopen ? 'resume' : 'start', operatorName, userId),
-      insertTicketSegment(ticketId, operatorName, userId, now),
-    ])
+    // Executar sequencialmente para evitar race conditions
+    await updateTicketDb(ticketId, {
+      status: 'in-progress',
+      started_at: ticket?.startedAt ? ticket.startedAt.toISOString() : now.toISOString(),
+      accepted_by: userId,
+      accepted_by_name: operatorName,
+    })
+    await insertTicketAction(ticketId, isReopen ? 'resume' : 'start', operatorName, userId)
+    await insertTicketSegment(ticketId, operatorName, userId, now)
 
     const newAction: MaintenanceAction = {
       type: isReopen ? 'resume' : 'start',
@@ -249,14 +246,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
       }
     }
 
-    await Promise.all([
-      updateTicketDb(ticketId, {
-        status: 'paused',
-        accumulated_time: (ticket?.accumulatedTime || 0) + additionalTime,
-      }),
-      insertTicketAction(ticketId, 'pause', operatorName, userId, reason),
-      closeTicketSegment(ticketId, now, additionalTime),
-    ])
+    // Executar sequencialmente para evitar race conditions
+    await updateTicketDb(ticketId, {
+      status: 'paused',
+      accumulated_time: (ticket?.accumulatedTime || 0) + additionalTime,
+    })
+    await insertTicketAction(ticketId, 'pause', operatorName, userId, reason)
+    // closeTicketSegment pode nao encontrar segmento aberto — ignorar falha silenciosamente
+    try { await closeTicketSegment(ticketId, now, additionalTime) } catch { /* sem segmento aberto */ }
 
     const newAction: MaintenanceAction = { type: 'pause', operatorName, timestamp: now, reason }
 
@@ -284,11 +281,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
     const ticket = tickets.find(t => t.id === ticketId)
     const machine = ticket ? machines.find(m => m.id === ticket.machineId) : null
 
-    await Promise.all([
-      updateTicketDb(ticketId, { status: 'in-progress' }),
-      insertTicketAction(ticketId, 'resume', operatorName, userId),
-      insertTicketSegment(ticketId, operatorName, userId, now),
-    ])
+    // Executar sequencialmente para evitar race conditions
+    await updateTicketDb(ticketId, {
+      status: 'in-progress',
+    })
+    await insertTicketAction(ticketId, 'resume', operatorName, userId)
+    await insertTicketSegment(ticketId, operatorName, userId, now)
 
     const newAction: MaintenanceAction = { type: 'resume', operatorName, timestamp: now }
     const newSegment: TimeSegment = { operatorName, startTime: now, duration: 0 }
@@ -349,22 +347,19 @@ export function DataProvider({ children }: { children: ReactNode }) {
     // Tempo desde que o problema foi reportado (createdAt até agora)
     const reportedDuration = ticket ? Math.floor((now.getTime() - new Date(ticket.createdAt).getTime()) / 1000) : 0
 
-    await Promise.all([
-      updateTicketDb(ticketId, {
-        status: finalStatus,
-        // Para unresolved: salvar completed_at como null, mas salvar downtime acumulado
-        completed_at: resolved === false ? null : now.toISOString(),
-        total_cost: totalCost,
-        downtime: totalDowntime,
-        // accumulated_time = totalDowntime para que o próximo manutentor herde o tempo correto
-        accumulated_time: totalDowntime,
-        completion_notes: completionNotes || null,
-        resolved: resolved ?? null,
-      }),
-      insertTicketAction(ticketId, 'complete', operatorName, userId),
-      closeTicketSegment(ticketId, now, additionalTime),
-      insertUsedParts(ticketId, usedParts),
-    ])
+    // Executar sequencialmente para evitar race conditions
+    await updateTicketDb(ticketId, {
+      status: finalStatus,
+      completed_at: resolved === false ? null : now.toISOString(),
+      total_cost: totalCost,
+      downtime: totalDowntime,
+      accumulated_time: totalDowntime,
+      completion_notes: completionNotes || null,
+      resolved: resolved ?? null,
+    })
+    await insertTicketAction(ticketId, 'complete', operatorName, userId)
+    try { await closeTicketSegment(ticketId, now, additionalTime) } catch { /* sem segmento aberto */ }
+    if (usedParts.length > 0) await insertUsedParts(ticketId, usedParts)
 
     if (resolved === false && machine) {
       await updateMachineDb(machine.id, machine.name, machine.sector, 'attention')
