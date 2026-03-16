@@ -23,6 +23,37 @@ import { Play, Pause, Square, ArrowLeft, Package, CheckCircle, User, History, Me
 import { cn } from '@/lib/utils'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
+import type { Part } from '@/lib/types'
+
+// Componente separado — garante chave unica por partId agrupado
+function UsedPartsList({ usedParts, parts }: { usedParts: UsedPart[]; parts: Part[] }) {
+  const grouped = (usedParts ?? [])
+    .filter(up => up && up.partId)
+    .reduce<Record<string, { partId: string; quantity: number }>>((acc, up) => {
+      if (acc[up.partId]) {
+        acc[up.partId] = { ...acc[up.partId], quantity: acc[up.partId].quantity + up.quantity }
+      } else {
+        acc[up.partId] = { partId: up.partId, quantity: up.quantity }
+      }
+      return acc
+    }, {})
+
+  return (
+    <>
+      {Object.entries(grouped).map(([partId, item]) => {
+        const part = parts.find(p => p.id === partId)
+        return (
+          <div key={partId} className="flex items-center justify-between text-sm">
+            <span>{part?.name || 'Peca nao encontrada'}</span>
+            <span className="text-muted-foreground">
+              {item.quantity}x - {formatCurrency((part?.price || 0) * item.quantity)}
+            </span>
+          </div>
+        )
+      })}
+    </>
+  )
+}
 
 interface MaintenanceViewProps {
   ticketId: string | null
@@ -656,29 +687,7 @@ export function MaintenanceView({ ticketId, onBack, onComplete }: MaintenanceVie
                 <Label className="text-muted-foreground">Peças já utilizadas anteriormente:</Label>
                 <div className="space-y-2">
                   {/* usedParts agrupados por partId para evitar chaves duplicadas */}
-                  {Object.entries(
-                    (ticket.usedParts ?? [])
-                      .filter(up => up && up.partId)
-                      .reduce<Record<string, { partId: string; quantity: number }>>((acc, up) => {
-                        const key = up.partId
-                        if (acc[key]) {
-                          acc[key] = { ...acc[key], quantity: acc[key].quantity + up.quantity }
-                        } else {
-                          acc[key] = { partId: up.partId, quantity: up.quantity }
-                        }
-                        return acc
-                      }, {})
-                  ).map(([partId, up]) => {
-                    const part = parts.find(p => p.id === partId)
-                    return (
-                      <div key={`part-row-${partId}`} className="flex items-center justify-between text-sm">
-                        <span>{part?.name || 'Peça não encontrada'}</span>
-                        <span className="text-muted-foreground">
-                          {up.quantity}x - {formatCurrency((part?.price || 0) * up.quantity)}
-                        </span>
-                      </div>
-                    )
-                  })}
+                  <UsedPartsList usedParts={ticket.usedParts} parts={parts} />
                   <div className="flex items-center justify-between font-medium pt-2 border-t">
                     <span>Custo anterior:</span>
                     <span>{formatCurrency(ticket.totalCost || 0)}</span>
