@@ -985,30 +985,31 @@ export function ReportsView() {
     filters.resolved !== 'all' ||
     filters.priority !== 'all'
 
-  // Filtrar tickets finalizados (completed + unresolved)
+  // Filtrar tickets para relatório: finalizados + em andamento (máquina ainda parada)
   const filteredTickets = useMemo(() => {
     return tickets.filter(t => {
-      // Incluir completed E unresolved (ambos são tickets finalizados)
-      if (t.status !== 'completed' && t.status !== 'unresolved') return false
-      // Data de referência: completedAt ou, para unresolved, a última action
+      // Incluir todos exceto open sem ação
+      if (t.status === 'open' || t.status === 'cancelled') return false
+
+      // Data de referência: completedAt, ou última action, ou createdAt
       const refDate = t.completedAt
         ? new Date(t.completedAt)
         : t.actions.length > 0
           ? new Date(t.actions[t.actions.length - 1].timestamp)
           : new Date(t.createdAt)
 
-      // Filtro de data
+      // Filtro de data — só aplica quando preset não é "all"
       if (filters.dateRange?.from && filters.dateRange?.to) {
-        if (!isWithinInterval(refDate, {
+        // Para tickets ainda ativos, usar createdAt como referência de entrada no período
+        const checkDate = t.status === 'completed' || t.status === 'unresolved' ? refDate : new Date(t.createdAt)
+        if (!isWithinInterval(checkDate, {
           start: startOfDay(filters.dateRange.from),
           end: endOfDay(filters.dateRange.to)
         })) return false
       }
 
-      // Filtro de máquina
       if (filters.machineId !== 'all' && t.machineId !== filters.machineId) return false
 
-      // Filtro de usuário (qualquer operador que trabalhou no ticket)
       if (filters.userId !== 'all') {
         const targetUser = users.find(u => u.id === filters.userId)
         if (!targetUser) return false
@@ -1018,19 +1019,16 @@ export function ReportsView() {
         if (!operatorWorked) return false
       }
 
-      // Filtro de peças
       if (filters.partId !== 'all') {
         const hasPart = t.usedParts.some(up => up.partId === filters.partId)
         if (!hasPart) return false
       }
 
-      // Filtro de resolvido
       if (filters.resolved !== 'all') {
         if (filters.resolved === 'yes' && !t.resolved) return false
         if (filters.resolved === 'no' && t.resolved !== false) return false
       }
 
-      // Filtro de prioridade
       if (filters.priority !== 'all' && t.priority !== filters.priority) return false
 
       return true
