@@ -23,37 +23,7 @@ import { Play, Pause, Square, ArrowLeft, Package, CheckCircle, User, History, Me
 import { cn } from '@/lib/utils'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import type { Part } from '@/lib/types'
-
-// Componente separado — garante chave unica por partId agrupado
-function UsedPartsList({ usedParts, parts }: { usedParts: UsedPart[]; parts: Part[] }) {
-  const grouped = (usedParts ?? [])
-    .filter(up => up && up.partId)
-    .reduce<Record<string, { partId: string; quantity: number }>>((acc, up) => {
-      if (acc[up.partId]) {
-        acc[up.partId] = { ...acc[up.partId], quantity: acc[up.partId].quantity + up.quantity }
-      } else {
-        acc[up.partId] = { partId: up.partId, quantity: up.quantity }
-      }
-      return acc
-    }, {})
-
-  return (
-    <>
-      {Object.entries(grouped).map(([partId, item]) => {
-        const part = parts.find(p => p.id === partId)
-        return (
-          <div key={partId} className="flex items-center justify-between text-sm">
-            <span>{part?.name || 'Peca nao encontrada'}</span>
-            <span className="text-muted-foreground">
-              {item.quantity}x - {formatCurrency((part?.price || 0) * item.quantity)}
-            </span>
-          </div>
-        )
-      })}
-    </>
-  )
-}
+import { UsedPartsList } from '@/components/used-parts-list'
 
 interface MaintenanceViewProps {
   ticketId: string | null
