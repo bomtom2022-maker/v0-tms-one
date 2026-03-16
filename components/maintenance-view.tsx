@@ -655,21 +655,22 @@ export function MaintenanceView({ ticketId, onBack, onComplete }: MaintenanceVie
               <div className="space-y-3 p-4 bg-muted/50 rounded-lg border">
                 <Label className="text-muted-foreground">Peças já utilizadas anteriormente:</Label>
                 <div className="space-y-2">
-                  {Object.values(
+                  {Object.entries(
                     (ticket.usedParts ?? [])
-                      .filter(up => up.partId)
+                      .filter(up => up && up.partId)
                       .reduce<Record<string, { partId: string; quantity: number }>>((acc, up) => {
-                        if (acc[up.partId]) {
-                          acc[up.partId].quantity += up.quantity
+                        const key = up.partId
+                        if (acc[key]) {
+                          acc[key] = { ...acc[key], quantity: acc[key].quantity + up.quantity }
                         } else {
-                          acc[up.partId] = { ...up }
+                          acc[key] = { partId: up.partId, quantity: up.quantity }
                         }
                         return acc
                       }, {})
-                  ).map((up) => {
-                    const part = parts.find(p => p.id === up.partId)
+                  ).map(([partId, up]) => {
+                    const part = parts.find(p => p.id === partId)
                     return (
-                      <div key={`used-${up.partId}`} className="flex items-center justify-between text-sm">
+                      <div key={`part-row-${partId}`} className="flex items-center justify-between text-sm">
                         <span>{part?.name || 'Peça não encontrada'}</span>
                         <span className="text-muted-foreground">
                           {up.quantity}x - {formatCurrency((part?.price || 0) * up.quantity)}
