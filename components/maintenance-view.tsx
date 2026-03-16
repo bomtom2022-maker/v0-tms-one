@@ -655,6 +655,7 @@ export function MaintenanceView({ ticketId, onBack, onComplete }: MaintenanceVie
               <div className="space-y-3 p-4 bg-muted/50 rounded-lg border">
                 <Label className="text-muted-foreground">Peças já utilizadas anteriormente:</Label>
                 <div className="space-y-2">
+                  {/* usedParts agrupados por partId para evitar chaves duplicadas */}
                   {Object.entries(
                     (ticket.usedParts ?? [])
                       .filter(up => up && up.partId)
