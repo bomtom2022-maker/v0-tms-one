@@ -1,7 +1,6 @@
 import { type NextRequest, NextResponse } from 'next/server'
 
-// Middleware temporariamente passivo ate a tela de login ser implementada.
-// Apenas atualiza cookies de sessao do Supabase sem redirecionar.
+// Middleware passivo — deixa todas as requisicoes passarem sem redirecionamento.
 export async function middleware(request: NextRequest) {
   return NextResponse.next()
 }
