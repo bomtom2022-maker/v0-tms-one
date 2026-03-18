@@ -21,7 +21,7 @@ import { InstallPrompt } from '@/components/install-prompt'
 type View = 'dashboard' | 'new-ticket' | 'problems' | 'machines' | 'maintenance' | 'parts' | 'reports' | 'scheduled' | 'users'
 
 function TMSApp() {
-  const { isAuthenticated, isManutentor, isLider } = useAuth()
+  const { isAuthenticated, isManutentor, isLider, canAccessAll, canManageUsers } = useAuth()
   const { setNotificationCallback, isLoading, reloadData } = useData()
   const { notify } = useNotification()
   const [currentView, setCurrentView] = useState<View>('dashboard')
@@ -40,20 +40,13 @@ function TMSApp() {
     return () => setNotificationCallback(null)
   }, [setNotificationCallback, notify])
 
-  // Redirecionar lider para views permitidas se tentar acessar algo restrito
-  useEffect(() => {
-    if (isLider && !['dashboard', 'new-ticket'].includes(currentView)) {
-      setCurrentView('dashboard')
-    }
-  }, [isLider, currentView])
-
   const handleSelectTicket = useCallback((ticketId: string) => {
-    // Apenas manutentores podem acessar a tela de manutenção
-    if (isManutentor) {
+    // Todos os usuarios autenticados podem acessar a tela de manutenção
+    if (canAccessAll) {
       setSelectedTicketId(ticketId)
       setCurrentView('maintenance')
     }
-  }, [isManutentor])
+  }, [canAccessAll])
 
   const handleBackFromMaintenance = useCallback(() => {
     setSelectedTicketId(null)
@@ -70,13 +63,12 @@ function TMSApp() {
   }, [])
 
   const handleViewChange = useCallback((view: View) => {
-    // Bloquear lideres de acessar views restritas
-    const liderAllowedViews: View[] = ['dashboard', 'new-ticket']
-    if (isLider && !liderAllowedViews.includes(view)) {
-      return
-    }
+    // Apenas admin pode gerenciar usuarios
+    if (view === 'users' && !canManageUsers) return
+    // Qualquer usuario autenticado pode acessar as demais views
+    if (!canAccessAll) return
     setCurrentView(view)
-  }, [isLider])
+  }, [canAccessAll, canManageUsers])
 
   // Se nao estiver autenticado, mostrar tela de login
   if (!isAuthenticated) {
@@ -96,31 +88,33 @@ function TMSApp() {
   }
 
   const renderView = () => {
+    if (!canAccessAll) return <DashboardView onSelectTicket={handleSelectTicket} />
+
     switch (currentView) {
       case 'dashboard':
         return <DashboardView onSelectTicket={handleSelectTicket} />
       case 'new-ticket':
         return <NewTicketView onSuccess={handleNewTicketSuccess} />
       case 'problems':
-        return isManutentor ? <ProblemsView /> : <DashboardView onSelectTicket={handleSelectTicket} />
+        return <ProblemsView />
       case 'machines':
-        return isManutentor ? <MachinesView /> : <DashboardView onSelectTicket={handleSelectTicket} />
+        return <MachinesView />
       case 'maintenance':
-        return isManutentor ? (
+        return (
           <MaintenanceView 
             ticketId={selectedTicketId}
             onBack={handleBackFromMaintenance}
             onComplete={handleMaintenanceComplete}
           />
-        ) : <DashboardView onSelectTicket={handleSelectTicket} />
+        )
       case 'parts':
-        return isManutentor ? <PartsView /> : <DashboardView onSelectTicket={handleSelectTicket} />
+        return <PartsView />
       case 'reports':
-        return isManutentor ? <ReportsView /> : <DashboardView onSelectTicket={handleSelectTicket} />
+        return <ReportsView />
       case 'scheduled':
-        return isManutentor ? <ScheduledView /> : <DashboardView onSelectTicket={handleSelectTicket} />
+        return <ScheduledView />
       case 'users':
-        return isManutentor ? <UsersView /> : <DashboardView onSelectTicket={handleSelectTicket} />
+        return canManageUsers ? <UsersView /> : <DashboardView onSelectTicket={handleSelectTicket} />
       default:
         return <DashboardView onSelectTicket={handleSelectTicket} />
     }

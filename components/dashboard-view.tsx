@@ -43,15 +43,17 @@ export function DashboardView({ onSelectTicket }: DashboardViewProps) {
   const [completedDateFilter, setCompletedDateFilter] = useState<Date>(new Date())
   const [calendarOpen, setCalendarOpen] = useState(false)
 
-  // Estatísticas dos cards
+  // Estatísticas coerentes com StatusCards
   const dashboardStats = useMemo(() => {
-    // Chamados em Aberto (status open)
+    // Chamados em Aberto (aguardando manutentor)
     const openTickets = tickets.filter(t => t.status === 'open').length
-    
-    // Em Manutenção (status in-progress ou paused)
-    const inMaintenanceTickets = tickets.filter(t => t.status === 'in-progress' || t.status === 'paused').length
-    
-    // Finalizadas no dia selecionado
+    // Em Manutenção (sendo atendidos agora)
+    const inMaintenanceTickets = tickets.filter(t => t.status === 'in-progress').length
+    // Pausados
+    const pausedTickets = tickets.filter(t => t.status === 'paused').length
+    // Nao Resolvidos
+    const unresolvedTickets = tickets.filter(t => t.status === 'unresolved').length
+    // Finalizados no dia selecionado
     const completedOnDate = tickets.filter(t => {
       if (t.status !== 'completed' || !t.completedAt) return false
       return isSameDay(t.completedAt, completedDateFilter)
@@ -60,11 +62,16 @@ export function DashboardView({ onSelectTicket }: DashboardViewProps) {
     return {
       open: openTickets,
       inMaintenance: inMaintenanceTickets,
+      paused: pausedTickets,
+      unresolved: unresolvedTickets,
       completed: completedOnDate,
     }
   }, [tickets, completedDateFilter])
 
-  const totalActive = tickets.filter(t => t.status !== 'completed' && t.status !== 'cancelled').length
+  // Total de chamados ativos (open + in-progress + paused + unresolved)
+  const totalActive = tickets.filter(t =>
+    t.status !== 'completed' && t.status !== 'cancelled'
+  ).length
 
   // Filtrar tickets ativos (nao finalizados e nao cancelados)
   const activeTickets = useMemo(() => {
@@ -132,97 +139,108 @@ export function DashboardView({ onSelectTicket }: DashboardViewProps) {
         </div>
       </div>
 
-      {/* Status Cards - Grid responsivo */}
-      <div className="grid grid-cols-3 gap-2 sm:gap-4">
-        {/* Chamados em Aberto */}
-        <Card className="border-l-2 sm:border-l-4 border-l-blue-500">
-          <CardContent className="p-2 sm:p-4">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
-              <div className="flex items-center gap-2 sm:block">
-                <div className="p-1.5 sm:p-3 bg-blue-50 dark:bg-blue-950 rounded-full sm:hidden">
-                  <AlertCircle className="w-4 h-4 text-blue-500" />
-                </div>
-                <div>
-                  <p className="text-[10px] sm:text-sm text-muted-foreground">Em Aberto</p>
-                  <p className="text-xl sm:text-3xl font-bold text-blue-500">{dashboardStats.open}</p>
-                </div>
+      {/* Status Cards - 5 contadores coerentes */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-3">
+        {/* Em Aberto */}
+        <Card className="border-l-2 sm:border-l-4 border-l-red-500">
+          <CardContent className="p-2 sm:p-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-[10px] sm:text-xs text-muted-foreground font-medium">Em Aberto</p>
+                <p className="text-2xl sm:text-3xl font-bold text-red-500">{dashboardStats.open}</p>
+                <p className="text-[9px] text-muted-foreground">Aguardando</p>
               </div>
-              <div className="hidden sm:block p-3 bg-blue-50 dark:bg-blue-950 rounded-full">
-                <AlertCircle className="w-6 h-6 text-blue-500" />
+              <div className="p-2 bg-red-50 rounded-full">
+                <AlertCircle className="w-4 h-4 text-red-500" />
               </div>
             </div>
-            <p className="hidden sm:block text-xs text-muted-foreground mt-2">
-              Aguardando
-            </p>
           </CardContent>
         </Card>
 
         {/* Em Manutenção */}
-        <Card className="border-l-2 sm:border-l-4 border-l-orange-500">
-          <CardContent className="p-2 sm:p-4">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
-              <div className="flex items-center gap-2 sm:block">
-                <div className="p-1.5 sm:p-3 bg-orange-50 dark:bg-orange-950 rounded-full sm:hidden">
-                  <Wrench className="w-4 h-4 text-orange-500" />
-                </div>
-                <div>
-                  <p className="text-[10px] sm:text-sm text-muted-foreground">Manutencao</p>
-                  <p className="text-xl sm:text-3xl font-bold text-orange-500">{dashboardStats.inMaintenance}</p>
-                </div>
+        <Card className="border-l-2 sm:border-l-4 border-l-blue-500">
+          <CardContent className="p-2 sm:p-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-[10px] sm:text-xs text-muted-foreground font-medium">Em Manutenção</p>
+                <p className="text-2xl sm:text-3xl font-bold text-blue-500">{dashboardStats.inMaintenance}</p>
+                <p className="text-[9px] text-muted-foreground">Trabalhando</p>
               </div>
-              <div className="hidden sm:block p-3 bg-orange-50 dark:bg-orange-950 rounded-full">
-                <Wrench className="w-6 h-6 text-orange-500" />
+              <div className="p-2 bg-blue-50 rounded-full">
+                <Wrench className="w-4 h-4 text-blue-500" />
               </div>
             </div>
-            <p className="hidden sm:block text-xs text-muted-foreground mt-2">
-              Atuando
-            </p>
           </CardContent>
         </Card>
 
-        {/* Finalizadas - Com filtro de data */}
-        <Card className="border-l-2 sm:border-l-4 border-l-green-500">
-          <CardContent className="p-2 sm:p-4">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
-              <div className="flex items-center gap-2 sm:block">
-                <div className="p-1.5 sm:p-3 bg-green-50 dark:bg-green-950 rounded-full sm:hidden">
-                  <CheckCircle2 className="w-4 h-4 text-green-500" />
-                </div>
-                <div>
-                  <p className="text-[10px] sm:text-sm text-muted-foreground">Finalizadas</p>
-                  <p className="text-xl sm:text-3xl font-bold text-green-500">{dashboardStats.completed}</p>
-                </div>
+        {/* Pausados */}
+        <Card className="border-l-2 sm:border-l-4 border-l-orange-500">
+          <CardContent className="p-2 sm:p-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-[10px] sm:text-xs text-muted-foreground font-medium">Pausados</p>
+                <p className="text-2xl sm:text-3xl font-bold text-orange-500">{dashboardStats.paused}</p>
+                <p className="text-[9px] text-muted-foreground">Interrompidos</p>
               </div>
-              <div className="hidden sm:block p-3 bg-green-50 dark:bg-green-950 rounded-full">
-                <CheckCircle2 className="w-6 h-6 text-green-500" />
+              <div className="p-2 bg-orange-50 rounded-full">
+                <Pause className="w-4 h-4 text-orange-500" />
               </div>
             </div>
-            {/* Filtro de Data */}
-            <div className="mt-2 sm:mt-3">
-              <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
-                <PopoverTrigger asChild>
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    className="w-full justify-start text-left font-normal h-7 sm:h-8 text-[10px] sm:text-xs px-2"
-                  >
-                    <CalendarIcon className="mr-1 sm:mr-2 h-3 w-3" />
-                    {isToday(completedDateFilter) 
-                      ? 'Hoje' 
-                      : format(completedDateFilter, "dd/MM", { locale: ptBR })}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={completedDateFilter}
-                    onSelect={handleDateSelect}
-                    initialFocus
-                    locale={ptBR}
-                  />
-                </PopoverContent>
-              </Popover>
+          </CardContent>
+        </Card>
+
+        {/* Não Resolvidos */}
+        <Card className="border-l-2 sm:border-l-4 border-l-yellow-500">
+          <CardContent className="p-2 sm:p-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-[10px] sm:text-xs text-muted-foreground font-medium">Não Resolvidos</p>
+                <p className="text-2xl sm:text-3xl font-bold text-yellow-600">{dashboardStats.unresolved}</p>
+                <p className="text-[9px] text-muted-foreground">Nova atenção</p>
+              </div>
+              <div className="p-2 bg-yellow-50 rounded-full">
+                <Play className="w-4 h-4 text-yellow-600" />
+              </div>
             </div>
+          </CardContent>
+        </Card>
+
+        {/* Finalizadas hoje - Com filtro de data */}
+        <Card className="border-l-2 sm:border-l-4 border-l-green-500 col-span-2 sm:col-span-1">
+          <CardContent className="p-2 sm:p-3">
+            <div className="flex items-center justify-between mb-1">
+              <div>
+                <p className="text-[10px] sm:text-xs text-muted-foreground font-medium">Finalizados</p>
+                <p className="text-2xl sm:text-3xl font-bold text-green-500">{dashboardStats.completed}</p>
+              </div>
+              <div className="p-2 bg-green-50 rounded-full">
+                <CheckCircle2 className="w-4 h-4 text-green-500" />
+              </div>
+            </div>
+            {/* Filtro de data para finalizados */}
+            <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
+              <PopoverTrigger asChild>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="w-full justify-start text-left font-normal h-6 text-[9px] px-2 mt-1"
+                >
+                  <CalendarIcon className="mr-1 h-3 w-3" />
+                  {isToday(completedDateFilter) 
+                    ? 'Hoje' 
+                    : format(completedDateFilter, "dd/MM", { locale: ptBR })}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="single"
+                  selected={completedDateFilter}
+                  onSelect={handleDateSelect}
+                  initialFocus
+                  locale={ptBR}
+                />
+              </PopoverContent>
+            </Popover>
           </CardContent>
         </Card>
       </div>
