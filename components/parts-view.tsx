@@ -39,30 +39,33 @@ export function PartsView() {
 
   const totalValue = parts.reduce((sum, part) => sum + part.price, 0)
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    
     if (!newPartName.trim() || !newPartPrice) return
-
-    addPart(newPartName.trim(), parseFloat(newPartPrice), newPartDescription.trim() || undefined, currentUser?.id || '', currentUser?.name || '')
-    
-    setNewPartName('')
-    setNewPartPrice('')
-    setNewPartDescription('')
-    setShowSuccess(true)
-    
-    setTimeout(() => {
-      setShowSuccess(false)
-      setShowForm(false)
-    }, 1500)
+    try {
+      await addPart(newPartName.trim(), parseFloat(newPartPrice), newPartDescription.trim() || undefined, currentUser?.id || '', currentUser?.name || '')
+      setNewPartName('')
+      setNewPartPrice('')
+      setNewPartDescription('')
+      setShowSuccess(true)
+      setTimeout(() => {
+        setShowSuccess(false)
+        setShowForm(false)
+      }, 1500)
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Erro ao cadastrar peça')
+    }
   }
 
-  const handleEditPart = () => {
+  const handleEditPart = async () => {
     if (!editingPart || !editingPart.name.trim()) return
-    
-    const oldPart = parts.find(p => p.id === editingPart.id)
-    updatePart(editingPart.id, editingPart.name.trim(), editingPart.price, editingPart.description?.trim() || undefined, currentUser?.id || '', currentUser?.name || '', oldPart?.price)
-    setEditingPart(null)
+    try {
+      const oldPart = parts.find(p => p.id === editingPart.id)
+      await updatePart(editingPart.id, editingPart.name.trim(), editingPart.price, editingPart.description?.trim() || undefined, currentUser?.id || '', currentUser?.name || '', oldPart?.price)
+      setEditingPart(null)
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Erro ao editar peça')
+    }
   }
 
   return (

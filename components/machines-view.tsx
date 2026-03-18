@@ -52,31 +52,49 @@ export function MachinesView() {
   const [deletingMachineId, setDeletingMachineId] = useState<string | null>(null)
   const [form, setForm] = useState<MachineForm>(emptyForm)
   const [editForm, setEditForm] = useState<MachineForm>(emptyForm)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
-  const handleAdd = () => {
+  const handleAdd = async () => {
     if (!form.name.trim() || !form.sector.trim()) return
-    addMachine(
-      form.name.trim(), form.sector.trim(), 'ok',
-      currentUser?.id || '', currentUser?.name || '',
-      form.manufacturer.trim() || undefined,
-      form.model.trim() || undefined,
-      form.controller.trim() || undefined,
-    )
-    setForm(emptyForm)
-    setIsOpen(false)
+    setIsSubmitting(true)
+    setError(null)
+    try {
+      await addMachine(
+        form.name.trim(), form.sector.trim(), 'ok',
+        currentUser?.id || '', currentUser?.name || '',
+        form.manufacturer.trim() || undefined,
+        form.model.trim() || undefined,
+        form.controller.trim() || undefined,
+      )
+      setForm(emptyForm)
+      setIsOpen(false)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Erro ao cadastrar máquina')
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
-  const handleEdit = () => {
+  const handleEdit = async () => {
     if (!editingId || !editForm.name.trim() || !editForm.sector.trim()) return
-    const machine = machines.find(m => m.id === editingId)
-    updateMachine(
-      editingId, editForm.name.trim(), editForm.sector.trim(), machine?.status || 'ok',
-      currentUser?.id || '', currentUser?.name || '',
-      editForm.manufacturer.trim() || undefined,
-      editForm.model.trim() || undefined,
-      editForm.controller.trim() || undefined,
-    )
-    setEditingId(null)
+    setIsSubmitting(true)
+    setError(null)
+    try {
+      const machine = machines.find(m => m.id === editingId)
+      await updateMachine(
+        editingId, editForm.name.trim(), editForm.sector.trim(), machine?.status || 'ok',
+        currentUser?.id || '', currentUser?.name || '',
+        editForm.manufacturer.trim() || undefined,
+        editForm.model.trim() || undefined,
+        editForm.controller.trim() || undefined,
+      )
+      setEditingId(null)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Erro ao editar máquina')
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   const handleDelete = () => {
@@ -141,9 +159,16 @@ export function MachinesView() {
                 <Input id="new-controller" placeholder="Ex: Fanuc 0i-TF, Siemens 840D" value={form.controller} onChange={e => setForm(f => ({ ...f, controller: e.target.value }))} />
               </div>
             </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => { setIsOpen(false); setForm(emptyForm) }}>Cancelar</Button>
-              <Button onClick={handleAdd} disabled={!form.name.trim() || !form.sector.trim()}>Cadastrar</Button>
+            <DialogFooter className="flex-col gap-2">
+              {error && (
+                <p className="text-xs text-destructive text-center w-full">{error}</p>
+              )}
+              <div className="flex gap-2 w-full sm:w-auto sm:ml-auto">
+                <Button variant="outline" onClick={() => { setIsOpen(false); setForm(emptyForm); setError(null) }} className="flex-1 sm:flex-none">Cancelar</Button>
+                <Button onClick={handleAdd} disabled={!form.name.trim() || !form.sector.trim() || isSubmitting} className="flex-1 sm:flex-none">
+                  {isSubmitting ? 'Cadastrando...' : 'Cadastrar'}
+                </Button>
+              </div>
             </DialogFooter>
           </DialogContent>
         </Dialog>
@@ -178,10 +203,17 @@ export function MachinesView() {
               <Input id="edit-controller" placeholder="Ex: Fanuc 0i-TF, Siemens 840D" value={editForm.controller} onChange={e => setEditForm(f => ({ ...f, controller: e.target.value }))} />
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setEditingId(null)}>Cancelar</Button>
-            <Button onClick={handleEdit} disabled={!editForm.name.trim() || !editForm.sector.trim()}>Salvar</Button>
-          </DialogFooter>
+          <DialogFooter className="flex-col gap-2">
+              {error && (
+                <p className="text-xs text-destructive text-center w-full">{error}</p>
+              )}
+              <div className="flex gap-2 w-full sm:w-auto sm:ml-auto">
+                <Button variant="outline" onClick={() => { setEditingId(null); setError(null) }} className="flex-1 sm:flex-none">Cancelar</Button>
+                <Button onClick={handleEdit} disabled={!editForm.name.trim() || !editForm.sector.trim() || isSubmitting} className="flex-1 sm:flex-none">
+                  {isSubmitting ? 'Salvando...' : 'Salvar'}
+                </Button>
+              </div>
+            </DialogFooter>
         </DialogContent>
       </Dialog>
 

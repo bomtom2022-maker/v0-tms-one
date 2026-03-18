@@ -1,10 +1,11 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
-// Next.js 16: compativel com middleware.ts via backward compatibility
-export function middleware(_request: NextRequest) {
+export function proxy(_request: NextRequest) {
   return NextResponse.next()
 }
+
+export { proxy as middleware }
 
 export const config = {
   matcher: [

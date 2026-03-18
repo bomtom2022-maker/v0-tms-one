@@ -81,7 +81,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const reloadData = useCallback(async () => {
     setIsLoading(true)
     try {
-      console.log('[v0] reloadData iniciando...')
       const [m, pr, pa, t, s, al] = await Promise.all([
         fetchMachines(),
         fetchProblems(),
@@ -90,15 +89,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
         fetchScheduledMaintenances(),
         fetchAuditLogs(),
       ])
-      console.log('[v0] reloadData resultado - maquinas:', m.length, 'tickets:', t.length)
       setMachines(m)
       setProblems(pr)
       setParts(pa)
       setTickets(t)
       setScheduledMaintenances(s)
       setAuditLogs(al)
-    } catch (err) {
-      console.error('[v0] reloadData erro:', err)
+    } catch {
+      // silencioso quando nao autenticado
     } finally {
       setIsLoading(false)
     }
@@ -109,14 +107,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
   // ─── MAQUINAS ────────────────────────────────────────────
 
   const addMachine = useCallback(async (name: string, sector: string, status: MachineStatus, _userId: string, _userName: string, manufacturer?: string, model?: string, controller?: string) => {
-    try {
-      console.log('[v0] addMachine chamado:', { name, sector, status, manufacturer, model, controller })
-      const newMachine = await insertMachine(name, sector, status, manufacturer, model, controller)
-      console.log('[v0] addMachine sucesso:', newMachine)
-      setMachines(prev => [...prev, newMachine])
-    } catch (err) {
-      console.error('[v0] addMachine erro:', err)
-    }
+    const newMachine = await insertMachine(name, sector, status, manufacturer, model, controller)
+    setMachines(prev => [...prev, newMachine])
   }, [])
 
   const updateMachine = useCallback(async (id: string, name: string, sector: string, status: MachineStatus, _userId: string, _userName: string, manufacturer?: string, model?: string, controller?: string) => {
@@ -132,14 +124,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
   // ─── PECAS ───────────────────────────────────────────────
 
   const addPart = useCallback(async (name: string, price: number, description: string | undefined, _userId: string, _userName: string) => {
-    try {
-      console.log('[v0] addPart chamado:', { name, price, description })
-      const newPart = await insertPart(name, price, description)
-      console.log('[v0] addPart sucesso:', newPart)
-      setParts(prev => [...prev, newPart])
-    } catch (err) {
-      console.error('[v0] addPart erro:', err)
-    }
+    const newPart = await insertPart(name, price, description)
+    setParts(prev => [...prev, newPart])
   }, [])
 
   const updatePart = useCallback(async (id: string, name: string, price: number, description: string | undefined, _userId: string, _userName: string) => {
