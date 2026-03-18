@@ -1,7 +1,6 @@
 import { type NextRequest, NextResponse } from 'next/server'
 
-// Middleware passivo — deixa todas as requisicoes passarem sem redirecionamento.
-export async function middleware(request: NextRequest) {
+export default function proxy(_request: NextRequest) {
   return NextResponse.next()
 }
 
