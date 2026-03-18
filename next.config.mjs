@@ -6,10 +6,6 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
-  // Força o Turbopack a recompilar o cache apos remocao do middleware.ts
-  experimental: {
-    turbo: {},
-  },
 }
 
 export default nextConfig
