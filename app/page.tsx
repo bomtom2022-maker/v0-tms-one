@@ -27,26 +27,29 @@ function TMSApp() {
   const [currentView, setCurrentView] = useState<View>('dashboard')
   const [selectedTicketId, setSelectedTicketId] = useState<string | null>(null)
 
-  // Carregar dados do Supabase assim que usuario autenticar
   useEffect(() => {
-    if (isAuthenticated) {
-      reloadData()
-    }
+    if (isAuthenticated) reloadData()
   }, [isAuthenticated, reloadData])
 
-  // Integrar notificações do data-context com notification-context
   useEffect(() => {
     setNotificationCallback(notify)
     return () => setNotificationCallback(null)
   }, [setNotificationCallback, notify])
 
+  // Lider: se mudar de view e nao for permitida, volta ao dashboard
+  useEffect(() => {
+    if (isLider && currentView !== 'dashboard' && currentView !== 'new-ticket') {
+      setCurrentView('dashboard')
+    }
+  }, [isLider, currentView])
+
   const handleSelectTicket = useCallback((ticketId: string) => {
-    // Todos os usuarios autenticados podem acessar a tela de manutenção
-    if (canAccessAll) {
+    // Apenas manutentores podem abrir a tela de manutencao
+    if (isManutentor) {
       setSelectedTicketId(ticketId)
       setCurrentView('maintenance')
     }
-  }, [canAccessAll])
+  }, [isManutentor])
 
   const handleBackFromMaintenance = useCallback(() => {
     setSelectedTicketId(null)
@@ -63,12 +66,16 @@ function TMSApp() {
   }, [])
 
   const handleViewChange = useCallback((view: View) => {
-    // Apenas admin pode gerenciar usuarios
+    // Lider: apenas dashboard e new-ticket
+    if (isLider) {
+      if (view === 'dashboard' || view === 'new-ticket') setCurrentView(view)
+      return
+    }
+    // Manutentor: tudo exceto usuarios (só admin)
     if (view === 'users' && !canManageUsers) return
-    // Qualquer usuario autenticado pode acessar as demais views
     if (!canAccessAll) return
     setCurrentView(view)
-  }, [canAccessAll, canManageUsers])
+  }, [isLider, canAccessAll, canManageUsers])
 
   // Se nao estiver autenticado, mostrar tela de login
   if (!isAuthenticated) {
@@ -88,6 +95,13 @@ function TMSApp() {
   }
 
   const renderView = () => {
+    // Lider: apenas dashboard e new-ticket
+    if (isLider) {
+      if (currentView === 'new-ticket') return <NewTicketView onSuccess={handleNewTicketSuccess} />
+      return <DashboardView onSelectTicket={handleSelectTicket} />
+    }
+
+    // Usuarios nao autenticados ou sem role: apenas dashboard read-only
     if (!canAccessAll) return <DashboardView onSelectTicket={handleSelectTicket} />
 
     switch (currentView) {

@@ -31,8 +31,8 @@ interface DashboardViewProps {
 }
 
 export function DashboardView({ onSelectTicket }: DashboardViewProps) {
-  const { tickets, machines, problems, getMachineById, getProblemById } = useData()
-  const { isManutentor } = useAuth()
+  const { tickets, machines, problems, getMachineById, getProblemById, cancelTicket } = useData()
+  const { isManutentor, isLider, currentUser } = useAuth()
   
   const [searchTerm, setSearchTerm] = useState('')
   const [filterMachine, setFilterMachine] = useState<string>('all')
@@ -72,6 +72,15 @@ export function DashboardView({ onSelectTicket }: DashboardViewProps) {
   const totalActive = tickets.filter(t =>
     t.status !== 'completed' && t.status !== 'cancelled'
   ).length
+
+  // Último chamado em aberto criado por este lider (somente status 'open')
+  const liderLastOpenTicketId = useMemo(() => {
+    if (!isLider || !currentUser) return null
+    const myOpenTickets = tickets
+      .filter(t => t.status === 'open' && t.createdBy === currentUser.id)
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+    return myOpenTickets[0]?.id ?? null
+  }, [isLider, currentUser, tickets])
 
   // Filtrar tickets ativos (nao finalizados e nao cancelados)
   const activeTickets = useMemo(() => {
@@ -409,6 +418,20 @@ export function DashboardView({ onSelectTicket }: DashboardViewProps) {
                           >
                             {ticket.status === 'open' ? 'Iniciar' : ticket.status === 'unresolved' ? 'Continuar' : 'Gerenciar'}
                             <ArrowRight className="w-4 h-4 ml-1" />
+                          </Button>
+                        </div>
+                      )}
+
+                      {/* Botao cancelar - lider pode cancelar apenas seu ultimo chamado em aberto */}
+                      {isLider && ticket.status === 'open' && ticket.id === liderLastOpenTicketId && (
+                        <div className="shrink-0">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="w-full sm:w-auto h-8 text-xs sm:text-sm border-destructive/50 text-destructive hover:bg-destructive/10"
+                            onClick={() => cancelTicket(ticket.id, currentUser?.id ?? '', currentUser?.name ?? '')}
+                          >
+                            Cancelar
                           </Button>
                         </div>
                       )}

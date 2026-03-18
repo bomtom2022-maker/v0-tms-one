@@ -158,8 +158,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const isAdmin = session?.user.isAdmin === true
   const isLider = session?.user.role === 'lider'
   const isManutentor = session?.user.role === 'manutentor' || isAdmin
-  // Qualquer usuario autenticado pode operar o sistema — diferenca e apenas gestao de usuarios
-  const canAccessAll = isManutentor || isLider
+  // Apenas manutentores e admin têm acesso completo ao sistema
+  const canAccessAll = isManutentor
   // Apenas o admin (conta "adm") pode criar/editar/excluir usuarios
   const canManageUsers = isAdmin
   const currentUser = session?.user ?? null

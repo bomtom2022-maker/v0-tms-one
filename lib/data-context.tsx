@@ -81,6 +81,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const reloadData = useCallback(async () => {
     setIsLoading(true)
     try {
+      console.log('[v0] reloadData iniciando...')
       const [m, pr, pa, t, s, al] = await Promise.all([
         fetchMachines(),
         fetchProblems(),
@@ -89,14 +90,15 @@ export function DataProvider({ children }: { children: ReactNode }) {
         fetchScheduledMaintenances(),
         fetchAuditLogs(),
       ])
+      console.log('[v0] reloadData resultado - maquinas:', m.length, 'tickets:', t.length)
       setMachines(m)
       setProblems(pr)
       setParts(pa)
       setTickets(t)
       setScheduledMaintenances(s)
       setAuditLogs(al)
-    } catch {
-      // silencioso quando nao autenticado
+    } catch (err) {
+      console.error('[v0] reloadData erro:', err)
     } finally {
       setIsLoading(false)
     }
