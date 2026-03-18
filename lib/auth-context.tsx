@@ -30,6 +30,7 @@ interface AuthContextType {
   isLider: boolean
   isAdmin: boolean
   canManageUsers: boolean
+  canAccessAll: boolean
   currentUser: Omit<User, 'password'> | null
 }
 
@@ -155,10 +156,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const isAuthenticated = session?.isAuthenticated ?? false
   const isAdmin = session?.user.isAdmin === true
-  // Apenas o admin (conta "adm") pode gerenciar usuarios
-  const canManageUsers = isAdmin
-  const isManutentor = session?.user.role === 'manutentor' || isAdmin
   const isLider = session?.user.role === 'lider'
+  const isManutentor = session?.user.role === 'manutentor' || isAdmin
+  // Qualquer usuario autenticado pode operar o sistema — diferenca e apenas gestao de usuarios
+  const canAccessAll = isManutentor || isLider
+  // Apenas o admin (conta "adm") pode criar/editar/excluir usuarios
+  const canManageUsers = isAdmin
   const currentUser = session?.user ?? null
 
   return (
@@ -176,6 +179,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isLider,
       isAdmin,
       canManageUsers,
+      canAccessAll,
       currentUser,
     }}>
       {children}

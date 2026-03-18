@@ -23,8 +23,8 @@ interface DataContextType {
   auditLogs: AuditLog[]
   isLoading: boolean
   reloadData: () => Promise<void>
-  addMachine: (name: string, sector: string, status: MachineStatus, userId: string, userName: string) => Promise<void>
-  updateMachine: (id: string, name: string, sector: string, status: MachineStatus, userId: string, userName: string) => Promise<void>
+  addMachine: (name: string, sector: string, status: MachineStatus, userId: string, userName: string, manufacturer?: string, model?: string, controller?: string) => Promise<void>
+  updateMachine: (id: string, name: string, sector: string, status: MachineStatus, userId: string, userName: string, manufacturer?: string, model?: string, controller?: string) => Promise<void>
   deleteMachine: (id: string, userId: string, userName: string) => Promise<void>
   addPart: (name: string, price: number, description: string | undefined, userId: string, userName: string) => Promise<void>
   updatePart: (id: string, name: string, price: number, description: string | undefined, userId: string, userName: string, previousPrice?: number) => Promise<void>
@@ -107,8 +107,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
   // ─── MAQUINAS ────────────────────────────────────────────
 
   const addMachine = useCallback(async (name: string, sector: string, status: MachineStatus, _userId: string, _userName: string, manufacturer?: string, model?: string, controller?: string) => {
-    const newMachine = await insertMachine(name, sector, status, manufacturer, model, controller)
-    setMachines(prev => [...prev, newMachine])
+    try {
+      console.log('[v0] addMachine chamado:', { name, sector, status, manufacturer, model, controller })
+      const newMachine = await insertMachine(name, sector, status, manufacturer, model, controller)
+      console.log('[v0] addMachine sucesso:', newMachine)
+      setMachines(prev => [...prev, newMachine])
+    } catch (err) {
+      console.error('[v0] addMachine erro:', err)
+    }
   }, [])
 
   const updateMachine = useCallback(async (id: string, name: string, sector: string, status: MachineStatus, _userId: string, _userName: string, manufacturer?: string, model?: string, controller?: string) => {
@@ -124,8 +130,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
   // ─── PECAS ───────────────────────────────────────────────
 
   const addPart = useCallback(async (name: string, price: number, description: string | undefined, _userId: string, _userName: string) => {
-    const newPart = await insertPart(name, price, description)
-    setParts(prev => [...prev, newPart])
+    try {
+      console.log('[v0] addPart chamado:', { name, price, description })
+      const newPart = await insertPart(name, price, description)
+      console.log('[v0] addPart sucesso:', newPart)
+      setParts(prev => [...prev, newPart])
+    } catch (err) {
+      console.error('[v0] addPart erro:', err)
+    }
   }, [])
 
   const updatePart = useCallback(async (id: string, name: string, price: number, description: string | undefined, _userId: string, _userName: string) => {
@@ -197,18 +209,15 @@ export function DataProvider({ children }: { children: ReactNode }) {
     const machine = ticket ? machines.find(m => m.id === ticket.machineId) : null
     const isReopen = ticket?.status === 'unresolved'
 
-    await Promise.all([
-      updateTicketDb(ticketId, {
-        status: 'in-progress',
-        // Preservar started_at original; se reaberto (unresolved), manter o existente
-        started_at: ticket?.startedAt ? ticket.startedAt.toISOString() : now.toISOString(),
-        accepted_by: userId,
-        accepted_by_name: operatorName,
-        // NÃO resetar accumulated_time — herdado do ciclo anterior
-      }),
-      insertTicketAction(ticketId, isReopen ? 'resume' : 'start', operatorName, userId),
-      insertTicketSegment(ticketId, operatorName, userId, now),
-    ])
+    // Executar sequencialmente para evitar race conditions
+    await updateTicketDb(ticketId, {
+      status: 'in-progress',
+      started_at: ticket?.startedAt ? ticket.startedAt.toISOString() : now.toISOString(),
+      accepted_by: userId,
+      accepted_by_name: operatorName,
+    })
+    await insertTicketAction(ticketId, isReopen ? 'resume' : 'start', operatorName, userId)
+    await insertTicketSegment(ticketId, operatorName, userId, now)
 
     const newAction: MaintenanceAction = {
       type: isReopen ? 'resume' : 'start',
@@ -249,14 +258,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
       }
     }
 
-    await Promise.all([
-      updateTicketDb(ticketId, {
-        status: 'paused',
-        accumulated_time: (ticket?.accumulatedTime || 0) + additionalTime,
-      }),
-      insertTicketAction(ticketId, 'pause', operatorName, userId, reason),
-      closeTicketSegment(ticketId, now, additionalTime),
-    ])
+    // Executar sequencialmente para evitar race conditions
+    await updateTicketDb(ticketId, {
+      status: 'paused',
+      accumulated_time: (ticket?.accumulatedTime || 0) + additionalTime,
+    })
+    await insertTicketAction(ticketId, 'pause', operatorName, userId, reason)
+    // closeTicketSegment pode nao encontrar segmento aberto — ignorar falha silenciosamente
+    try { await closeTicketSegment(ticketId, now, additionalTime) } catch { /* sem segmento aberto */ }
 
     const newAction: MaintenanceAction = { type: 'pause', operatorName, timestamp: now, reason }
 
@@ -284,11 +293,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
     const ticket = tickets.find(t => t.id === ticketId)
     const machine = ticket ? machines.find(m => m.id === ticket.machineId) : null
 
-    await Promise.all([
-      updateTicketDb(ticketId, { status: 'in-progress' }),
-      insertTicketAction(ticketId, 'resume', operatorName, userId),
-      insertTicketSegment(ticketId, operatorName, userId, now),
-    ])
+    // Executar sequencialmente para evitar race conditions
+    await updateTicketDb(ticketId, {
+      status: 'in-progress',
+    })
+    await insertTicketAction(ticketId, 'resume', operatorName, userId)
+    await insertTicketSegment(ticketId, operatorName, userId, now)
 
     const newAction: MaintenanceAction = { type: 'resume', operatorName, timestamp: now }
     const newSegment: TimeSegment = { operatorName, startTime: now, duration: 0 }
@@ -349,22 +359,19 @@ export function DataProvider({ children }: { children: ReactNode }) {
     // Tempo desde que o problema foi reportado (createdAt até agora)
     const reportedDuration = ticket ? Math.floor((now.getTime() - new Date(ticket.createdAt).getTime()) / 1000) : 0
 
-    await Promise.all([
-      updateTicketDb(ticketId, {
-        status: finalStatus,
-        // Para unresolved: salvar completed_at como null, mas salvar downtime acumulado
-        completed_at: resolved === false ? null : now.toISOString(),
-        total_cost: totalCost,
-        downtime: totalDowntime,
-        // accumulated_time = totalDowntime para que o próximo manutentor herde o tempo correto
-        accumulated_time: totalDowntime,
-        completion_notes: completionNotes || null,
-        resolved: resolved ?? null,
-      }),
-      insertTicketAction(ticketId, 'complete', operatorName, userId),
-      closeTicketSegment(ticketId, now, additionalTime),
-      insertUsedParts(ticketId, usedParts),
-    ])
+    // Executar sequencialmente para evitar race conditions
+    await updateTicketDb(ticketId, {
+      status: finalStatus,
+      completed_at: resolved === false ? null : now.toISOString(),
+      total_cost: totalCost,
+      downtime: totalDowntime,
+      accumulated_time: totalDowntime,
+      completion_notes: completionNotes || null,
+      resolved: resolved ?? null,
+    })
+    await insertTicketAction(ticketId, 'complete', operatorName, userId)
+    try { await closeTicketSegment(ticketId, now, additionalTime) } catch { /* sem segmento aberto */ }
+    if (usedParts.length > 0) await insertUsedParts(ticketId, usedParts)
 
     if (resolved === false && machine) {
       await updateMachineDb(machine.id, machine.name, machine.sector, 'attention')

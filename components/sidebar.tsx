@@ -46,58 +46,29 @@ interface SidebarProps {
   onViewChange: (view: View) => void
 }
 
+// Menus: roles define quem ve o item
+// 'all' = todos autenticados, 'admin' = apenas admin
 const allMenuItems = [
-  { id: 'dashboard' as const, label: 'Dashboard', icon: LayoutDashboard, roles: ['manutentor', 'lider'] },
-  { id: 'new-ticket' as const, label: 'Novo Chamado', icon: Plus, roles: ['manutentor', 'lider'] },
-  { id: 'scheduled' as const, label: 'Manutenções Futuras', icon: CalendarClock, roles: ['manutentor'] },
-  { id: 'machines' as const, label: 'Máquinas', icon: Cog, roles: ['manutentor'] },
-  { id: 'problems' as const, label: 'Problemas', icon: Wrench, roles: ['manutentor'] },
-  { id: 'parts' as const, label: 'Peças', icon: Package, roles: ['manutentor'] },
-  { id: 'users' as const, label: 'Usuários', icon: Users, roles: ['manutentor'] },
-  { id: 'reports' as const, label: 'Relatórios', icon: BarChart3, roles: ['manutentor'] },
+  { id: 'dashboard' as const, label: 'Dashboard', icon: LayoutDashboard, roles: ['all'] },
+  { id: 'new-ticket' as const, label: 'Novo Chamado', icon: Plus, roles: ['all'] },
+  { id: 'scheduled' as const, label: 'Manutenções Futuras', icon: CalendarClock, roles: ['all'] },
+  { id: 'machines' as const, label: 'Máquinas', icon: Cog, roles: ['all'] },
+  { id: 'problems' as const, label: 'Problemas', icon: Wrench, roles: ['all'] },
+  { id: 'parts' as const, label: 'Peças', icon: Package, roles: ['all'] },
+  { id: 'reports' as const, label: 'Relatórios', icon: BarChart3, roles: ['all'] },
+  { id: 'users' as const, label: 'Usuários', icon: Users, roles: ['admin'] },
 ]
 
 export function Sidebar({ currentView, onViewChange }: SidebarProps) {
   const [mobileOpen, setMobileOpen] = useState(false)
   const [showInstallButton, setShowInstallButton] = useState(true)
-  const { currentUser, logout, isManutentor } = useAuth()
+  const { currentUser, logout, isManutentor, isLider, isAdmin } = useAuth()
 
-  // Verificar se deve mostrar botao de instalacao
-  useEffect(() => {
-    const checkInstall = () => {
-      // Verificar se esta em modo standalone (ja instalado como PWA)
-      const isInStandaloneMode = window.matchMedia('(display-mode: standalone)').matches 
-        || (window.navigator as Navigator & { standalone?: boolean }).standalone === true
-      
-      // Esconder botao se ja estiver instalado como PWA
-      setShowInstallButton(!isInStandaloneMode)
-    }
-    
-    checkInstall()
-    
-    window.addEventListener('pwa-install-available', checkInstall)
-    
-    return () => {
-      window.removeEventListener('pwa-install-available', checkInstall)
-    }
-  }, [])
-
-  const handleInstallClick = async () => {
-    // Se pode instalar diretamente, tenta instalar
-    if (canInstall()) {
-      const success = await triggerInstall()
-      if (success) {
-        setShowInstallButton(false)
-        return
-      }
-    }
-    // Senao, abre o modal com instrucoes
-    openInstallModal()
-  }
-
-  const menuItems = allMenuItems.filter(item => 
-    item.roles.includes(currentUser?.role || 'lider')
-  )
+  // Filtrar menus por permissao
+  const menuItems = allMenuItems.filter(item => {
+    if (item.roles.includes('admin')) return isAdmin
+    return true // 'all' — todos os usuarios autenticados
+  })
 
   const handleNavigation = (view: View) => {
     onViewChange(view)
@@ -109,9 +80,31 @@ export function Sidebar({ currentView, onViewChange }: SidebarProps) {
     setMobileOpen(false)
   }
 
-  const roleConfig = isManutentor 
-    ? { label: 'Manutentor', icon: Shield, color: 'bg-blue-500', textColor: 'text-blue-600' }
-    : { label: 'Líder', icon: User, color: 'bg-amber-500', textColor: 'text-amber-600' }
+  // Verificar se deve mostrar botao de instalacao
+  useEffect(() => {
+    const checkInstall = () => {
+      const isInStandaloneMode = window.matchMedia('(display-mode: standalone)').matches 
+        || (window.navigator as Navigator & { standalone?: boolean }).standalone === true
+      setShowInstallButton(!isInStandaloneMode)
+    }
+    checkInstall()
+    window.addEventListener('pwa-install-available', checkInstall)
+    return () => { window.removeEventListener('pwa-install-available', checkInstall) }
+  }, [])
+
+  const handleInstallClick = async () => {
+    if (canInstall()) {
+      const success = await triggerInstall()
+      if (success) { setShowInstallButton(false); return }
+    }
+    openInstallModal()
+  }
+
+  const roleConfig = isAdmin
+    ? { label: 'Administrador', icon: Shield, color: 'bg-purple-600', textColor: 'text-purple-600' }
+    : isManutentor
+      ? { label: 'Manutentor', icon: Shield, color: 'bg-blue-500', textColor: 'text-blue-600' }
+      : { label: 'Líder', icon: User, color: 'bg-amber-500', textColor: 'text-amber-600' }
 
   return (
     <>
@@ -252,7 +245,7 @@ export function Sidebar({ currentView, onViewChange }: SidebarProps) {
                   {roleConfig.label}
                 </Badge>
                 <span className="text-xs text-muted-foreground">
-                  {isManutentor ? 'Acesso total' : 'Acesso limitado'}
+                  {isAdmin ? 'Acesso total + usuários' : 'Acesso total'}
                 </span>
               </DropdownMenuItem>
               <DropdownMenuSeparator />

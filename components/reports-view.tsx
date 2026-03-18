@@ -698,13 +698,15 @@ function generateMachineDetailPDF(
   machineData: Array<{
     machineName: string
     sector: string
-    totalDowntime: number
+    stoppedTime: number   // tempo total desde abertura até resolução
+    operatingTime: number // tempo real do manutentor trabalhando
     totalCost: number
     tickets: Array<{
       date: string
       problem: string
       priority: string
       resolved: boolean
+      stoppedTime: number
       downtime: number
       cost: number
       operator: string
@@ -853,9 +855,15 @@ function generateMachineDetailPDF(
                 <span class="label">Total de Chamados</span>
                 <span class="value">${machine.tickets.length}</span>
               </div>
-              <div>
-                <span class="label">Tempo Parado</span>
-                <span class="value">${formatDuration(machine.totalDowntime)}</span>
+              <div style="border-color: #ef4444;">
+                <span class="label" style="color:#ef4444;">Máquina Parada</span>
+                <span class="value" style="color:#ef4444;">${formatDuration(machine.stoppedTime)}</span>
+                <span style="font-size:9pt;color:#888;display:block;">abertura → resolução</span>
+              </div>
+              <div style="border-color: #f97316;">
+                <span class="label" style="color:#f97316;">Tempo Operando</span>
+                <span class="value" style="color:#f97316;">${formatDuration(machine.operatingTime)}</span>
+                <span style="font-size:9pt;color:#888;display:block;">manutentor trabalhando</span>
               </div>
               <div>
                 <span class="label">Custo Total</span>
@@ -869,7 +877,8 @@ function generateMachineDetailPDF(
                     <th>Data</th>
                     <th>Problema</th>
                     <th>Status</th>
-                    <th>Tempo</th>
+                    <th style="color:#ef4444;">Maq. Parada</th>
+                    <th style="color:#f97316;">Operando</th>
                     <th>Custo</th>
                     <th>Operador</th>
                     <th>Pecas</th>
@@ -881,7 +890,8 @@ function generateMachineDetailPDF(
                       <td>${t.date}</td>
                       <td>${t.problem}</td>
                       <td><span class="badge ${t.resolved ? 'badge-success' : 'badge-warning'}">${t.resolved ? 'Resolvido' : 'Não Resolvido'}</span></td>
-                      <td>${formatDuration(t.downtime)}</td>
+                      <td style="color:#ef4444;font-weight:600;">${formatDuration(t.stoppedTime)}</td>
+                      <td style="color:#f97316;">${formatDuration(t.downtime)}</td>
                       <td>${formatCurrency(t.cost)}</td>
                       <td>${t.operator}</td>
                       <td>${t.parts || '-'}</td>
@@ -985,30 +995,31 @@ export function ReportsView() {
     filters.resolved !== 'all' ||
     filters.priority !== 'all'
 
-  // Filtrar tickets finalizados (completed + unresolved)
+  // Filtrar tickets para relatório: finalizados + em andamento (máquina ainda parada)
   const filteredTickets = useMemo(() => {
     return tickets.filter(t => {
-      // Incluir completed E unresolved (ambos são tickets finalizados)
-      if (t.status !== 'completed' && t.status !== 'unresolved') return false
-      // Data de referência: completedAt ou, para unresolved, a última action
+      // Incluir todos exceto open sem ação
+      if (t.status === 'open' || t.status === 'cancelled') return false
+
+      // Data de referência: completedAt, ou última action, ou createdAt
       const refDate = t.completedAt
         ? new Date(t.completedAt)
         : t.actions.length > 0
           ? new Date(t.actions[t.actions.length - 1].timestamp)
           : new Date(t.createdAt)
 
-      // Filtro de data
+      // Filtro de data — só aplica quando preset não é "all"
       if (filters.dateRange?.from && filters.dateRange?.to) {
-        if (!isWithinInterval(refDate, {
+        // Para tickets ainda ativos, usar createdAt como referência de entrada no período
+        const checkDate = t.status === 'completed' || t.status === 'unresolved' ? refDate : new Date(t.createdAt)
+        if (!isWithinInterval(checkDate, {
           start: startOfDay(filters.dateRange.from),
           end: endOfDay(filters.dateRange.to)
         })) return false
       }
 
-      // Filtro de máquina
       if (filters.machineId !== 'all' && t.machineId !== filters.machineId) return false
 
-      // Filtro de usuário (qualquer operador que trabalhou no ticket)
       if (filters.userId !== 'all') {
         const targetUser = users.find(u => u.id === filters.userId)
         if (!targetUser) return false
@@ -1018,19 +1029,16 @@ export function ReportsView() {
         if (!operatorWorked) return false
       }
 
-      // Filtro de peças
       if (filters.partId !== 'all') {
         const hasPart = t.usedParts.some(up => up.partId === filters.partId)
         if (!hasPart) return false
       }
 
-      // Filtro de resolvido
       if (filters.resolved !== 'all') {
         if (filters.resolved === 'yes' && !t.resolved) return false
         if (filters.resolved === 'no' && t.resolved !== false) return false
       }
 
-      // Filtro de prioridade
       if (filters.priority !== 'all' && t.priority !== filters.priority) return false
 
       return true
@@ -1039,7 +1047,14 @@ export function ReportsView() {
 
   // Estatísticas gerais
   const stats = useMemo(() => {
-    const totalDowntime = filteredTickets.reduce((sum, t) => sum + t.downtime, 0)
+    // Tempo Maquina Parada = createdAt ate completedAt (ou agora se ainda ativa)
+    const totalStoppedTime = filteredTickets.reduce((sum, t) => {
+      const start = new Date(t.createdAt).getTime()
+      const end = t.completedAt ? new Date(t.completedAt).getTime() : Date.now()
+      return sum + Math.floor((end - start) / 1000)
+    }, 0)
+    // Tempo Operando = soma dos segmentos de trabalho real do manutentor
+    const totalOperatingTime = filteredTickets.reduce((sum, t) => sum + t.downtime, 0)
     const totalCost = filteredTickets.reduce((sum, t) => sum + t.totalCost, 0)
     const resolved = filteredTickets.filter(t => t.resolved).length
     const notResolved = filteredTickets.filter(t => !t.resolved).length
@@ -1047,7 +1062,8 @@ export function ReportsView() {
 
     return {
       total: filteredTickets.length,
-      totalDowntime,
+      totalStoppedTime,
+      totalOperatingTime,
       totalCost,
       resolved,
       notResolved,
@@ -1058,21 +1074,29 @@ export function ReportsView() {
   // Dados por máquina
   const machineData = useMemo(() => {
     const data = new Map<string, { 
-      totalDowntime: number
+      stoppedTime: number   // createdAt → completedAt (tempo real parada)
+      operatingTime: number // soma dos segmentos de trabalho
       totalCost: number
       ticketCount: number
       tickets: typeof filteredTickets
     }>()
 
     filteredTickets.forEach(ticket => {
+      const start = new Date(ticket.createdAt).getTime()
+      const end = ticket.completedAt ? new Date(ticket.completedAt).getTime() : Date.now()
+      const stoppedTime = Math.floor((end - start) / 1000)
+      const operatingTime = ticket.downtime
+
       const current = data.get(ticket.machineId) || { 
-        totalDowntime: 0, 
+        stoppedTime: 0,
+        operatingTime: 0,
         totalCost: 0, 
         ticketCount: 0,
         tickets: []
       }
       data.set(ticket.machineId, {
-        totalDowntime: current.totalDowntime + ticket.downtime,
+        stoppedTime: current.stoppedTime + stoppedTime,
+        operatingTime: current.operatingTime + operatingTime,
         totalCost: current.totalCost + ticket.totalCost,
         ticketCount: current.ticketCount + 1,
         tickets: [...current.tickets, ticket]
@@ -1089,52 +1113,51 @@ export function ReportsView() {
           ...d
         }
       })
-      .sort((a, b) => b.totalDowntime - a.totalDowntime)
+      .sort((a, b) => b.stoppedTime - a.stoppedTime)
   }, [filteredTickets, getMachineById])
 
-  // Dados por usuário - usando timeSegments para tempo real por manutentor
+  // Dados por usuário - tempo operando = segmentos reais do manutentor
   const userData = useMemo(() => {
     const data = new Map<string, {
       ticketCount: number
-      totalDowntime: number
+      operatingTime: number // tempo real trabalhando (segmentos)
       totalCost: number
       resolvedCount: number
     }>()
 
     filteredTickets.forEach(ticket => {
-      // Usar timeSegments para calcular tempo real por manutentor
       const operatorTimes = new Map<string, number>()
       
       if (ticket.timeSegments && ticket.timeSegments.length > 0) {
         ticket.timeSegments.forEach(seg => {
+          const segDuration = seg.duration || (seg.endTime
+            ? Math.floor((new Date(seg.endTime).getTime() - new Date(seg.startTime).getTime()) / 1000)
+            : ticket.status === 'in-progress' ? Math.floor((Date.now() - new Date(seg.startTime).getTime()) / 1000) : 0)
           const current = operatorTimes.get(seg.operatorName) || 0
-          operatorTimes.set(seg.operatorName, current + seg.duration)
+          operatorTimes.set(seg.operatorName, current + segDuration)
         })
       } else {
-        // Fallback para tickets antigos sem timeSegments
+        // Fallback para tickets sem segmentos
         const lastAction = ticket.actions[ticket.actions.length - 1]
         if (lastAction) {
           operatorTimes.set(lastAction.operatorName, ticket.downtime)
         }
       }
 
-      // Atualizar dados de cada operador
-      operatorTimes.forEach((time, operatorName) => {
+      operatorTimes.forEach((operatingTime, operatorName) => {
         const current = data.get(operatorName) || {
           ticketCount: 0,
-          totalDowntime: 0,
+          operatingTime: 0,
           totalCost: 0,
           resolvedCount: 0
         }
-
-        // Verificar se este operador foi o que finalizou (para contar resolved)
         const lastAction = ticket.actions[ticket.actions.length - 1]
         const isCompleter = lastAction?.operatorName === operatorName
 
         data.set(operatorName, {
           ticketCount: current.ticketCount + 1,
-          totalDowntime: current.totalDowntime + time,
-          totalCost: current.totalCost + (isCompleter ? ticket.totalCost : 0), // Custo apenas para quem finalizou
+          operatingTime: current.operatingTime + operatingTime,
+          totalCost: current.totalCost + (isCompleter ? ticket.totalCost : 0),
           resolvedCount: current.resolvedCount + (isCompleter && ticket.resolved ? 1 : 0)
         })
       })
@@ -1142,7 +1165,7 @@ export function ReportsView() {
 
     return Array.from(data.entries())
       .map(([userName, d]) => ({ userName, ...d }))
-      .sort((a, b) => b.totalDowntime - a.totalDowntime) // Ordenar por tempo
+      .sort((a, b) => b.operatingTime - a.operatingTime)
   }, [filteredTickets])
 
   // Dados por peça
@@ -1207,18 +1230,18 @@ export function ReportsView() {
             const machine = getMachineById(t.machineId)
             const problem = getProblemById(t.problemId)
             const lastAction = t.actions[t.actions.length - 1]
-            const refDate = t.completedAt
-              ? new Date(t.completedAt)
-              : t.actions.length > 0
-                ? new Date(t.actions[t.actions.length - 1].timestamp)
-                : new Date(t.createdAt)
+            const stoppedSecs = Math.floor((
+              (t.completedAt ? new Date(t.completedAt).getTime() : Date.now()) -
+              new Date(t.createdAt).getTime()
+            ) / 1000)
             return {
-              data: format(refDate, 'dd/MM/yyyy HH:mm', { locale: ptBR }),
+              data: format(new Date(t.createdAt), 'dd/MM/yyyy HH:mm', { locale: ptBR }),
               maquina: machine?.name || '-',
               problema: problem?.name || '-',
               prioridade: PRIORITY_CONFIG[t.priority].label,
               status: t.resolved ? 'Resolvido' : 'Não Resolvido',
-              tempo: formatDuration(t.downtime),
+              maqParada: formatDuration(stoppedSecs),
+              operando: formatDuration(t.downtime),
               custo: formatCurrency(t.totalCost),
               operador: lastAction?.operatorName || '-'
             }
@@ -1229,13 +1252,15 @@ export function ReportsView() {
             { key: 'problema', label: 'Problema' },
             { key: 'prioridade', label: 'Prioridade', align: 'center' },
             { key: 'status', label: 'Status', align: 'center' },
-            { key: 'tempo', label: 'Tempo', align: 'right' },
+            { key: 'maqParada', label: 'Maq. Parada', align: 'right' },
+            { key: 'operando', label: 'Operando', align: 'right' },
             { key: 'custo', label: 'Custo', align: 'right' },
             { key: 'operador', label: 'Operador' }
           ],
           [
             { label: 'Total de Manutenções', value: String(stats.total) },
-            { label: 'Tempo Total Parado', value: formatDuration(stats.totalDowntime) },
+            { label: 'Tempo Máquina Parada', value: formatDuration(stats.totalStoppedTime) },
+            { label: 'Tempo Operando', value: formatDuration(stats.totalOperatingTime) },
             { label: 'Custo Total', value: formatCurrency(stats.totalCost) },
             { label: 'Resolvidos', value: `${stats.resolved} (${stats.total > 0 ? Math.round(stats.resolved / stats.total * 100) : 0}%)` }
           ]
@@ -1248,7 +1273,8 @@ export function ReportsView() {
           machineData.map(m => ({
             machineName: m.machineName,
             sector: m.sector,
-            totalDowntime: m.totalDowntime,
+            stoppedTime: m.stoppedTime,
+            operatingTime: m.operatingTime,
             totalCost: m.totalCost,
             tickets: m.tickets.map(t => {
               const problem = getProblemById(t.problemId)
@@ -1257,12 +1283,17 @@ export function ReportsView() {
                 const part = getPartById(up.partId)
                 return `${part?.name} (x${up.quantity})`
               }).join(', ')
+              const stoppedSecs = Math.floor((
+                (t.completedAt ? new Date(t.completedAt).getTime() : Date.now()) -
+                new Date(t.createdAt).getTime()
+              ) / 1000)
 
               return {
                 date: format(t.completedAt ?? (t.actions.length > 0 ? new Date(t.actions[t.actions.length - 1].timestamp) : new Date(t.createdAt)), 'dd/MM/yyyy', { locale: ptBR }),
                 problem: problem?.name || '-',
                 priority: PRIORITY_CONFIG[t.priority].label,
                 resolved: t.resolved ?? true,
+                stoppedTime: stoppedSecs,
                 downtime: t.downtime,
                 cost: t.totalCost,
                 operator: lastAction?.operatorName || '-',
@@ -1282,21 +1313,23 @@ export function ReportsView() {
             nome: u.userName,
             chamados: String(u.ticketCount),
             resolvidos: `${u.resolvedCount} (${Math.round(u.resolvedCount / u.ticketCount * 100)}%)`,
-            tempo: formatDuration(u.totalDowntime),
+            operando: formatDuration(u.operatingTime),
+            media: formatDuration(Math.round(u.operatingTime / u.ticketCount)),
             custo: formatCurrency(u.totalCost),
-            media: formatDuration(Math.round(u.totalDowntime / u.ticketCount))
           })),
           [
             { key: 'nome', label: 'Manutentor' },
             { key: 'chamados', label: 'Chamados', align: 'center' },
             { key: 'resolvidos', label: 'Resolvidos', align: 'center' },
-            { key: 'tempo', label: 'Tempo Total', align: 'right' },
+            { key: 'operando', label: 'Tempo Operando', align: 'right' },
+            { key: 'media', label: 'Media/Chamado', align: 'right' },
             { key: 'custo', label: 'Custo Total', align: 'right' },
-            { key: 'media', label: 'Media/Chamado', align: 'right' }
           ],
           [
             { label: 'Total de Manutentores', value: String(userData.length) },
-            { label: 'Total de Chamados', value: String(stats.total) }
+            { label: 'Total de Chamados', value: String(stats.total) },
+            { label: 'Tempo Total Operando', value: formatDuration(stats.totalOperatingTime) },
+            { label: 'Tempo Total Maq. Parada', value: formatDuration(stats.totalStoppedTime) },
           ]
         )
         break
@@ -1698,15 +1731,33 @@ export function ReportsView() {
           </CardContent>
         </Card>
 
-        <Card>
+        {/* Tempo Máquina Parada — desde abertura do chamado */}
+        <Card className="border-red-200">
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
               <div className="p-2 rounded-lg bg-red-500">
                 <Clock className="w-4 h-4 text-white" />
               </div>
               <div>
-                <p className="text-xs text-muted-foreground">Tempo Parado</p>
-                <p className="text-xl font-bold">{formatDuration(stats.totalDowntime)}</p>
+                <p className="text-xs text-muted-foreground font-medium text-red-600">Máquina Parada</p>
+                <p className="text-xl font-bold text-red-600">{formatDuration(stats.totalStoppedTime)}</p>
+                <p className="text-[10px] text-muted-foreground">abertura → resolução</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Tempo Operando — tempo real do manutentor trabalhando */}
+        <Card className="border-orange-200">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-orange-500">
+                <TrendingUp className="w-4 h-4 text-white" />
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground font-medium text-orange-600">Tempo Operando</p>
+                <p className="text-xl font-bold text-orange-600">{formatDuration(stats.totalOperatingTime)}</p>
+                <p className="text-[10px] text-muted-foreground">manutentor trabalhando</p>
               </div>
             </div>
           </CardContent>
@@ -1719,24 +1770,34 @@ export function ReportsView() {
                 <DollarSign className="w-4 h-4 text-white" />
               </div>
               <div>
-                <p className="text-xs text-muted-foreground">Custo em Pecas</p>
+                <p className="text-xs text-muted-foreground">Custo em Peças</p>
                 <p className="text-xl font-bold">{formatCurrency(stats.totalCost)}</p>
               </div>
             </div>
           </CardContent>
         </Card>
+      </div>
 
+      {/* Taxa de Resolução separada */}
+      <div className="grid grid-cols-1 gap-4">
         <Card>
           <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-blue-500">
-                <CheckCircle className="w-4 h-4 text-white" />
+            <div className="flex items-center gap-6">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-blue-500">
+                  <CheckCircle className="w-4 h-4 text-white" />
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Taxa Resolução</p>
+                  <p className="text-xl font-bold">
+                    {stats.total > 0 ? Math.round(stats.resolved / stats.total * 100) : 0}%
+                  </p>
+                </div>
               </div>
-              <div>
-                <p className="text-xs text-muted-foreground">Taxa Resolução</p>
-                <p className="text-xl font-bold">
-                  {stats.total > 0 ? Math.round(stats.resolved / stats.total * 100) : 0}%
-                </p>
+              <div className="flex-1 hidden sm:flex items-center gap-6 text-sm">
+                <span className="text-green-600 font-medium">{stats.resolved} resolvidos</span>
+                <span className="text-orange-600 font-medium">{stats.notResolved} pendentes</span>
+                <span className="text-muted-foreground">{stats.uniqueMachines} máquinas afetadas</span>
               </div>
             </div>
           </CardContent>
@@ -1791,7 +1852,8 @@ export function ReportsView() {
                       <th className="p-2 sm:p-3 text-left font-medium text-[10px] sm:text-xs">Máquina</th>
                       <th className="p-2 sm:p-3 text-left font-medium text-[10px] sm:text-xs hidden sm:table-cell">Problema</th>
                       <th className="p-2 sm:p-3 text-center font-medium text-[10px] sm:text-xs">Status</th>
-                      <th className="p-2 sm:p-3 text-right font-medium text-[10px] sm:text-xs">Tempo</th>
+                      <th className="p-2 sm:p-3 text-right font-medium text-[10px] sm:text-xs text-red-600">Maq. Parada</th>
+                      <th className="p-2 sm:p-3 text-right font-medium text-[10px] sm:text-xs text-orange-600 hidden sm:table-cell">Operando</th>
                       <th className="p-2 sm:p-3 text-right font-medium text-[10px] sm:text-xs">Custo</th>
                       <th className="p-2 sm:p-3 text-left font-medium text-[10px] sm:text-xs hidden md:table-cell">Operador</th>
                     </tr>
@@ -1801,11 +1863,15 @@ export function ReportsView() {
                       const machine = getMachineById(ticket.machineId)
                       const problem = getProblemById(ticket.problemId)
                       const lastAction = ticket.actions[ticket.actions.length - 1]
+                      const stoppedSecs = Math.floor((
+                        (ticket.completedAt ? new Date(ticket.completedAt).getTime() : Date.now()) -
+                        new Date(ticket.createdAt).getTime()
+                      ) / 1000)
                       
                       return (
                         <tr key={ticket.id} className="hover:bg-muted/50">
                           <td className="p-2 sm:p-3 whitespace-nowrap text-[10px] sm:text-xs">
-                            {format(ticket.completedAt!, 'dd/MM/yy HH:mm', { locale: ptBR })}
+                            {format(new Date(ticket.createdAt), 'dd/MM/yy HH:mm', { locale: ptBR })}
                           </td>
                           <td className="p-2 sm:p-3 text-[10px] sm:text-xs max-w-[100px] truncate">{machine?.name || '-'}</td>
                           <td className="p-2 sm:p-3 text-[10px] sm:text-xs hidden sm:table-cell max-w-[120px] truncate">{problem?.name || '-'}</td>
@@ -1816,13 +1882,18 @@ export function ReportsView() {
                                 "text-[9px] sm:text-xs px-1 sm:px-2",
                                 ticket.resolved 
                                   ? "bg-green-50 text-green-600 border-green-200" 
-                                  : "bg-orange-50 text-orange-600 border-orange-200"
+                                  : ticket.status === 'in-progress' || ticket.status === 'paused'
+                                    ? "bg-orange-50 text-orange-600 border-orange-200"
+                                    : "bg-red-50 text-red-600 border-red-200"
                               )}
                             >
-                              {ticket.resolved ? 'OK' : 'Pendente'}
+                              {ticket.resolved ? 'Resolvido' : ticket.status === 'in-progress' ? 'Em andamento' : ticket.status === 'paused' ? 'Pausado' : 'Pendente'}
                             </Badge>
                           </td>
-                          <td className="p-2 sm:p-3 text-right font-mono text-[10px] sm:text-xs">
+                          <td className="p-2 sm:p-3 text-right font-mono text-[10px] sm:text-xs text-red-600 font-semibold">
+                            {formatDuration(stoppedSecs)}
+                          </td>
+                          <td className="p-2 sm:p-3 text-right font-mono text-[10px] sm:text-xs text-orange-600 hidden sm:table-cell">
                             {formatDuration(ticket.downtime)}
                           </td>
                           <td className="p-2 sm:p-3 text-right font-mono text-[10px] sm:text-xs">
@@ -1853,33 +1924,42 @@ export function ReportsView() {
         <TabsContent value="machines" className="mt-4">
           <Card>
             <CardHeader>
-              <CardTitle>Ranking por Maquina</CardTitle>
+              <CardTitle>Ranking por Máquina</CardTitle>
               <CardDescription>
-                Ordenado por tempo parado (maior para menor)
+                Ordenado por tempo de máquina parada (maior para menor)
               </CardDescription>
             </CardHeader>
             <CardContent className="p-0">
               <div className="divide-y">
                 {machineData.map((m, index) => (
                   <div key={m.machineId} className="p-4 hover:bg-muted/50">
-                    <div className="flex items-center gap-4">
+                    <div className="flex items-start gap-4">
                       <div className={cn(
-                        "w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm shrink-0",
+                        "w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm shrink-0 mt-0.5",
                         index < 3 ? "bg-orange-500 text-white" : "bg-muted text-muted-foreground"
                       )}>
                         {index + 1}
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="font-medium truncate">{m.machineName}</p>
-                        <p className="text-xs text-muted-foreground">{m.sector}</p>
+                        <p className="text-xs text-muted-foreground">{m.sector} &bull; {m.ticketCount} chamados</p>
                       </div>
+                      {/* Tempo Máquina Parada */}
                       <div className="text-right">
-                        <p className="font-bold">{formatDuration(m.totalDowntime)}</p>
-                        <p className="text-xs text-muted-foreground">{m.ticketCount} chamados</p>
+                        <p className="text-[10px] text-red-600 font-medium uppercase tracking-wide">Máquina Parada</p>
+                        <p className="font-bold text-red-600 font-mono">{formatDuration(m.stoppedTime)}</p>
+                        <p className="text-[10px] text-muted-foreground">abertura → resolução</p>
                       </div>
+                      {/* Tempo Operando */}
                       <div className="text-right hidden sm:block">
+                        <p className="text-[10px] text-orange-600 font-medium uppercase tracking-wide">Operando</p>
+                        <p className="font-medium text-orange-600 font-mono">{formatDuration(m.operatingTime)}</p>
+                        <p className="text-[10px] text-muted-foreground">trabalhando</p>
+                      </div>
+                      {/* Custo */}
+                      <div className="text-right hidden md:block">
+                        <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Custo Peças</p>
                         <p className="font-medium text-green-600">{formatCurrency(m.totalCost)}</p>
-                        <p className="text-xs text-muted-foreground">em pecas</p>
                       </div>
                     </div>
                   </div>
@@ -1900,15 +1980,15 @@ export function ReportsView() {
             <CardHeader>
               <CardTitle>Performance por Manutentor</CardTitle>
               <CardDescription>
-                Ordenado por quantidade de chamados
+                Tempo operando = segmentos reais de trabalho por manutentor
               </CardDescription>
             </CardHeader>
             <CardContent className="p-0">
               <div className="divide-y">
                 {userData.map((u) => (
                   <div key={u.userName} className="p-4 hover:bg-muted/50">
-                    <div className="flex items-center gap-4">
-                      <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                    <div className="flex items-start gap-4">
+                      <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
                         <User className="w-5 h-5 text-primary" />
                       </div>
                       <div className="flex-1 min-w-0">
@@ -1921,9 +2001,16 @@ export function ReportsView() {
                         <p className="font-bold">{u.ticketCount}</p>
                         <p className="text-xs text-muted-foreground">chamados</p>
                       </div>
+                      {/* Tempo Operando — tempo real do manutentor */}
                       <div className="text-right hidden sm:block">
-                        <p className="font-medium">{formatDuration(u.totalDowntime)}</p>
-                        <p className="text-xs text-muted-foreground">tempo total</p>
+                        <p className="text-[10px] text-orange-600 font-medium uppercase tracking-wide">Tempo Operando</p>
+                        <p className="font-medium text-orange-600 font-mono">{formatDuration(u.operatingTime)}</p>
+                        <p className="text-[10px] text-muted-foreground">trabalhando</p>
+                      </div>
+                      {/* Custo */}
+                      <div className="text-right hidden md:block">
+                        <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Custo</p>
+                        <p className="font-medium text-green-600">{formatCurrency(u.totalCost)}</p>
                       </div>
                     </div>
                   </div>

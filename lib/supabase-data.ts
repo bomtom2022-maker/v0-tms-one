@@ -2,7 +2,17 @@ import type { Machine, Problem, Part, Ticket, ScheduledMaintenance, UsedPart, Ma
 
 // v2 — todas as operacoes via API Routes (sem createClient browser)
 async function apiFetch(url: string, options?: RequestInit) {
-  const res = await fetch(url, options)
+  let res: Response
+  try {
+    res = await fetch(url, options)
+  } catch (e) {
+    throw new Error(`Falha de rede em ${url}: ${e instanceof Error ? e.message : String(e)}`)
+  }
+  // Verificar se a resposta é JSON antes de parsear
+  const contentType = res.headers.get('content-type') || ''
+  if (!contentType.includes('application/json')) {
+    throw new Error(`Resposta nao-JSON em ${url} (status ${res.status})`)
+  }
   const data = await res.json()
   if (!res.ok) throw new Error(data.error || `Erro na requisicao ${url}`)
   return data
@@ -110,20 +120,57 @@ export async function updatePartDb(id: string, name: string, price: number, desc
 // ─── TICKETS ───────────────────────────────────────────────
 
 function rowToTicket(row: Record<string, unknown>, actions: MaintenanceAction[] = [], usedParts: UsedPart[] = [], timeSegments: TimeSegment[] = []): Ticket {
+  const status = row.status as Ticket['status']
+
+  // Calcular downtime real a partir dos segmentos de tempo
+  // Segmentos fechados: somar durations. Segmento aberto (in-progress): somar elapsed até agora.
+  let calculatedDowntime = timeSegments.reduce((sum, seg) => {
+    if (seg.endTime) {
+      return sum + (seg.duration || Math.floor((new Date(seg.endTime).getTime() - new Date(seg.startTime).getTime()) / 1000))
+    } else if (status === 'in-progress') {
+      // Segmento aberto — calcular até agora
+      return sum + Math.floor((Date.now() - new Date(seg.startTime).getTime()) / 1000)
+    }
+    return sum
+  }, 0)
+
+  // Se não há segmentos, usar fallback das actions (compatibilidade com dados antigos)
+  if (calculatedDowntime === 0 && actions.length > 0) {
+    let accumulated = Number(row.accumulated_time) || 0
+    // Encontrar último start/resume
+    const lastStart = [...actions].reverse().find(a => a.type === 'start' || a.type === 'resume')
+    if (lastStart && status === 'in-progress') {
+      accumulated += Math.floor((Date.now() - new Date(lastStart.timestamp).getTime()) / 1000)
+    }
+    calculatedDowntime = accumulated
+  }
+
+  // Para tickets finalizados, usar o maior entre banco e calculado (banco pode estar correto)
+  const dbDowntime = Number(row.downtime) || 0
+  const finalDowntime = status === 'completed' || status === 'unresolved'
+    ? Math.max(dbDowntime, calculatedDowntime)
+    : calculatedDowntime
+
+  // accumulatedTime: para tickets finalizados usa downtime final; para outros usa accumulated_time do banco
+  const dbAccumulated = Number(row.accumulated_time) || 0
+  const finalAccumulated = (status === 'completed' || status === 'unresolved')
+    ? finalDowntime
+    : dbAccumulated
+
   return {
     id: row.id as string,
     machineId: row.machine_id as string,
     problemId: row.problem_id as string,
     observation: (row.observation as string) || '',
     priority: row.priority as Priority,
-    status: row.status as Ticket['status'],
+    status,
     createdAt: new Date(row.created_at as string),
     startedAt: row.started_at ? new Date(row.started_at as string) : undefined,
     completedAt: row.completed_at ? new Date(row.completed_at as string) : undefined,
     usedParts,
     totalCost: Number(row.total_cost) || 0,
-    downtime: Number(row.downtime) || 0,
-    accumulatedTime: Number(row.accumulated_time) || 0,
+    downtime: finalDowntime,
+    accumulatedTime: finalAccumulated,
     actions,
     timeSegments,
     completionNotes: (row.completion_notes as string) ?? undefined,

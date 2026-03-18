@@ -23,6 +23,7 @@ import { Play, Pause, Square, ArrowLeft, Package, CheckCircle, User, History, Me
 import { cn } from '@/lib/utils'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
+import { UsedPartsList } from '@/components/used-parts-list'
 
 interface MaintenanceViewProps {
   ticketId: string | null
@@ -655,17 +656,8 @@ export function MaintenanceView({ ticketId, onBack, onComplete }: MaintenanceVie
               <div className="space-y-3 p-4 bg-muted/50 rounded-lg border">
                 <Label className="text-muted-foreground">Peças já utilizadas anteriormente:</Label>
                 <div className="space-y-2">
-                  {ticket.usedParts.map((up) => {
-                    const part = parts.find(p => p.id === up.partId)
-                    return (
-                      <div key={up.partId} className="flex items-center justify-between text-sm">
-                        <span>{part?.name || 'Peça não encontrada'}</span>
-                        <span className="text-muted-foreground">
-                          {up.quantity}x - {formatCurrency((part?.price || 0) * up.quantity)}
-                        </span>
-                      </div>
-                    )
-                  })}
+                  {/* usedParts agrupados por partId para evitar chaves duplicadas */}
+                  <UsedPartsList usedParts={ticket.usedParts} parts={parts} />
                   <div className="flex items-center justify-between font-medium pt-2 border-t">
                     <span>Custo anterior:</span>
                     <span>{formatCurrency(ticket.totalCost || 0)}</span>
