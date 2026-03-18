@@ -1,4 +1,12 @@
-// Este arquivo foi substituído por proxy.ts (Next.js 16)
-// Mantido aqui apenas para evitar que o Git restaure uma versão antiga.
-// NÃO adicionar nenhum export aqui — o Next.js usará proxy.ts
-export {}
+import { NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
+
+export function middleware(_request: NextRequest) {
+  return NextResponse.next()
+}
+
+export const config = {
+  matcher: [
+    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+  ],
+}
