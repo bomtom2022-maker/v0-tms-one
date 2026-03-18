@@ -46,17 +46,16 @@ interface SidebarProps {
   onViewChange: (view: View) => void
 }
 
-// Menus: roles define quem ve o item
-// 'all' = todos autenticados, 'admin' = apenas admin
+// roles: 'all' = manutentor+admin, 'lider' = líder, 'admin' = apenas admin
 const allMenuItems = [
-  { id: 'dashboard' as const, label: 'Dashboard', icon: LayoutDashboard, roles: ['all'] },
-  { id: 'new-ticket' as const, label: 'Novo Chamado', icon: Plus, roles: ['all'] },
-  { id: 'scheduled' as const, label: 'Manutenções Futuras', icon: CalendarClock, roles: ['all'] },
-  { id: 'machines' as const, label: 'Máquinas', icon: Cog, roles: ['all'] },
-  { id: 'problems' as const, label: 'Problemas', icon: Wrench, roles: ['all'] },
-  { id: 'parts' as const, label: 'Peças', icon: Package, roles: ['all'] },
-  { id: 'reports' as const, label: 'Relatórios', icon: BarChart3, roles: ['all'] },
-  { id: 'users' as const, label: 'Usuários', icon: Users, roles: ['admin'] },
+  { id: 'dashboard' as const,  label: 'Dashboard',           icon: LayoutDashboard, roles: ['all', 'lider'] },
+  { id: 'new-ticket' as const, label: 'Novo Chamado',         icon: Plus,            roles: ['all', 'lider'] },
+  { id: 'scheduled' as const,  label: 'Manutenções Futuras',  icon: CalendarClock,   roles: ['all'] },
+  { id: 'machines' as const,   label: 'Máquinas',             icon: Cog,             roles: ['all'] },
+  { id: 'problems' as const,   label: 'Problemas',            icon: Wrench,          roles: ['all'] },
+  { id: 'parts' as const,      label: 'Peças',                icon: Package,         roles: ['all'] },
+  { id: 'reports' as const,    label: 'Relatórios',           icon: BarChart3,       roles: ['all'] },
+  { id: 'users' as const,      label: 'Usuários',             icon: Users,           roles: ['admin'] },
 ]
 
 export function Sidebar({ currentView, onViewChange }: SidebarProps) {
@@ -64,10 +63,11 @@ export function Sidebar({ currentView, onViewChange }: SidebarProps) {
   const [showInstallButton, setShowInstallButton] = useState(true)
   const { currentUser, logout, isManutentor, isLider, isAdmin } = useAuth()
 
-  // Filtrar menus por permissao
+  // Filtrar menus por role
   const menuItems = allMenuItems.filter(item => {
     if (item.roles.includes('admin')) return isAdmin
-    return true // 'all' — todos os usuarios autenticados
+    if (isLider) return item.roles.includes('lider')
+    return item.roles.includes('all') // manutentor / admin
   })
 
   const handleNavigation = (view: View) => {
@@ -245,7 +245,7 @@ export function Sidebar({ currentView, onViewChange }: SidebarProps) {
                   {roleConfig.label}
                 </Badge>
                 <span className="text-xs text-muted-foreground">
-                  {isAdmin ? 'Acesso total + usuários' : 'Acesso total'}
+                  {isAdmin ? 'Acesso total + usuários' : isManutentor ? 'Acesso total' : 'Apenas chamados'}
                 </span>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
