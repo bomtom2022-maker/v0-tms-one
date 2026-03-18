@@ -5,7 +5,7 @@ export function proxy(_request: NextRequest) {
   return NextResponse.next()
 }
 
-export default proxy
+export { proxy as middleware }
 
 export const config = {
   matcher: [
