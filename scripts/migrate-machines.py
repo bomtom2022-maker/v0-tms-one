@@ -3,67 +3,45 @@ import urllib.request
 import urllib.error
 import json
 
-SUPABASE_URL = os.environ.get("NEXT_PUBLIC_SUPABASE_URL", "")
-SERVICE_KEY  = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
+SUPABASE_URL  = os.environ.get("NEXT_PUBLIC_SUPABASE_URL", "").rstrip("/")
+SERVICE_KEY   = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
 
 if not SUPABASE_URL or not SERVICE_KEY:
-    raise SystemExit("Variaveis NEXT_PUBLIC_SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY sao obrigatorias")
+    raise SystemExit("NEXT_PUBLIC_SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY sao obrigatorias")
 
-statements = [
-    "ALTER TABLE machines ADD COLUMN IF NOT EXISTS manufacturer TEXT",
-    "ALTER TABLE machines ADD COLUMN IF NOT EXISTS model TEXT",
-    "ALTER TABLE machines ADD COLUMN IF NOT EXISTS controller TEXT",
-]
+# Extrai o project ref da URL  (ex: https://abcxyz.supabase.co -> abcxyz)
+project_ref = SUPABASE_URL.replace("https://", "").split(".")[0]
 
-url = f"{SUPABASE_URL}/rest/v1/rpc/exec_sql"
+sql = """
+ALTER TABLE machines ADD COLUMN IF NOT EXISTS manufacturer TEXT;
+ALTER TABLE machines ADD COLUMN IF NOT EXISTS model TEXT;
+ALTER TABLE machines ADD COLUMN IF NOT EXISTS controller TEXT;
+"""
 
-# Usa o endpoint de SQL direto do Supabase (management API)
-sql_url = f"{SUPABASE_URL.replace('.supabase.co', '.supabase.co')}/rest/v1/"
+# Supabase Management API: POST /v1/projects/{ref}/database/query
+mgmt_url = f"https://api.supabase.com/v1/projects/{project_ref}/database/query"
 
-for stmt in statements:
-    payload = json.dumps({"query": stmt}).encode()
-    req = urllib.request.Request(
-        f"{SUPABASE_URL}/rest/v1/rpc/exec_sql",
-        data=payload,
-        headers={
-            "Content-Type": "application/json",
-            "apikey": SERVICE_KEY,
-            "Authorization": f"Bearer {SERVICE_KEY}",
-        },
-        method="POST",
-    )
-    try:
-        with urllib.request.urlopen(req) as resp:
-            print(f"OK: {stmt}")
-    except urllib.error.HTTPError as e:
-        body = e.read().decode()
-        # Se a funcao exec_sql nao existir, usa abordagem direta
-        print(f"exec_sql nao disponivel ({e.code}): {body}")
-        print("Usando INSERT direto para testar conexao...")
-        break
+payload = json.dumps({"query": sql}).encode()
+req = urllib.request.Request(
+    mgmt_url,
+    data=payload,
+    headers={
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {SERVICE_KEY}",
+    },
+    method="POST",
+)
 
-# Abordagem alternativa: POST para o endpoint de schema do Supabase
-print("\nTentando via endpoint de administracao do Supabase...")
-for stmt in statements:
-    payload = json.dumps({"query": stmt}).encode()
-    req = urllib.request.Request(
-        f"{SUPABASE_URL}/rest/v1/rpc/query",
-        data=payload,
-        headers={
-            "Content-Type": "application/json",
-            "apikey": SERVICE_KEY,
-            "Authorization": f"Bearer {SERVICE_KEY}",
-        },
-        method="POST",
-    )
-    try:
-        with urllib.request.urlopen(req) as resp:
-            print(f"OK (rpc/query): {stmt}")
-    except urllib.error.HTTPError as e:
-        print(f"Falhou ({e.code}): {stmt} -> {e.read().decode()[:200]}")
-
-print("\nMigracão concluída. Verifique o painel do Supabase para confirmar as colunas.")
-print("Se as colunas ainda nao existirem, execute manualmente no SQL Editor do Supabase:")
-print("  ALTER TABLE machines ADD COLUMN IF NOT EXISTS manufacturer TEXT;")
-print("  ALTER TABLE machines ADD COLUMN IF NOT EXISTS model TEXT;")
-print("  ALTER TABLE machines ADD COLUMN IF NOT EXISTS controller TEXT;")
+try:
+    with urllib.request.urlopen(req) as resp:
+        body = resp.read().decode()
+        print(f"Sucesso via Management API: {body}")
+except urllib.error.HTTPError as e:
+    body = e.read().decode()
+    print(f"Management API falhou ({e.code}): {body}")
+    print()
+    print("Execute manualmente no SQL Editor do Supabase (https://supabase.com/dashboard):")
+    print()
+    print("ALTER TABLE machines ADD COLUMN IF NOT EXISTS manufacturer TEXT;")
+    print("ALTER TABLE machines ADD COLUMN IF NOT EXISTS model TEXT;")
+    print("ALTER TABLE machines ADD COLUMN IF NOT EXISTS controller TEXT;")
