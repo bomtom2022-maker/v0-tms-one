@@ -1,8 +1,14 @@
-import { createClient } from '@supabase/supabase-js'
+import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 
 // Client com service_role_key — NUNCA expor no browser
 // Usado apenas em Server Components e API Routes
-export function createAdminClient() {
+// Singleton para evitar multiplas conexoes ao banco
+
+let adminClient: SupabaseClient | null = null
+
+export function createAdminClient(): SupabaseClient {
+  if (adminClient) return adminClient
+
   const supabaseUrl =
     process.env.SUPABASE_URL ||
     process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -15,10 +21,18 @@ export function createAdminClient() {
     )
   }
 
-  return createClient(supabaseUrl, serviceRoleKey, {
+  adminClient = createClient(supabaseUrl, serviceRoleKey, {
     auth: {
       autoRefreshToken: false,
       persistSession: false,
     },
+    db: {
+      schema: 'public',
+    },
+    global: {
+      headers: { 'x-my-custom-header': 'tms-one' },
+    },
   })
+
+  return adminClient
 }
