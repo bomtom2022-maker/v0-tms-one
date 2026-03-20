@@ -28,7 +28,6 @@ import {
   DollarSign, 
   Wrench, 
   TrendingUp, 
-  Download,
   Calendar as CalendarIcon,
   User,
   CheckCircle,
@@ -1295,11 +1294,7 @@ export function ReportsView() {
             <span className="hidden sm:inline">Peças</span>
             <span className="sm:hidden">Pec.</span>
           </TabsTrigger>
-          <TabsTrigger value="daily" className="text-[10px] sm:text-xs px-1 py-2">
-            <Shield className="w-3 h-3 sm:w-4 sm:h-4 mr-0.5 sm:mr-1" />
-            <span className="hidden sm:inline">Diário</span>
-            <span className="sm:hidden">TISAX</span>
-          </TabsTrigger>
+        </TabsList>
         </TabsList>
 
         {/* Tab Geral */}
@@ -1541,110 +1536,6 @@ export function ReportsView() {
                     Nenhuma peça utilizada no período selecionado.
                   </div>
                 )}
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* Tab Diario - TISAX */}
-        <TabsContent value="daily" className="mt-4">
-          <Card>
-            <CardHeader>
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-blue-100">
-                  <Shield className="w-5 h-5 text-blue-600" />
-                </div>
-                <div>
-                  <CardTitle>Relatório Diário - TISAX</CardTitle>
-                  <CardDescription>
-                    Gere um relatório completo de todas as atividades de um dia específico para auditoria
-                  </CardDescription>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <div className="flex items-start gap-3">
-                  <Shield className="w-5 h-5 text-blue-600 mt-0.5" />
-                  <div className="text-sm">
-                    <p className="font-medium text-blue-900">Preparado para TISAX</p>
-                    <p className="text-blue-700 mt-1">
-                      Este relatório foi desenvolvido para atender aos requisitos de auditoria e rastreabilidade 
-                      exigidos pela certificação TISAX (Trusted Information Security Assessment Exchange) 
-                      da indústria automotiva.
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium">Selecione a Data do Relatório</Label>
-                  <Popover open={dailyCalendarOpen} onOpenChange={setDailyCalendarOpen}>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        className={cn(
-                          "w-full sm:w-[280px] justify-start text-left font-normal",
-                          !dailyDate && "text-muted-foreground"
-                        )}
-                      >
-                        <CalendarDays className="mr-2 h-4 w-4" />
-                        {dailyDate ? format(dailyDate, "dd 'de' MMMM 'de' yyyy", { locale: ptBR }) : "Selecione uma data"}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <Calendar
-                        mode="single"
-                        selected={dailyDate}
-                        onSelect={(date) => {
-                          if (date) {
-                            setDailyDate(date)
-                            setDailyCalendarOpen(false)
-                          }
-                        }}
-                        disabled={(date) => date > new Date()}
-                        locale={ptBR}
-                        initialFocus
-                      />
-                    </PopoverContent>
-                  </Popover>
-                </div>
-
-                <div className="bg-muted/50 rounded-lg p-4 space-y-3">
-                  <h4 className="font-medium text-sm">O relatorio incluira:</h4>
-                  <ul className="text-sm text-muted-foreground space-y-2">
-                    <li className="flex items-center gap-2">
-                      <CheckCircle className="w-4 h-4 text-green-500" />
-                      Todos os chamados abertos no dia
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <CheckCircle className="w-4 h-4 text-green-500" />
-                      Manutenções iniciadas, pausadas e finalizadas
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <CheckCircle className="w-4 h-4 text-green-500" />
-                      Alterações em máquinas, peças e usuários
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <CheckCircle className="w-4 h-4 text-green-500" />
-                      Log completo de auditoria com horários
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <CheckCircle className="w-4 h-4 text-green-500" />
-                      Resumo com totais de tempo parado e custos
-                    </li>
-                  </ul>
-                </div>
-
-                <Button 
-                  onClick={handleGenerateDailyPDF} 
-                  size="lg"
-                  className="w-full sm:w-auto"
-                >
-                  <Printer className="w-4 h-4 mr-2" />
-                  Gerar Relatório Diário em PDF
-                </Button>
               </div>
             </CardContent>
           </Card>
