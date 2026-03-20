@@ -90,173 +90,144 @@ function generatePDF(
       <title>${title} - TMS ONE</title>
       <style>
         @page {
-          size: A4;
+          size: A4 landscape;
           margin: 0;
         }
         
-        * {
-          margin: 0;
-          padding: 0;
-          box-sizing: border-box;
-        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
         
         html, body {
           width: 100%;
           height: 100%;
-          margin: 0;
-          padding: 0;
-        }
-        
-        body {
           font-family: 'Segoe UI', Arial, sans-serif;
-          font-size: 12pt;
-          line-height: 1.5;
-          color: #222;
+          font-size: 9pt;
+          line-height: 1.3;
+          color: #1e293b;
           background: #fff;
         }
         
         .page-container {
           width: 100%;
-          max-width: 100%;
-          padding: 40px 50px;
-          margin: 0 auto;
+          padding: 28px 36px;
         }
         
         .header {
           width: 100%;
-          padding-bottom: 15px;
+          padding-bottom: 10px;
           border-bottom: 3px solid #1e293b;
-          margin-bottom: 25px;
-        }
-        
-        .header-content {
+          margin-bottom: 14px;
           display: flex;
           justify-content: space-between;
           align-items: flex-start;
         }
         
         .header-left h1 {
-          font-size: 22pt;
+          font-size: 16pt;
           font-weight: bold;
           color: #0f172a;
-          margin-bottom: 5px;
+          margin-bottom: 3px;
         }
         
-        .header-left p {
-          font-size: 11pt;
-          color: #64748b;
-        }
+        .header-left p { font-size: 8pt; color: #64748b; }
         
-        .header-right {
-          text-align: right;
-        }
-        
-        .header-right .brand {
-          font-size: 18pt;
-          font-weight: bold;
-          color: #0f172a;
-        }
-        
-        .header-right .info {
-          font-size: 10pt;
-          color: #64748b;
-          margin-top: 3px;
-        }
+        .header-right { text-align: right; }
+        .header-right .brand { font-size: 14pt; font-weight: bold; color: #0f172a; }
+        .header-right .info { font-size: 8pt; color: #64748b; margin-top: 2px; }
         
         .subtitle {
-          font-size: 11pt;
+          font-size: 8pt;
           color: #334155;
-          margin-bottom: 25px;
-          padding: 12px 18px;
+          margin-bottom: 14px;
+          padding: 8px 12px;
           background: #f1f5f9;
-          border-left: 5px solid #1e293b;
-          border-radius: 0 4px 4px 0;
+          border-left: 4px solid #1e293b;
         }
         
         .summary {
           display: flex;
-          gap: 16px;
-          margin-bottom: 28px;
+          gap: 10px;
+          margin-bottom: 16px;
         }
         
         .summary-item {
           flex: 1;
-          padding: 16px;
+          padding: 10px 8px;
           text-align: center;
           background: #fafafa;
           border: 1px solid #e2e8f0;
-          border-radius: 6px;
+          border-radius: 5px;
         }
         
         .summary-item .label {
-          font-size: 9pt;
+          font-size: 7pt;
           color: #64748b;
           text-transform: uppercase;
-          letter-spacing: 0.5px;
+          letter-spacing: 0.3px;
           display: block;
-          margin-bottom: 6px;
+          margin-bottom: 4px;
         }
         
         .summary-item .value {
-          font-size: 18pt;
+          font-size: 14pt;
           font-weight: bold;
           color: #0f172a;
+          display: block;
         }
 
         .summary-item .value-days {
-          font-size: 18pt;
+          font-size: 16pt;
           font-weight: bold;
           line-height: 1.1;
+          display: block;
         }
 
         .summary-item .value-hhmm {
-          font-size: 12pt;
+          font-size: 9pt;
           font-weight: 600;
           font-family: monospace;
+          display: block;
+          line-height: 1.2;
         }
         
         table {
           width: 100%;
           border-collapse: collapse;
-          margin-bottom: 25px;
-          font-size: 11pt;
-          table-layout: fixed;
+          margin-bottom: 20px;
+          font-size: 8pt;
+          table-layout: auto;
         }
         
         th {
           background: #1e293b;
           color: #fff;
-          padding: 12px;
+          padding: 8px 6px;
           font-weight: 600;
           text-align: left;
-          font-size: 10pt;
+          font-size: 7.5pt;
           text-transform: uppercase;
-          letter-spacing: 0.5px;
+          letter-spacing: 0.3px;
+          white-space: nowrap;
         }
         
         td {
-          padding: 11px 12px;
+          padding: 7px 6px;
           border-bottom: 1px solid #e2e8f0;
-          vertical-align: top;
+          vertical-align: middle;
           word-wrap: break-word;
           word-break: break-word;
-          white-space: normal;
-          max-width: 200px;
         }
         
-        tr:nth-child(even) {
-          background: #f8fafc;
-        }
+        tr:nth-child(even) { background: #f8fafc; }
 
-        .badge { display: inline-block; padding: 3px 9px; border-radius: 4px; font-size: 10pt; font-weight: bold; }
+        .badge { display: inline-block; padding: 2px 6px; border-radius: 3px; font-size: 7.5pt; font-weight: bold; }
         .badge-success { background: #dcfce7; color: #166534; }
         .badge-warning { background: #fef9c3; color: #854d0e; }
         
         .footer {
-          margin-top: 36px;
-          padding-top: 16px;
+          margin-top: 20px;
+          padding-top: 10px;
           border-top: 2px solid #1e293b;
-          font-size: 10pt;
+          font-size: 8pt;
           color: #64748b;
           display: flex;
           justify-content: space-between;
@@ -264,33 +235,28 @@ function generatePDF(
         }
         
         .empty-message {
-          padding: 50px;
+          padding: 40px;
           text-align: center;
           color: #94a3b8;
-          font-size: 13pt;
+          font-size: 11pt;
           font-style: italic;
           background: #f8fafc;
           border: 1px dashed #cbd5e1;
         }
         
         @media print {
-          @page { size: A4; margin: 0; }
+          @page { size: A4 landscape; margin: 0; }
           html, body { 
-            width: 100% !important;
-            height: 100% !important;
-            margin: 0 !important;
-            padding: 0 !important;
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
           }
-          .page-container { padding: 40px 50px; }
+          .page-container { padding: 28px 36px; }
         }
       </style>
     </head>
     <body>
       <div class="page-container">
         <div class="header">
-          <div class="header-content">
           <div class="header-left">
               <h1>${title}</h1>
               <p>Relatório gerado automaticamente pelo sistema</p>
@@ -300,7 +266,6 @@ function generatePDF(
               <div class="info">Tool Manager System</div>
               <div class="info">${currentDate}</div>
             </div>
-          </div>
         </div>
       
       <div class="subtitle">${subtitle}</div>
@@ -1322,23 +1287,23 @@ export function ReportsView() {
 
       {/* Abas de Relatórios */}
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as ReportType)}>
-        <TabsList className="grid w-full h-auto gap-1 p-1" style={{ gridTemplateColumns: 'repeat(4, 1fr)' }}>
-          <TabsTrigger value="general" className="text-[10px] sm:text-xs px-1 py-2">
-            <FileText className="w-3 h-3 sm:w-4 sm:h-4 mr-0.5 sm:mr-1" />
+        <TabsList className="grid w-full h-auto gap-1 p-1" style={{ gridTemplateColumns: 'repeat(4,minmax(0,1fr))' }}>
+          <TabsTrigger value="general" className="text-[10px] sm:text-xs px-2 py-2">
+            <FileText className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
             <span>Geral</span>
           </TabsTrigger>
-          <TabsTrigger value="machines" className="text-[10px] sm:text-xs px-1 py-2">
-            <Settings className="w-3 h-3 sm:w-4 sm:h-4 mr-0.5 sm:mr-1" />
+          <TabsTrigger value="machines" className="text-[10px] sm:text-xs px-2 py-2">
+            <Settings className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
             <span className="hidden sm:inline">Máquinas</span>
             <span className="sm:hidden">Maq.</span>
           </TabsTrigger>
-          <TabsTrigger value="users" className="text-[10px] sm:text-xs px-1 py-2">
-            <User className="w-3 h-3 sm:w-4 sm:h-4 mr-0.5 sm:mr-1" />
+          <TabsTrigger value="users" className="text-[10px] sm:text-xs px-2 py-2">
+            <User className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
             <span className="hidden sm:inline">Usuários</span>
             <span className="sm:hidden">User</span>
           </TabsTrigger>
-          <TabsTrigger value="parts" className="text-[10px] sm:text-xs px-1 py-2">
-            <Package className="w-3 h-3 sm:w-4 sm:h-4 mr-0.5 sm:mr-1" />
+          <TabsTrigger value="parts" className="text-[10px] sm:text-xs px-2 py-2">
+            <Package className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
             <span className="hidden sm:inline">Peças</span>
             <span className="sm:hidden">Pec.</span>
           </TabsTrigger>
