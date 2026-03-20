@@ -1295,7 +1295,6 @@ export function ReportsView() {
             <span className="sm:hidden">Pec.</span>
           </TabsTrigger>
         </TabsList>
-        </TabsList>
 
         {/* Tab Geral */}
         <TabsContent value="general" className="mt-4">
