@@ -1,12 +1,22 @@
 import type { Machine, Problem, Part, Ticket, ScheduledMaintenance, UsedPart, MachineStatus, Priority, MaintenanceAction, TimeSegment } from '@/lib/types'
 
 // v2 — todas as operacoes via API Routes (sem createClient browser)
+const FETCH_TIMEOUT_MS = 15000 // 15s
+
 async function apiFetch(url: string, options?: RequestInit) {
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS)
+
   let res: Response
   try {
-    res = await fetch(url, options)
+    res = await fetch(url, { ...options, signal: controller.signal })
   } catch (e) {
+    if (e instanceof Error && e.name === 'AbortError') {
+      throw new Error(`Timeout ao conectar com ${url} (>${FETCH_TIMEOUT_MS / 1000}s)`)
+    }
     throw new Error(`Falha de rede em ${url}: ${e instanceof Error ? e.message : String(e)}`)
+  } finally {
+    clearTimeout(timeoutId)
   }
   // Verificar se a resposta é JSON antes de parsear
   const contentType = res.headers.get('content-type') || ''

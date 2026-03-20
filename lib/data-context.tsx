@@ -23,6 +23,7 @@ interface DataContextType {
   auditLogs: AuditLog[]
   isLoading: boolean
   reloadData: () => Promise<void>
+  reloadAuditLogs: () => Promise<void>
   addMachine: (name: string, sector: string, status: MachineStatus, userId: string, userName: string, manufacturer?: string, model?: string, controller?: string) => Promise<void>
   updateMachine: (id: string, name: string, sector: string, status: MachineStatus, userId: string, userName: string, manufacturer?: string, model?: string, controller?: string) => Promise<void>
   deleteMachine: (id: string, userId: string, userName: string) => Promise<void>
@@ -81,24 +82,34 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const reloadData = useCallback(async () => {
     setIsLoading(true)
     try {
-      const [m, pr, pa, t, s, al] = await Promise.all([
+      // Carregar dados principais em paralelo — audit logs omitidos aqui
+      // pois são pesados e só usados em Relatórios (carregados sob demanda)
+      const [m, pr, pa, t, s] = await Promise.all([
         fetchMachines(),
         fetchProblems(),
         fetchParts(),
         fetchTickets(),
         fetchScheduledMaintenances(),
-        fetchAuditLogs(),
       ])
       setMachines(m)
       setProblems(pr)
       setParts(pa)
       setTickets(t)
       setScheduledMaintenances(s)
-      setAuditLogs(al)
     } catch {
       // silencioso quando nao autenticado
     } finally {
       setIsLoading(false)
+    }
+  }, [])
+
+  // Carrega audit logs sob demanda (apenas quando necessário, ex: tela de relatórios)
+  const reloadAuditLogs = useCallback(async () => {
+    try {
+      const al = await fetchAuditLogs()
+      setAuditLogs(al)
+    } catch {
+      // silencioso
     }
   }, [])
 
@@ -438,7 +449,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   return (
     <DataContext.Provider value={{
       machines, problems, parts, tickets, scheduledMaintenances, auditLogs,
-      isLoading, reloadData,
+      isLoading, reloadData, reloadAuditLogs,
       addMachine, updateMachine, deleteMachine,
       addPart, updatePart,
       addProblem, updateProblem,

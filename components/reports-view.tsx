@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -362,8 +362,13 @@ function generateMachineDetailPDF(
 }
 
 export function ReportsView() {
-  const { tickets, machines, parts, auditLogs, getMachineById, getProblemById, getPartById } = useData()
+  const { tickets, machines, parts, auditLogs, reloadAuditLogs, getMachineById, getProblemById, getPartById } = useData()
   const { users } = useAuth()
+
+  // Carregar audit logs apenas quando a tela de relatórios é aberta
+  useEffect(() => {
+    reloadAuditLogs()
+  }, [])
 
   const [activeTab, setActiveTab] = useState<ReportType>('general')
   const [filters, setFilters] = useState<FilterState>({
