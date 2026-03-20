@@ -60,9 +60,9 @@ interface FilterState {
 function generatePDF(
   title: string,
   subtitle: string,
-  data: Array<Record<string, string | number | boolean | undefined>>,
-  columns: { key: string; label: string; align?: 'left' | 'center' | 'right' }[],
-  summary?: { label: string; value: string }[]
+  data: Record<string, string>[],
+  columns: { key: string; label: string; align?: string }[],
+  summary?: { label: string; value: string; color?: string }[]
 ) {
   // Criar janela de impressao
   const printWindow = window.open('', '_blank')
@@ -307,12 +307,20 @@ function generatePDF(
       
       ${summary ? `
           <div class="summary">
-            ${summary.map(s => `
+            ${summary.map(s => {
+              const hasDays = s.value.includes('d ')
+              const [dayPart, timePart] = hasDays ? s.value.split(' ') : [null, null]
+              return `
               <div class="summary-item">
                 <span class="label">${s.label}</span>
-                <span class="value">${s.value}</span>
-              </div>
-            `).join('')}
+                ${hasDays ? `
+                  <span class="value-days" style="color:${s.color || '#0f172a'}">${dayPart}</span>
+                  <span class="value-hhmm" style="color:${s.color || '#0f172a'}">${timePart}</span>
+                ` : `
+                  <span class="value" style="color:${s.color || '#0f172a'}">${s.value}</span>
+                `}
+              </div>`
+            }).join('')}
           </div>
         ` : ''}
         
@@ -902,8 +910,8 @@ export function ReportsView() {
               problema: problem?.name || '-',
               prioridade: PRIORITY_CONFIG[t.priority].label,
               status: t.resolved ? 'Resolvido' : 'Não Resolvido',
-              maqParada: formatDuration(stoppedSecs),
-              operando: formatDuration(t.downtime),
+              maqParada: formatDurationLong(stoppedSecs).full,
+              operando: formatDurationLong(t.downtime).full,
               custo: formatCurrency(t.totalCost),
               operador: lastAction?.operatorName || '-'
             }
@@ -921,8 +929,8 @@ export function ReportsView() {
           ],
           [
             { label: 'Total de Manutenções', value: String(stats.total) },
-            { label: 'Tempo Máquina Parada', value: formatDuration(stats.totalStoppedTime) },
-            { label: 'Tempo Operando', value: formatDuration(stats.totalOperatingTime) },
+            { label: 'Tempo Máquina Parada', value: formatDurationLong(stats.totalStoppedTime).full, color: '#dc2626' },
+            { label: 'Tempo Operando', value: formatDurationLong(stats.totalOperatingTime).full, color: '#ea580c' },
             { label: 'Custo Total', value: formatCurrency(stats.totalCost) },
             { label: 'Resolvidos', value: `${stats.resolved} (${stats.total > 0 ? Math.round(stats.resolved / stats.total * 100) : 0}%)` }
           ]
@@ -975,8 +983,8 @@ export function ReportsView() {
             nome: u.userName,
             chamados: String(u.ticketCount),
             resolvidos: `${u.resolvedCount} (${Math.round(u.resolvedCount / u.ticketCount * 100)}%)`,
-            operando: formatDuration(u.operatingTime),
-            media: formatDuration(Math.round(u.operatingTime / u.ticketCount)),
+            operando: formatDurationLong(u.operatingTime).full,
+            media: formatDurationLong(Math.round(u.operatingTime / u.ticketCount)).full,
             custo: formatCurrency(u.totalCost),
           })),
           [
@@ -990,8 +998,8 @@ export function ReportsView() {
           [
             { label: 'Total de Manutentores', value: String(userData.length) },
             { label: 'Total de Chamados', value: String(stats.total) },
-            { label: 'Tempo Total Operando', value: formatDuration(stats.totalOperatingTime) },
-            { label: 'Tempo Total Maq. Parada', value: formatDuration(stats.totalStoppedTime) },
+            { label: 'Tempo Total Operando', value: formatDurationLong(stats.totalOperatingTime).full, color: '#ea580c' },
+            { label: 'Tempo Total Maq. Parada', value: formatDurationLong(stats.totalStoppedTime).full, color: '#dc2626' },
           ]
         )
         break
@@ -1312,13 +1320,12 @@ export function ReportsView() {
         </Card>
       </div>
 
-      {/* Tabs de Relatórios */}
+      {/* Abas de Relatórios */}
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as ReportType)}>
-        <TabsList className="grid grid-cols-3 sm:grid-cols-5 w-full h-auto gap-1 p-1">
+        <TabsList className="grid w-full h-auto gap-1 p-1" style={{ gridTemplateColumns: 'repeat(4, 1fr)' }}>
           <TabsTrigger value="general" className="text-[10px] sm:text-xs px-1 py-2">
             <FileText className="w-3 h-3 sm:w-4 sm:h-4 mr-0.5 sm:mr-1" />
-            <span className="hidden xs:inline">Geral</span>
-            <span className="xs:hidden">Geral</span>
+            <span>Geral</span>
           </TabsTrigger>
           <TabsTrigger value="machines" className="text-[10px] sm:text-xs px-1 py-2">
             <Settings className="w-3 h-3 sm:w-4 sm:h-4 mr-0.5 sm:mr-1" />
