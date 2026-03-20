@@ -127,9 +127,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [reloadUsers])
 
-  const updateUser = useCallback(async (id: string, name: string, email: string, role: UserRole) => {
+  const updateUser = useCallback(async (id: string, name: string, email: string, role: UserRole, password?: string) => {
     try {
-      await updateProfileDb(id, { name, email, role })
+      await updateProfileDb(id, { name, email, role, ...(password ? { password } : {}) })
       await reloadUsers()
       // Atualizar sessao se for o usuario logado
       if (session?.user.id === id) {

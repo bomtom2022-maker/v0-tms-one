@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useMemo, useRef } from 'react'
+import { useState, useMemo } from 'react'
+
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -21,13 +22,13 @@ import {
 import { Calendar } from '@/components/ui/calendar'
 import { useData } from '@/lib/data-context'
 import { useAuth } from '@/lib/auth-context'
-import { formatDuration, formatCurrency, PRIORITY_CONFIG, type AuditLog } from '@/lib/types'
-import { 
-  FileText, 
-  Clock, 
-  DollarSign, 
-  Wrench, 
-  TrendingUp, 
+import { formatDuration, formatDurationLong, formatCurrency, PRIORITY_CONFIG, type AuditLog } from '@/lib/types'
+import {
+  FileText,
+  Clock,
+  DollarSign,
+  Wrench,
+  TrendingUp,
   Calendar as CalendarIcon,
   User,
   CheckCircle,
@@ -55,15 +56,13 @@ interface FilterState {
   priority: string
 }
 
-// Funcao para gerar PDF profissional
 function generatePDF(
   title: string,
   subtitle: string,
-  data: Array<Record<string, string | number | boolean | undefined>>,
-  columns: { key: string; label: string; align?: 'left' | 'center' | 'right' }[],
-  summary?: { label: string; value: string }[]
+  data: Record<string, string>[],
+  columns: { key: string; label: string; align?: string }[],
+  summary?: { label: string; value: string; color?: string }[]
 ) {
-  // Criar janela de impressao
   const printWindow = window.open('', '_blank')
   if (!printWindow) {
     alert('Permita pop-ups para gerar o PDF')
@@ -72,7 +71,6 @@ function generatePDF(
 
   const currentDate = format(new Date(), "dd/MM/yyyy 'as' HH:mm", { locale: ptBR })
 
-  // Calcular larguras das colunas baseado no conteudo
   const getAlignment = (align?: string) => {
     switch (align) {
       case 'right': return 'text-align: right;'
@@ -88,220 +86,76 @@ function generatePDF(
       <meta charset="UTF-8">
       <title>${title} - TMS ONE</title>
       <style>
-        @page {
-          size: A4;
-          margin: 0;
-        }
-        
-        * {
-          margin: 0;
-          padding: 0;
-          box-sizing: border-box;
-        }
-        
-        html, body {
-          width: 100%;
-          height: 100%;
-          margin: 0;
-          padding: 0;
-        }
-        
-        body {
-          font-family: 'Segoe UI', Arial, sans-serif;
-          font-size: 12pt;
-          line-height: 1.5;
-          color: #222;
-          background: #fff;
-        }
-        
-        .page-container {
-          width: 100%;
-          max-width: 100%;
-          padding: 40px 50px;
-          margin: 0 auto;
-        }
-        
-        .header {
-          width: 100%;
-          border-bottom: 3px solid #222;
-          padding-bottom: 15px;
-          margin-bottom: 25px;
-        }
-        
-        .header-content {
-          display: flex;
-          justify-content: space-between;
-          align-items: flex-start;
-        }
-        
-        .header-left h1 {
-          font-size: 24pt;
-          font-weight: bold;
-          color: #111;
-          margin-bottom: 5px;
-        }
-        
-        .header-left p {
-          font-size: 11pt;
-          color: #666;
-        }
-        
-        .header-right {
-          text-align: right;
-        }
-        
-        .header-right .brand {
-          font-size: 18pt;
-          font-weight: bold;
-          color: #111;
-        }
-        
-        .header-right .info {
-          font-size: 10pt;
-          color: #666;
-          margin-top: 3px;
-        }
-        
-        .subtitle {
-          font-size: 12pt;
-          color: #333;
-          margin-bottom: 25px;
-          padding: 15px 20px;
-          background: #f5f5f5;
-          border-left: 5px solid #333;
-        }
-        
-        .summary {
-          display: flex;
-          gap: 20px;
-          margin-bottom: 30px;
-        }
-        
-        .summary-item {
-          flex: 1;
-          padding: 20px;
-          text-align: center;
-          background: #fafafa;
-          border: 1px solid #ddd;
-          border-radius: 6px;
-        }
-        
-        .summary-item .label {
-          font-size: 10pt;
-          color: #666;
-          text-transform: uppercase;
-          letter-spacing: 0.5px;
-          display: block;
-          margin-bottom: 8px;
-        }
-        
-        .summary-item .value {
-          font-size: 20pt;
-          font-weight: bold;
-          color: #111;
-        }
-        
-        table {
-          width: 100%;
-          border-collapse: collapse;
-          margin-bottom: 25px;
-          font-size: 11pt;
-          table-layout: fixed;
-        }
-        
-        th {
-          background: #333;
-          color: #fff;
-          padding: 14px 12px;
-          font-weight: 600;
-          text-align: left;
-          font-size: 10pt;
-          text-transform: uppercase;
-          letter-spacing: 0.5px;
-        }
-        
-        td {
-          padding: 12px;
-          border-bottom: 1px solid #ddd;
-          vertical-align: top;
-          word-wrap: break-word;
-          word-break: break-word;
-          white-space: normal;
-          max-width: 200px;
-        }
-        
-        tr:nth-child(even) {
-          background: #f9f9f9;
-        }
-        
-        .footer {
-          margin-top: 40px;
-          padding-top: 20px;
-          border-top: 2px solid #222;
-          font-size: 10pt;
-          color: #666;
-          display: flex;
-          justify-content: space-between;
-        }
-        
-        .empty-message {
-          padding: 60px;
-          text-align: center;
-          color: #888;
-          font-size: 14pt;
-          font-style: italic;
-          background: #f9f9f9;
-          border: 1px dashed #ddd;
-        }
-        
+        @page { size: A4 landscape; margin: 0; }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html, body { width: 100%; height: 100%; font-family: 'Segoe UI', Arial, sans-serif; font-size: 9pt; line-height: 1.3; color: #1e293b; background: #fff; }
+        .page-container { width: 100%; padding: 28px 36px; }
+        .header { width: 100%; padding-bottom: 10px; border-bottom: 3px solid #1e293b; margin-bottom: 14px; display: flex; justify-content: space-between; align-items: flex-start; }
+        .header-left h1 { font-size: 16pt; font-weight: bold; color: #0f172a; margin-bottom: 3px; }
+        .header-left p { font-size: 8pt; color: #64748b; }
+        .header-right { text-align: right; }
+        .header-right .brand { font-size: 14pt; font-weight: bold; color: #0f172a; }
+        .header-right .info { font-size: 8pt; color: #64748b; margin-top: 2px; }
+        .subtitle { font-size: 8pt; color: #334155; margin-bottom: 14px; padding: 8px 12px; background: #f1f5f9; border-left: 4px solid #1e293b; }
+        .summary { display: flex; gap: 10px; margin-bottom: 16px; }
+        .summary-item { flex: 1; padding: 10px 8px; text-align: center; background: #fafafa; border: 1px solid #e2e8f0; border-radius: 5px; }
+        .summary-item .label { font-size: 7pt; color: #64748b; text-transform: uppercase; letter-spacing: 0.3px; display: block; margin-bottom: 4px; }
+        .summary-item .value { font-size: 14pt; font-weight: bold; color: #0f172a; display: block; }
+        .summary-item .value-days { font-size: 16pt; font-weight: bold; line-height: 1.1; display: block; }
+        .summary-item .value-hhmm { font-size: 9pt; font-weight: 600; font-family: monospace; display: block; line-height: 1.2; }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 8pt; table-layout: auto; }
+        th { background: #1e293b; color: #fff; padding: 8px 6px; font-weight: 600; text-align: left; font-size: 7.5pt; text-transform: uppercase; letter-spacing: 0.3px; white-space: nowrap; }
+        td { padding: 7px 6px; border-bottom: 1px solid #e2e8f0; vertical-align: middle; word-wrap: break-word; word-break: break-word; }
+        tr:nth-child(even) { background: #f8fafc; }
+        .badge { display: inline-block; padding: 2px 6px; border-radius: 3px; font-size: 7.5pt; font-weight: bold; }
+        .badge-success { background: #dcfce7; color: #166534; }
+        .badge-warning { background: #fef9c3; color: #854d0e; }
+        .footer { margin-top: 20px; padding-top: 10px; border-top: 2px solid #1e293b; font-size: 8pt; color: #64748b; display: flex; justify-content: space-between; align-items: center; }
+        .empty-message { padding: 40px; text-align: center; color: #94a3b8; font-size: 11pt; font-style: italic; background: #f8fafc; border: 1px dashed #cbd5e1; }
         @media print {
-          @page {
-            size: A4;
-            margin: 0;
-          }
-          html, body { 
-            width: 100% !important;
-            height: 100% !important;
-            margin: 0 !important;
-            padding: 0 !important;
-            -webkit-print-color-adjust: exact !important;
-            print-color-adjust: exact !important;
-          }
-          .page-container {
-            padding: 40px 50px;
-          }
+          @page { size: A4 landscape; margin: 0; }
+          html, body { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+          .page-container { padding: 28px 36px; }
         }
       </style>
     </head>
     <body>
       <div class="page-container">
         <div class="header">
-          <div class="header-content">
-            <div class="header-left">
-              <h1>${title}</h1>
-              <p>Relatório gerado automaticamente pelo sistema</p>
-            </div>
-            <div class="header-right">
-              <div class="brand">TMS ONE</div>
-              <div class="info">Tool Manager System</div>
-              <div class="info">${currentDate}</div>
-            </div>
+          <div class="header-left">
+            <h1>${title}</h1>
+            <p>Relatório gerado automaticamente pelo sistema</p>
+          </div>
+          <div class="header-right">
+            <div class="brand">TMS ONE</div>
+            <div class="info">Tool Manager System</div>
+            <div class="info">${currentDate}</div>
           </div>
         </div>
-      
-      <div class="subtitle">${subtitle}</div>
-      
-      ${summary ? `
+
+        <div class="subtitle">${subtitle}</div>
+
+        ${summary ? `
           <div class="summary">
-            ${summary.map(s => `
+            ${summary.map(s => {
+              const hasDays = s.value.includes('d ')
+              const parts = hasDays ? s.value.split(' ') : [null, null]
+              const dayPart = parts[0]
+              const timePart = parts[1]
+              return `
               <div class="summary-item">
                 <span class="label">${s.label}</span>
-                <span class="value">${s.value}</span>
-              </div>
-            `).join('')}
+                ${hasDays ? `
+                  <span class="value-days" style="color:${s.color || '#0f172a'}">${dayPart}</span>
+                  <span class="value-hhmm" style="color:${s.color || '#0f172a'}">${timePart}</span>
+                ` : `
+                  <span class="value" style="color:${s.color || '#0f172a'}">${s.value}</span>
+                `}
+              </div>`
+            }).join('')}
           </div>
         ` : ''}
-        
+
         ${data.length > 0 ? `
           <table>
             <thead>
@@ -318,19 +172,14 @@ function generatePDF(
             </tbody>
           </table>
         ` : '<div class="empty-message">Nenhum dado encontrado para os filtros selecionados.</div>'}
-        
+
         <div class="footer">
           <div>TMS ONE - Tool Manager System | Todos os direitos reservados</div>
-          <div style="color:#888;font-style:italic;">Sistema desenvolvido em conformidade com as normas TISAX</div>
+          <div style="font-style:italic;">Sistema desenvolvido em conformidade com as normas TISAX</div>
           <div>Pagina 1</div>
         </div>
       </div>
-      
-      <script>
-        window.onload = function() {
-          setTimeout(function() { window.print(); }, 300);
-        }
-      </script>
+      <script>window.onload = function() { setTimeout(function() { window.print(); }, 300); }</script>
     </body>
     </html>
   `
@@ -339,13 +188,12 @@ function generatePDF(
   printWindow.document.close()
 }
 
-// Funcao para gerar PDF por maquina (formato detalhado)
 function generateMachineDetailPDF(
   machineData: Array<{
     machineName: string
     sector: string
-    stoppedTime: number   // tempo total desde abertura até resolução
-    operatingTime: number // tempo real do manutentor trabalhando
+    stoppedTime: number
+    operatingTime: number
     totalCost: number
     tickets: Array<{
       date: string
@@ -378,98 +226,37 @@ function generateMachineDetailPDF(
       <style>
         @page { size: A4; margin: 0; }
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        html, body { width: 100%; height: 100%; margin: 0; padding: 0; }
-        body {
-          font-family: 'Segoe UI', Arial, sans-serif;
-          font-size: 11pt;
-          line-height: 1.4;
-          color: #222;
-          background: #fff;
-        }
-        .page-container {
-          width: 100%;
-          max-width: 100%;
-          padding: 40px 50px;
-          margin: 0 auto;
-        }
-        .header {
-          width: 100%;
-          padding-bottom: 15px;
-          border-bottom: 3px solid #222;
-          margin-bottom: 30px;
-        }
-        .header-content {
-          display: flex;
-          justify-content: space-between;
-          align-items: flex-start;
-        }
-        .header h1 { font-size: 22pt; color: #111; margin-bottom: 5px; }
-        .header p { font-size: 11pt; color: #666; }
+        html, body { width: 100%; font-family: 'Segoe UI', Arial, sans-serif; font-size: 11pt; line-height: 1.4; color: #1e293b; background: #fff; }
+        .page-container { padding: 36px 44px; }
+        .header { padding-bottom: 12px; border-bottom: 3px solid #1e293b; margin-bottom: 24px; display: flex; justify-content: space-between; align-items: flex-start; }
+        .header h1 { font-size: 20pt; color: #0f172a; margin-bottom: 4px; }
+        .header p { font-size: 10pt; color: #64748b; }
         .header-right { text-align: right; }
-        .header-right .brand { font-size: 16pt; font-weight: bold; color: #111; }
-        .header-right .info { font-size: 10pt; color: #666; margin-top: 3px; }
-        .machine-section {
-          margin-bottom: 35px;
-          page-break-inside: avoid;
-        }
-        .machine-header {
-          background: #333;
-          color: white;
-          padding: 14px 18px;
-          margin-bottom: 15px;
-        }
-        .machine-header h3 { font-size: 14pt; margin-bottom: 4px; }
-        .machine-header p { font-size: 11pt; opacity: 0.9; }
-        .machine-stats {
-          display: flex;
-          gap: 20px;
-          margin-bottom: 20px;
-        }
-        .machine-stats > div {
-          flex: 1;
-          text-align: center;
-          padding: 15px;
-          background: #fafafa;
-          border: 1px solid #ddd;
-          border-radius: 6px;
-        }
-        .machine-stats .label { font-size: 9pt; color: #666; text-transform: uppercase; display: block; margin-bottom: 6px; }
-        .machine-stats .value { font-size: 16pt; font-weight: bold; color: #111; }
-        table { width: 100%; border-collapse: collapse; font-size: 11pt; table-layout: fixed; }
-        th { background: #f0f0f0; padding: 12px; text-align: left; font-weight: 600; border: 1px solid #ddd; font-size: 10pt; text-transform: uppercase; }
-        td { padding: 10px 12px; border: 1px solid #ddd; vertical-align: top; word-wrap: break-word; word-break: break-word; white-space: normal; }
-        tr:nth-child(even) { background: #f9f9f9; }
-        .badge { display: inline-block; padding: 4px 10px; border-radius: 4px; font-size: 10pt; font-weight: bold; }
-        .badge-success { background: #d4edda; color: #155724; }
-        .badge-warning { background: #fff3cd; color: #856404; }
-        .footer {
-          margin-top: 40px;
-          padding-top: 20px;
-          border-top: 2px solid #222;
-          font-size: 10pt;
-          color: #666;
-          display: flex;
-          justify-content: space-between;
-        }
-        .empty-msg {
-          padding: 40px;
-          text-align: center;
-          color: #888;
-          font-style: italic;
-          background: #f9f9f9;
-          border: 1px dashed #ddd;
-        }
+        .header-right .brand { font-size: 15pt; font-weight: bold; color: #0f172a; }
+        .header-right .info { font-size: 9pt; color: #64748b; margin-top: 2px; }
+        .machine-section { margin-bottom: 32px; page-break-inside: avoid; }
+        .machine-header { background: #1e293b; color: white; padding: 12px 16px; margin-bottom: 12px; border-radius: 4px 4px 0 0; }
+        .machine-header h3 { font-size: 13pt; margin-bottom: 3px; }
+        .machine-header p { font-size: 10pt; opacity: 0.85; }
+        .machine-stats { display: flex; gap: 12px; margin-bottom: 16px; }
+        .machine-stats > div { flex: 1; text-align: center; padding: 12px 8px; background: #fafafa; border: 1px solid #e2e8f0; border-radius: 5px; }
+        .machine-stats .label { font-size: 8pt; color: #64748b; text-transform: uppercase; display: block; margin-bottom: 5px; }
+        .machine-stats .value { font-size: 14pt; font-weight: bold; color: #0f172a; display: block; }
+        .machine-stats .value-days { font-size: 15pt; font-weight: bold; line-height: 1.1; display: block; }
+        .machine-stats .value-hhmm { font-size: 9pt; font-weight: 600; font-family: monospace; display: block; }
+        table { width: 100%; border-collapse: collapse; font-size: 10pt; table-layout: fixed; }
+        th { background: #1e293b; color: #fff; padding: 10px 8px; text-align: left; font-weight: 600; font-size: 9pt; text-transform: uppercase; letter-spacing: 0.4px; }
+        td { padding: 9px 8px; border-bottom: 1px solid #e2e8f0; vertical-align: top; word-wrap: break-word; word-break: break-word; }
+        tr:nth-child(even) { background: #f8fafc; }
+        .badge { display: inline-block; padding: 3px 8px; border-radius: 3px; font-size: 9pt; font-weight: bold; }
+        .badge-success { background: #dcfce7; color: #166534; }
+        .badge-warning { background: #fef9c3; color: #854d0e; }
+        .footer { margin-top: 28px; padding-top: 14px; border-top: 2px solid #1e293b; font-size: 9pt; color: #64748b; display: flex; justify-content: space-between; align-items: center; }
+        .empty-msg { padding: 36px; text-align: center; color: #94a3b8; font-style: italic; background: #f8fafc; border: 1px dashed #cbd5e1; }
         @media print {
           @page { size: A4; margin: 0; }
-          html, body { 
-            width: 100% !important;
-            height: 100% !important;
-            margin: 0 !important;
-            padding: 0 !important;
-            -webkit-print-color-adjust: exact !important;
-            print-color-adjust: exact !important;
-          }
-          .page-container { padding: 40px 50px; }
+          html, body { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+          .page-container { padding: 36px 44px; }
           .machine-section { page-break-inside: avoid; }
         }
       </style>
@@ -477,20 +264,21 @@ function generateMachineDetailPDF(
     <body>
       <div class="page-container">
         <div class="header">
-          <div class="header-content">
-            <div>
-              <h1>Relatório Detalhado por Máquina</h1>
-              <p>Histórico completo de manutenções</p>
-            </div>
-            <div class="header-right">
-              <div class="brand">TMS ONE</div>
-              <div class="info">Tool Manager System</div>
-              <div class="info">${currentDate}</div>
-            </div>
+          <div>
+            <h1>Relatório Detalhado por Máquina</h1>
+            <p>Histórico completo de manutenções</p>
+          </div>
+          <div class="header-right">
+            <div class="brand">TMS ONE</div>
+            <div class="info">Tool Manager System</div>
+            <div class="info">${currentDate}</div>
           </div>
         </div>
-        
-        ${machineData.map(machine => `
+
+        ${machineData.map(machine => {
+          const st = formatDurationLong(machine.stoppedTime)
+          const op = formatDurationLong(machine.operatingTime)
+          return `
           <div class="machine-section">
             <div class="machine-header">
               <h3>${machine.machineName}</h3>
@@ -498,18 +286,24 @@ function generateMachineDetailPDF(
             </div>
             <div class="machine-stats">
               <div>
-                <span class="label">Total de Chamados</span>
+                <span class="label">Total Chamados</span>
                 <span class="value">${machine.tickets.length}</span>
               </div>
-              <div style="border-color: #ef4444;">
-                <span class="label" style="color:#ef4444;">Máquina Parada</span>
-                <span class="value" style="color:#ef4444;">${formatDuration(machine.stoppedTime)}</span>
-                <span style="font-size:9pt;color:#888;display:block;">abertura → resolução</span>
+              <div style="border-color:#fca5a5;">
+                <span class="label" style="color:#dc2626;">Máquina Parada</span>
+                ${st.days > 0
+                  ? `<span class="value-days" style="color:#dc2626;">${st.days}d</span><span class="value-hhmm" style="color:#ef4444;">${st.hhmm}</span>`
+                  : `<span class="value" style="color:#dc2626;">${st.hhmm}</span>`
+                }
+                <span style="font-size:8pt;color:#94a3b8;display:block;margin-top:2px;">abertura → resolução</span>
               </div>
-              <div style="border-color: #f97316;">
-                <span class="label" style="color:#f97316;">Tempo Operando</span>
-                <span class="value" style="color:#f97316;">${formatDuration(machine.operatingTime)}</span>
-                <span style="font-size:9pt;color:#888;display:block;">manutentor trabalhando</span>
+              <div style="border-color:#fdba74;">
+                <span class="label" style="color:#ea580c;">Tempo Operando</span>
+                ${op.days > 0
+                  ? `<span class="value-days" style="color:#ea580c;">${op.days}d</span><span class="value-hhmm" style="color:#f97316;">${op.hhmm}</span>`
+                  : `<span class="value" style="color:#ea580c;">${op.hhmm}</span>`
+                }
+                <span style="font-size:8pt;color:#94a3b8;display:block;margin-top:2px;">manutentor trabalhando</span>
               </div>
               <div>
                 <span class="label">Custo Total</span>
@@ -520,46 +314,45 @@ function generateMachineDetailPDF(
               <table>
                 <thead>
                   <tr>
-                    <th>Data</th>
-                    <th>Problema</th>
-                    <th>Status</th>
-                    <th style="color:#ef4444;">Maq. Parada</th>
-                    <th style="color:#f97316;">Operando</th>
-                    <th>Custo</th>
-                    <th>Operador</th>
-                    <th>Pecas</th>
+                    <th style="width:10%">Data</th>
+                    <th style="width:20%">Problema</th>
+                    <th style="width:10%">Status</th>
+                    <th style="width:12%;color:#fca5a5;">Maq. Parada</th>
+                    <th style="width:12%;color:#fdba74;">Operando</th>
+                    <th style="width:10%">Custo</th>
+                    <th style="width:12%">Operador</th>
+                    <th style="width:14%">Peças</th>
                   </tr>
                 </thead>
                 <tbody>
-                  ${machine.tickets.map(t => `
+                  ${machine.tickets.map(t => {
+                    const ts = formatDurationLong(t.stoppedTime)
+                    const td2 = formatDurationLong(t.downtime)
+                    return `
                     <tr>
                       <td>${t.date}</td>
                       <td>${t.problem}</td>
-                      <td><span class="badge ${t.resolved ? 'badge-success' : 'badge-warning'}">${t.resolved ? 'Resolvido' : 'Não Resolvido'}</span></td>
-                      <td style="color:#ef4444;font-weight:600;">${formatDuration(t.stoppedTime)}</td>
-                      <td style="color:#f97316;">${formatDuration(t.downtime)}</td>
+                      <td><span class="badge ${t.resolved ? 'badge-success' : 'badge-warning'}">${t.resolved ? 'Resolvido' : 'Pendente'}</span></td>
+                      <td style="color:#dc2626;font-weight:600;">${ts.full}</td>
+                      <td style="color:#ea580c;">${td2.full}</td>
                       <td>${formatCurrency(t.cost)}</td>
                       <td>${t.operator}</td>
                       <td>${t.parts || '-'}</td>
-                    </tr>
-                  `).join('')}
+                    </tr>`
+                  }).join('')}
                 </tbody>
               </table>
             ` : '<div class="empty-msg">Nenhuma manutenção registrada</div>'}
-          </div>
-        `).join('')}
-        
+          </div>`
+        }).join('')}
+
         <div class="footer">
           <div>TMS ONE - Tool Manager System | Todos os direitos reservados</div>
+          <div style="font-style:italic;">Sistema desenvolvido em conformidade com as normas TISAX</div>
           <div>Pagina 1</div>
         </div>
       </div>
-      
-      <script>
-        window.onload = function() { 
-          setTimeout(function() { window.print(); }, 300);
-        }
-      </script>
+      <script>window.onload = function() { setTimeout(function() { window.print(); }, 300); }</script>
     </body>
     </html>
   `
@@ -571,295 +364,175 @@ function generateMachineDetailPDF(
 export function ReportsView() {
   const { tickets, machines, parts, auditLogs, getMachineById, getProblemById, getPartById } = useData()
   const { users } = useAuth()
-  
+
   const [activeTab, setActiveTab] = useState<ReportType>('general')
   const [filters, setFilters] = useState<FilterState>({
-    dateRange: {
-      from: subDays(new Date(), 30),
-      to: new Date()
-    },
+    dateRange: { from: subDays(new Date(), 30), to: new Date() },
     datePreset: 'month',
     machineId: 'all',
     userId: 'all',
     partId: 'all',
     resolved: 'all',
-    priority: 'all'
+    priority: 'all',
   })
   const [calendarOpen, setCalendarOpen] = useState(false)
 
-  // Aplicar preset de data
   const handleDatePreset = (preset: DatePreset) => {
     const today = new Date()
     let from: Date
     let to: Date = today
-
     switch (preset) {
-      case 'today':
-        from = startOfDay(today)
-        to = endOfDay(today)
-        break
-      case 'week':
-        from = subDays(today, 7)
-        break
-      case 'month':
-        from = startOfMonth(today)
-        to = endOfMonth(today)
-        break
-      default:
-        return
+      case 'today': from = startOfDay(today); to = endOfDay(today); break
+      case 'week': from = subDays(today, 7); break
+      case 'month': from = startOfMonth(today); to = endOfMonth(today); break
+      default: return
     }
-
-    setFilters(prev => ({
-      ...prev,
-      datePreset: preset,
-      dateRange: { from, to }
-    }))
+    setFilters(prev => ({ ...prev, datePreset: preset, dateRange: { from, to } }))
   }
 
-  // Limpar filtros
   const clearFilters = () => {
     setFilters({
-      dateRange: {
-        from: subDays(new Date(), 30),
-        to: new Date()
-      },
+      dateRange: { from: subDays(new Date(), 30), to: new Date() },
       datePreset: 'month',
       machineId: 'all',
       userId: 'all',
       partId: 'all',
       resolved: 'all',
-      priority: 'all'
+      priority: 'all',
     })
   }
 
-  const hasActiveFilters = 
-    filters.machineId !== 'all' || 
-    filters.userId !== 'all' || 
+  const hasActiveFilters =
+    filters.machineId !== 'all' ||
+    filters.userId !== 'all' ||
     filters.partId !== 'all' ||
     filters.resolved !== 'all' ||
     filters.priority !== 'all'
 
-  // Filtrar tickets para relatório: finalizados + em andamento (máquina ainda parada)
   const filteredTickets = useMemo(() => {
     return tickets.filter(t => {
-      // Incluir todos exceto open sem ação
       if (t.status === 'open' || t.status === 'cancelled') return false
-
-      // Data de referência: completedAt, ou última action, ou createdAt
       const refDate = t.completedAt
         ? new Date(t.completedAt)
         : t.actions.length > 0
           ? new Date(t.actions[t.actions.length - 1].timestamp)
           : new Date(t.createdAt)
-
-      // Filtro de data — só aplica quando preset não é "all"
       if (filters.dateRange?.from && filters.dateRange?.to) {
-        // Para tickets ainda ativos, usar createdAt como referência de entrada no período
         const checkDate = t.status === 'completed' || t.status === 'unresolved' ? refDate : new Date(t.createdAt)
-        if (!isWithinInterval(checkDate, {
-          start: startOfDay(filters.dateRange.from),
-          end: endOfDay(filters.dateRange.to)
-        })) return false
+        if (!isWithinInterval(checkDate, { start: startOfDay(filters.dateRange.from), end: endOfDay(filters.dateRange.to) })) return false
       }
-
       if (filters.machineId !== 'all' && t.machineId !== filters.machineId) return false
-
       if (filters.userId !== 'all') {
         const targetUser = users.find(u => u.id === filters.userId)
         if (!targetUser) return false
-        const operatorWorked =
-          t.createdBy === filters.userId ||
-          t.actions.some(a => a.operatorName === targetUser.name)
+        const operatorWorked = t.createdBy === filters.userId || t.actions.some(a => a.operatorName === targetUser.name)
         if (!operatorWorked) return false
       }
-
       if (filters.partId !== 'all') {
-        const hasPart = t.usedParts.some(up => up.partId === filters.partId)
-        if (!hasPart) return false
+        if (!t.usedParts.some(up => up.partId === filters.partId)) return false
       }
-
       if (filters.resolved !== 'all') {
         if (filters.resolved === 'yes' && !t.resolved) return false
         if (filters.resolved === 'no' && t.resolved !== false) return false
       }
-
       if (filters.priority !== 'all' && t.priority !== filters.priority) return false
-
       return true
     })
   }, [tickets, filters, users])
 
-  // Estatísticas gerais
   const stats = useMemo(() => {
-    // Tempo Maquina Parada = createdAt ate completedAt (ou agora se ainda ativa)
     const totalStoppedTime = filteredTickets.reduce((sum, t) => {
       const start = new Date(t.createdAt).getTime()
       const end = t.completedAt ? new Date(t.completedAt).getTime() : Date.now()
       return sum + Math.floor((end - start) / 1000)
     }, 0)
-    // Tempo Operando = soma dos segmentos de trabalho real do manutentor
     const totalOperatingTime = filteredTickets.reduce((sum, t) => sum + t.downtime, 0)
     const totalCost = filteredTickets.reduce((sum, t) => sum + t.totalCost, 0)
     const resolved = filteredTickets.filter(t => t.resolved).length
     const notResolved = filteredTickets.filter(t => !t.resolved).length
     const uniqueMachines = new Set(filteredTickets.map(t => t.machineId)).size
-
-    return {
-      total: filteredTickets.length,
-      totalStoppedTime,
-      totalOperatingTime,
-      totalCost,
-      resolved,
-      notResolved,
-      uniqueMachines
-    }
+    return { total: filteredTickets.length, totalStoppedTime, totalOperatingTime, totalCost, resolved, notResolved, uniqueMachines }
   }, [filteredTickets])
 
-  // Dados por máquina
   const machineData = useMemo(() => {
-    const data = new Map<string, { 
-      stoppedTime: number   // createdAt → completedAt (tempo real parada)
-      operatingTime: number // soma dos segmentos de trabalho
-      totalCost: number
-      ticketCount: number
-      tickets: typeof filteredTickets
-    }>()
-
+    const data = new Map<string, { stoppedTime: number; operatingTime: number; totalCost: number; ticketCount: number; tickets: typeof filteredTickets }>()
     filteredTickets.forEach(ticket => {
       const start = new Date(ticket.createdAt).getTime()
       const end = ticket.completedAt ? new Date(ticket.completedAt).getTime() : Date.now()
       const stoppedTime = Math.floor((end - start) / 1000)
-      const operatingTime = ticket.downtime
-
-      const current = data.get(ticket.machineId) || { 
-        stoppedTime: 0,
-        operatingTime: 0,
-        totalCost: 0, 
-        ticketCount: 0,
-        tickets: []
-      }
+      const current = data.get(ticket.machineId) || { stoppedTime: 0, operatingTime: 0, totalCost: 0, ticketCount: 0, tickets: [] }
       data.set(ticket.machineId, {
         stoppedTime: current.stoppedTime + stoppedTime,
-        operatingTime: current.operatingTime + operatingTime,
+        operatingTime: current.operatingTime + ticket.downtime,
         totalCost: current.totalCost + ticket.totalCost,
         ticketCount: current.ticketCount + 1,
-        tickets: [...current.tickets, ticket]
+        tickets: [...current.tickets, ticket],
       })
     })
-
     return Array.from(data.entries())
       .map(([machineId, d]) => {
         const machine = getMachineById(machineId)
-        return {
-          machineId,
-          machineName: machine?.name || 'Desconhecida',
-          sector: machine?.sector || '',
-          ...d
-        }
+        return { machineId, machineName: machine?.name || 'Desconhecida', sector: machine?.sector || '', ...d }
       })
       .sort((a, b) => b.stoppedTime - a.stoppedTime)
   }, [filteredTickets, getMachineById])
 
-  // Dados por usuário - tempo operando = segmentos reais do manutentor
   const userData = useMemo(() => {
-    const data = new Map<string, {
-      ticketCount: number
-      operatingTime: number // tempo real trabalhando (segmentos)
-      totalCost: number
-      resolvedCount: number
-    }>()
-
+    const data = new Map<string, { ticketCount: number; operatingTime: number; totalCost: number; resolvedCount: number }>()
     filteredTickets.forEach(ticket => {
       const operatorTimes = new Map<string, number>()
-      
       if (ticket.timeSegments && ticket.timeSegments.length > 0) {
         ticket.timeSegments.forEach(seg => {
           const segDuration = seg.duration || (seg.endTime
             ? Math.floor((new Date(seg.endTime).getTime() - new Date(seg.startTime).getTime()) / 1000)
             : ticket.status === 'in-progress' ? Math.floor((Date.now() - new Date(seg.startTime).getTime()) / 1000) : 0)
-          const current = operatorTimes.get(seg.operatorName) || 0
-          operatorTimes.set(seg.operatorName, current + segDuration)
+          operatorTimes.set(seg.operatorName, (operatorTimes.get(seg.operatorName) || 0) + segDuration)
         })
       } else {
-        // Fallback para tickets sem segmentos
         const lastAction = ticket.actions[ticket.actions.length - 1]
-        if (lastAction) {
-          operatorTimes.set(lastAction.operatorName, ticket.downtime)
-        }
+        if (lastAction) operatorTimes.set(lastAction.operatorName, ticket.downtime)
       }
-
       operatorTimes.forEach((operatingTime, operatorName) => {
-        const current = data.get(operatorName) || {
-          ticketCount: 0,
-          operatingTime: 0,
-          totalCost: 0,
-          resolvedCount: 0
-        }
+        const current = data.get(operatorName) || { ticketCount: 0, operatingTime: 0, totalCost: 0, resolvedCount: 0 }
         const lastAction = ticket.actions[ticket.actions.length - 1]
         const isCompleter = lastAction?.operatorName === operatorName
-
         data.set(operatorName, {
           ticketCount: current.ticketCount + 1,
           operatingTime: current.operatingTime + operatingTime,
           totalCost: current.totalCost + (isCompleter ? ticket.totalCost : 0),
-          resolvedCount: current.resolvedCount + (isCompleter && ticket.resolved ? 1 : 0)
+          resolvedCount: current.resolvedCount + (isCompleter && ticket.resolved ? 1 : 0),
         })
       })
     })
-
-    return Array.from(data.entries())
-      .map(([userName, d]) => ({ userName, ...d }))
-      .sort((a, b) => b.operatingTime - a.operatingTime)
+    return Array.from(data.entries()).map(([userName, d]) => ({ userName, ...d })).sort((a, b) => b.operatingTime - a.operatingTime)
   }, [filteredTickets])
 
-  // Dados por peça
   const partsData = useMemo(() => {
     const data = new Map<string, { quantity: number; totalValue: number }>()
-
     filteredTickets.forEach(ticket => {
       ticket.usedParts.forEach(up => {
         const part = getPartById(up.partId)
         if (!part) return
-
         const current = data.get(up.partId) || { quantity: 0, totalValue: 0 }
-        data.set(up.partId, {
-          quantity: current.quantity + up.quantity,
-          totalValue: current.totalValue + (part.price * up.quantity)
-        })
+        data.set(up.partId, { quantity: current.quantity + up.quantity, totalValue: current.totalValue + part.price * up.quantity })
       })
     })
-
     return Array.from(data.entries())
-      .map(([partId, d]) => {
-        const part = getPartById(partId)
-        return {
-          partId,
-          partName: part?.name || 'Desconhecida',
-          unitPrice: part?.price || 0,
-          ...d
-        }
-      })
+      .map(([partId, d]) => { const part = getPartById(partId); return { partId, partName: part?.name || 'Desconhecida', unitPrice: part?.price || 0, ...d } })
       .sort((a, b) => b.totalValue - a.totalValue)
   }, [filteredTickets, getPartById])
 
-  // Filtrar logs de auditoria
   const filteredLogs = useMemo(() => {
     return auditLogs.filter(log => {
       if (filters.dateRange?.from && filters.dateRange?.to) {
         const logDate = new Date(log.timestamp)
-        if (!isWithinInterval(logDate, {
-          start: startOfDay(filters.dateRange.from),
-          end: endOfDay(filters.dateRange.to)
-        })) return false
+        if (!isWithinInterval(logDate, { start: startOfDay(filters.dateRange.from), end: endOfDay(filters.dateRange.to) })) return false
       }
-
       if (filters.userId !== 'all' && log.userId !== filters.userId) return false
-
       return true
     })
   }, [auditLogs, filters])
 
-  // Gerar PDF baseado na aba ativa
   const handleGeneratePDF = () => {
     const dateLabel = filters.dateRange?.from && filters.dateRange?.to
       ? `${format(filters.dateRange.from, 'dd/MM/yyyy', { locale: ptBR })} ate ${format(filters.dateRange.to, 'dd/MM/yyyy', { locale: ptBR })}`
@@ -868,26 +541,23 @@ export function ReportsView() {
     switch (activeTab) {
       case 'general':
         generatePDF(
-'Relatório Geral de Manutenções',
-        `Período: ${dateLabel}`,
+          'Relatório Geral de Manutenções',
+          `Período: ${dateLabel}`,
           filteredTickets.map(t => {
             const machine = getMachineById(t.machineId)
             const problem = getProblemById(t.problemId)
             const lastAction = t.actions[t.actions.length - 1]
-            const stoppedSecs = Math.floor((
-              (t.completedAt ? new Date(t.completedAt).getTime() : Date.now()) -
-              new Date(t.createdAt).getTime()
-            ) / 1000)
+            const stoppedSecs = Math.floor(((t.completedAt ? new Date(t.completedAt).getTime() : Date.now()) - new Date(t.createdAt).getTime()) / 1000)
             return {
               data: format(new Date(t.createdAt), 'dd/MM/yyyy HH:mm', { locale: ptBR }),
               maquina: machine?.name || '-',
               problema: problem?.name || '-',
               prioridade: PRIORITY_CONFIG[t.priority].label,
               status: t.resolved ? 'Resolvido' : 'Não Resolvido',
-              maqParada: formatDuration(stoppedSecs),
-              operando: formatDuration(t.downtime),
+              maqParada: formatDurationLong(stoppedSecs).full,
+              operando: formatDurationLong(t.downtime).full,
               custo: formatCurrency(t.totalCost),
-              operador: lastAction?.operatorName || '-'
+              operador: lastAction?.operatorName || '-',
             }
           }),
           [
@@ -899,20 +569,19 @@ export function ReportsView() {
             { key: 'maqParada', label: 'Maq. Parada', align: 'right' },
             { key: 'operando', label: 'Operando', align: 'right' },
             { key: 'custo', label: 'Custo', align: 'right' },
-            { key: 'operador', label: 'Operador' }
+            { key: 'operador', label: 'Operador' },
           ],
           [
             { label: 'Total de Manutenções', value: String(stats.total) },
-            { label: 'Tempo Máquina Parada', value: formatDuration(stats.totalStoppedTime) },
-            { label: 'Tempo Operando', value: formatDuration(stats.totalOperatingTime) },
+            { label: 'Tempo Máquina Parada', value: formatDurationLong(stats.totalStoppedTime).full, color: '#dc2626' },
+            { label: 'Tempo Operando', value: formatDurationLong(stats.totalOperatingTime).full, color: '#ea580c' },
             { label: 'Custo Total', value: formatCurrency(stats.totalCost) },
-            { label: 'Resolvidos', value: `${stats.resolved} (${stats.total > 0 ? Math.round(stats.resolved / stats.total * 100) : 0}%)` }
+            { label: 'Resolvidos', value: `${stats.resolved} (${stats.total > 0 ? Math.round(stats.resolved / stats.total * 100) : 0}%)` },
           ]
         )
         break
 
       case 'machines':
-        // Gera PDF detalhado por maquina
         generateMachineDetailPDF(
           machineData.map(m => ({
             machineName: m.machineName,
@@ -923,15 +592,8 @@ export function ReportsView() {
             tickets: m.tickets.map(t => {
               const problem = getProblemById(t.problemId)
               const lastAction = t.actions[t.actions.length - 1]
-              const partsUsed = t.usedParts.map(up => {
-                const part = getPartById(up.partId)
-                return `${part?.name} (x${up.quantity})`
-              }).join(', ')
-              const stoppedSecs = Math.floor((
-                (t.completedAt ? new Date(t.completedAt).getTime() : Date.now()) -
-                new Date(t.createdAt).getTime()
-              ) / 1000)
-
+              const partsUsed = t.usedParts.map(up => { const part = getPartById(up.partId); return `${part?.name} (x${up.quantity})` }).join(', ')
+              const stoppedSecs = Math.floor(((t.completedAt ? new Date(t.completedAt).getTime() : Date.now()) - new Date(t.createdAt).getTime()) / 1000)
               return {
                 date: format(t.completedAt ?? (t.actions.length > 0 ? new Date(t.actions[t.actions.length - 1].timestamp) : new Date(t.createdAt)), 'dd/MM/yyyy', { locale: ptBR }),
                 problem: problem?.name || '-',
@@ -942,23 +604,23 @@ export function ReportsView() {
                 cost: t.totalCost,
                 operator: lastAction?.operatorName || '-',
                 notes: t.completionNotes || '',
-                parts: partsUsed
+                parts: partsUsed,
               }
-            })
+            }),
           }))
         )
         break
 
       case 'users':
         generatePDF(
-'Relatório por Manutentor',
-        `Período: ${dateLabel}`,
+          'Relatório por Manutentor',
+          `Período: ${dateLabel}`,
           userData.map(u => ({
             nome: u.userName,
             chamados: String(u.ticketCount),
             resolvidos: `${u.resolvedCount} (${Math.round(u.resolvedCount / u.ticketCount * 100)}%)`,
-            operando: formatDuration(u.operatingTime),
-            media: formatDuration(Math.round(u.operatingTime / u.ticketCount)),
+            operando: formatDurationLong(u.operatingTime).full,
+            media: formatDurationLong(Math.round(u.operatingTime / u.ticketCount)).full,
             custo: formatCurrency(u.totalCost),
           })),
           [
@@ -972,31 +634,31 @@ export function ReportsView() {
           [
             { label: 'Total de Manutentores', value: String(userData.length) },
             { label: 'Total de Chamados', value: String(stats.total) },
-            { label: 'Tempo Total Operando', value: formatDuration(stats.totalOperatingTime) },
-            { label: 'Tempo Total Maq. Parada', value: formatDuration(stats.totalStoppedTime) },
+            { label: 'Tempo Total Operando', value: formatDurationLong(stats.totalOperatingTime).full, color: '#ea580c' },
+            { label: 'Tempo Total Maq. Parada', value: formatDurationLong(stats.totalStoppedTime).full, color: '#dc2626' },
           ]
         )
         break
 
       case 'parts':
         generatePDF(
-'Relatório de Peças Utilizadas',
-        `Período: ${dateLabel}`,
+          'Relatório de Peças Utilizadas',
+          `Período: ${dateLabel}`,
           partsData.map(p => ({
             peca: p.partName,
             quantidade: String(p.quantity),
             precoUnit: formatCurrency(p.unitPrice),
-            total: formatCurrency(p.totalValue)
+            total: formatCurrency(p.totalValue),
           })),
           [
             { key: 'peca', label: 'Peca' },
             { key: 'quantidade', label: 'Quantidade', align: 'center' },
             { key: 'precoUnit', label: 'Preco Unit.', align: 'right' },
-            { key: 'total', label: 'Total', align: 'right' }
+            { key: 'total', label: 'Total', align: 'right' },
           ],
           [
             { label: 'Total de Tipos', value: String(partsData.length) },
-            { label: 'Custo Total', value: formatCurrency(partsData.reduce((s, p) => s + p.totalValue, 0)) }
+            { label: 'Custo Total', value: formatCurrency(partsData.reduce((s, p) => s + p.totalValue, 0)) },
           ]
         )
         break
@@ -1010,18 +672,16 @@ export function ReportsView() {
             usuario: log.userName,
             acao: log.action.replace(/_/g, ' ').toUpperCase(),
             entidade: log.entityName,
-            detalhes: log.details.substring(0, 80) + (log.details.length > 80 ? '...' : '')
+            detalhes: log.details.substring(0, 80) + (log.details.length > 80 ? '...' : ''),
           })),
           [
             { key: 'data', label: 'Data/Hora' },
             { key: 'usuario', label: 'Usuario' },
             { key: 'acao', label: 'Acao' },
             { key: 'entidade', label: 'Entidade' },
-            { key: 'detalhes', label: 'Detalhes' }
+            { key: 'detalhes', label: 'Detalhes' },
           ],
-          [
-            { label: 'Total de Registros', value: String(filteredLogs.length) }
-          ]
+          [{ label: 'Total de Registros', value: String(filteredLogs.length) }]
         )
         break
     }
@@ -1032,12 +692,8 @@ export function ReportsView() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl lg:text-3xl font-bold text-foreground">
-            Relatórios e Performance
-          </h1>
-          <p className="text-muted-foreground mt-1">
-            Análise completa de manutenções e auditoria
-          </p>
+          <h1 className="text-2xl lg:text-3xl font-bold text-foreground">Relatórios e Performance</h1>
+          <p className="text-muted-foreground mt-1">Análise completa de manutenções e auditoria</p>
         </div>
         <Button onClick={handleGeneratePDF}>
           <Printer className="w-4 h-4 mr-2" />
@@ -1045,9 +701,9 @@ export function ReportsView() {
         </Button>
       </div>
 
-      {/* Filtros Globais */}
+      {/* Filtros */}
       <Card>
-        <CardHeader className="pb-4">
+        <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
             <CardTitle className="text-base flex items-center gap-2">
               <Filter className="w-4 h-4" />
@@ -1056,66 +712,37 @@ export function ReportsView() {
             {hasActiveFilters && (
               <Button variant="ghost" size="sm" onClick={clearFilters}>
                 <X className="w-4 h-4 mr-1" />
-                Limpar Filtros
+                Limpar
               </Button>
             )}
           </div>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-{/* Período */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-start">
+            {/* Período */}
             <div>
               <Label className="text-xs">Período</Label>
-              <div className="flex gap-1">
-                <Button 
-                  variant={filters.datePreset === 'today' ? 'default' : 'outline'} 
-                  size="sm"
-                  onClick={() => handleDatePreset('today')}
-                  className="flex-1 text-xs"
-                >
-                  Hoje
-                </Button>
-                <Button 
-                  variant={filters.datePreset === 'week' ? 'default' : 'outline'} 
-                  size="sm"
-                  onClick={() => handleDatePreset('week')}
-                  className="flex-1 text-xs"
-                >
-                  7 dias
-                </Button>
-                <Button 
-                  variant={filters.datePreset === 'month' ? 'default' : 'outline'} 
-                  size="sm"
-                  onClick={() => handleDatePreset('month')}
-                  className="flex-1 text-xs"
-                >
-                  Mes
-                </Button>
+              <div className="flex gap-1 mt-1 mb-1">
+                <Button variant={filters.datePreset === 'today' ? 'default' : 'outline'} size="sm" onClick={() => handleDatePreset('today')} className="flex-1 text-xs">Hoje</Button>
+                <Button variant={filters.datePreset === 'week' ? 'default' : 'outline'} size="sm" onClick={() => handleDatePreset('week')} className="flex-1 text-xs">7 dias</Button>
+                <Button variant={filters.datePreset === 'month' ? 'default' : 'outline'} size="sm" onClick={() => handleDatePreset('month')} className="flex-1 text-xs">Mês</Button>
               </div>
               <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
                 <PopoverTrigger asChild>
                   <Button variant="outline" size="sm" className="w-full justify-start text-xs">
                     <CalendarIcon className="w-3 h-3 mr-2" />
                     {filters.dateRange?.from ? (
-                      filters.dateRange.to ? (
-                        <>
-                          {format(filters.dateRange.from, 'dd/MM/yy', { locale: ptBR })} - {format(filters.dateRange.to, 'dd/MM/yy', { locale: ptBR })}
-                        </>
-                      ) : (
-                        format(filters.dateRange.from, 'dd/MM/yy', { locale: ptBR })
-                      )
-                    ) : (
-                      'Selecionar datas'
-                    )}
+                      filters.dateRange.to
+                        ? `${format(filters.dateRange.from, 'dd/MM/yy', { locale: ptBR })} - ${format(filters.dateRange.to, 'dd/MM/yy', { locale: ptBR })}`
+                        : format(filters.dateRange.from, 'dd/MM/yy', { locale: ptBR })
+                    ) : 'Selecionar datas'}
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0" align="start">
                   <Calendar
                     mode="range"
                     selected={filters.dateRange}
-                    onSelect={(range) => {
-                      setFilters(prev => ({ ...prev, dateRange: range, datePreset: 'custom' }))
-                    }}
+                    onSelect={(range) => setFilters(prev => ({ ...prev, dateRange: range, datePreset: 'custom' }))}
                     numberOfMonths={2}
                     locale={ptBR}
                   />
@@ -1123,54 +750,35 @@ export function ReportsView() {
               </Popover>
             </div>
 
-            {/* Maquina */}
-            <div className="space-y-2">
-              <Label className="text-xs">Maquina</Label>
-              <Select 
-                value={filters.machineId} 
-                onValueChange={(v) => setFilters(prev => ({ ...prev, machineId: v }))}
-              >
-                <SelectTrigger className="h-9">
-                  <SelectValue placeholder="Todas" />
-                </SelectTrigger>
+            {/* Máquina */}
+            <div className="space-y-1">
+              <Label className="text-xs">Máquina</Label>
+              <Select value={filters.machineId} onValueChange={(v) => setFilters(prev => ({ ...prev, machineId: v }))}>
+                <SelectTrigger className="h-9"><SelectValue placeholder="Todas" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Todas as Máquinas</SelectItem>
-                  {machines.map((m) => (
-                    <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
-                  ))}
+                  {machines.map(m => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
 
-            {/* Usuario/Manutentor */}
-            <div className="space-y-2">
+            {/* Manutentor */}
+            <div className="space-y-1">
               <Label className="text-xs">Manutentor</Label>
-              <Select 
-                value={filters.userId} 
-                onValueChange={(v) => setFilters(prev => ({ ...prev, userId: v }))}
-              >
-                <SelectTrigger className="h-9">
-                  <SelectValue placeholder="Todos" />
-                </SelectTrigger>
+              <Select value={filters.userId} onValueChange={(v) => setFilters(prev => ({ ...prev, userId: v }))}>
+                <SelectTrigger className="h-9"><SelectValue placeholder="Todos" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Todos os Manutentores</SelectItem>
-                  {users.filter(u => u.role === 'manutentor').map((u) => (
-                    <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>
-                  ))}
+                  {users.filter(u => u.role === 'manutentor').map(u => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
 
-            {/* Status Resolvido */}
-            <div className="space-y-2">
+            {/* Status */}
+            <div className="space-y-1">
               <Label className="text-xs">Status</Label>
-              <Select 
-                value={filters.resolved} 
-                onValueChange={(v) => setFilters(prev => ({ ...prev, resolved: v }))}
-              >
-                <SelectTrigger className="h-9">
-                  <SelectValue placeholder="Todos" />
-                </SelectTrigger>
+              <Select value={filters.resolved} onValueChange={(v) => setFilters(prev => ({ ...prev, resolved: v }))}>
+                <SelectTrigger className="h-9"><SelectValue placeholder="Todos" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Todos os Status</SelectItem>
                   <SelectItem value="yes">Resolvidos</SelectItem>
@@ -1198,32 +806,50 @@ export function ReportsView() {
           </CardContent>
         </Card>
 
-        {/* Tempo Máquina Parada — desde abertura do chamado */}
         <Card className="border-red-200">
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
               <div className="p-2 rounded-lg bg-red-500">
                 <Clock className="w-4 h-4 text-white" />
               </div>
-              <div>
-                <p className="text-xs text-muted-foreground font-medium text-red-600">Máquina Parada</p>
-                <p className="text-xl font-bold text-red-600">{formatDuration(stats.totalStoppedTime)}</p>
+              <div className="min-w-0">
+                <p className="text-xs font-medium text-red-600">Máquina Parada</p>
+                {(() => {
+                  const d = formatDurationLong(stats.totalStoppedTime)
+                  return d.days > 0 ? (
+                    <>
+                      <p className="text-xl font-bold text-red-600 leading-tight">{d.days}d</p>
+                      <p className="text-sm font-mono text-red-500">{d.hhmm}</p>
+                    </>
+                  ) : (
+                    <p className="text-xl font-bold text-red-600 font-mono">{d.hhmm}</p>
+                  )
+                })()}
                 <p className="text-[10px] text-muted-foreground">abertura → resolução</p>
               </div>
             </div>
           </CardContent>
         </Card>
 
-        {/* Tempo Operando — tempo real do manutentor trabalhando */}
         <Card className="border-orange-200">
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
               <div className="p-2 rounded-lg bg-orange-500">
                 <TrendingUp className="w-4 h-4 text-white" />
               </div>
-              <div>
-                <p className="text-xs text-muted-foreground font-medium text-orange-600">Tempo Operando</p>
-                <p className="text-xl font-bold text-orange-600">{formatDuration(stats.totalOperatingTime)}</p>
+              <div className="min-w-0">
+                <p className="text-xs font-medium text-orange-600">Tempo Operando</p>
+                {(() => {
+                  const d = formatDurationLong(stats.totalOperatingTime)
+                  return d.days > 0 ? (
+                    <>
+                      <p className="text-xl font-bold text-orange-600 leading-tight">{d.days}d</p>
+                      <p className="text-sm font-mono text-orange-500">{d.hhmm}</p>
+                    </>
+                  ) : (
+                    <p className="text-xl font-bold text-orange-600 font-mono">{d.hhmm}</p>
+                  )
+                })()}
                 <p className="text-[10px] text-muted-foreground">manutentor trabalhando</p>
               </div>
             </div>
@@ -1245,52 +871,49 @@ export function ReportsView() {
         </Card>
       </div>
 
-      {/* Taxa de Resolução separada */}
-      <div className="grid grid-cols-1 gap-4">
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-6">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-blue-500">
-                  <CheckCircle className="w-4 h-4 text-white" />
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Taxa Resolução</p>
-                  <p className="text-xl font-bold">
-                    {stats.total > 0 ? Math.round(stats.resolved / stats.total * 100) : 0}%
-                  </p>
-                </div>
+      {/* Taxa de Resolução */}
+      <Card>
+        <CardContent className="p-4">
+          <div className="flex items-center gap-6">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-blue-500">
+                <CheckCircle className="w-4 h-4 text-white" />
               </div>
-              <div className="flex-1 hidden sm:flex items-center gap-6 text-sm">
-                <span className="text-green-600 font-medium">{stats.resolved} resolvidos</span>
-                <span className="text-orange-600 font-medium">{stats.notResolved} pendentes</span>
-                <span className="text-muted-foreground">{stats.uniqueMachines} máquinas afetadas</span>
+              <div>
+                <p className="text-xs text-muted-foreground">Taxa Resolução</p>
+                <p className="text-xl font-bold">
+                  {stats.total > 0 ? Math.round(stats.resolved / stats.total * 100) : 0}%
+                </p>
               </div>
             </div>
-          </CardContent>
-        </Card>
-      </div>
+            <div className="flex-1 hidden sm:flex items-center gap-6 text-sm">
+              <span className="text-green-600 font-medium">{stats.resolved} resolvidos</span>
+              <span className="text-orange-600 font-medium">{stats.notResolved} pendentes</span>
+              <span className="text-muted-foreground">{stats.uniqueMachines} máquinas afetadas</span>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
-      {/* Tabs de Relatórios */}
+      {/* Abas */}
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as ReportType)}>
-        <TabsList className="grid grid-cols-3 sm:grid-cols-5 w-full h-auto gap-1 p-1">
-          <TabsTrigger value="general" className="text-[10px] sm:text-xs px-1 py-2">
-            <FileText className="w-3 h-3 sm:w-4 sm:h-4 mr-0.5 sm:mr-1" />
-            <span className="hidden xs:inline">Geral</span>
-            <span className="xs:hidden">Geral</span>
+        <TabsList className="grid w-full h-auto gap-1 p-1" style={{ gridTemplateColumns: 'repeat(4,minmax(0,1fr))' }}>
+          <TabsTrigger value="general" className="text-[10px] sm:text-xs px-2 py-2">
+            <FileText className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
+            <span>Geral</span>
           </TabsTrigger>
-          <TabsTrigger value="machines" className="text-[10px] sm:text-xs px-1 py-2">
-            <Settings className="w-3 h-3 sm:w-4 sm:h-4 mr-0.5 sm:mr-1" />
+          <TabsTrigger value="machines" className="text-[10px] sm:text-xs px-2 py-2">
+            <Settings className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
             <span className="hidden sm:inline">Máquinas</span>
             <span className="sm:hidden">Maq.</span>
           </TabsTrigger>
-          <TabsTrigger value="users" className="text-[10px] sm:text-xs px-1 py-2">
-            <User className="w-3 h-3 sm:w-4 sm:h-4 mr-0.5 sm:mr-1" />
+          <TabsTrigger value="users" className="text-[10px] sm:text-xs px-2 py-2">
+            <User className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
             <span className="hidden sm:inline">Usuários</span>
             <span className="sm:hidden">User</span>
           </TabsTrigger>
-          <TabsTrigger value="parts" className="text-[10px] sm:text-xs px-1 py-2">
-            <Package className="w-3 h-3 sm:w-4 sm:h-4 mr-0.5 sm:mr-1" />
+          <TabsTrigger value="parts" className="text-[10px] sm:text-xs px-2 py-2">
+            <Package className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
             <span className="hidden sm:inline">Peças</span>
             <span className="sm:hidden">Pec.</span>
           </TabsTrigger>
@@ -1301,9 +924,7 @@ export function ReportsView() {
           <Card>
             <CardHeader>
               <CardTitle>Lista de Manutenções</CardTitle>
-              <CardDescription>
-                {filteredTickets.length} manutenções encontradas
-              </CardDescription>
+              <CardDescription>{filteredTickets.length} manutenções encontradas</CardDescription>
             </CardHeader>
             <CardContent className="p-0">
               <div className="overflow-x-auto -mx-4 sm:mx-0">
@@ -1325,11 +946,7 @@ export function ReportsView() {
                       const machine = getMachineById(ticket.machineId)
                       const problem = getProblemById(ticket.problemId)
                       const lastAction = ticket.actions[ticket.actions.length - 1]
-                      const stoppedSecs = Math.floor((
-                        (ticket.completedAt ? new Date(ticket.completedAt).getTime() : Date.now()) -
-                        new Date(ticket.createdAt).getTime()
-                      ) / 1000)
-                      
+                      const stoppedSecs = Math.floor(((ticket.completedAt ? new Date(ticket.completedAt).getTime() : Date.now()) - new Date(ticket.createdAt).getTime()) / 1000)
                       return (
                         <tr key={ticket.id} className="hover:bg-muted/50">
                           <td className="p-2 sm:p-3 whitespace-nowrap text-[10px] sm:text-xs">
@@ -1338,39 +955,34 @@ export function ReportsView() {
                           <td className="p-2 sm:p-3 text-[10px] sm:text-xs max-w-[100px] truncate">{machine?.name || '-'}</td>
                           <td className="p-2 sm:p-3 text-[10px] sm:text-xs hidden sm:table-cell max-w-[120px] truncate">{problem?.name || '-'}</td>
                           <td className="p-2 sm:p-3 text-center">
-                            <Badge 
-                              variant="outline" 
-                              className={cn(
-                                "text-[9px] sm:text-xs px-1 sm:px-2",
-                                ticket.resolved 
-                                  ? "bg-green-50 text-green-600 border-green-200" 
-                                  : ticket.status === 'in-progress' || ticket.status === 'paused'
-                                    ? "bg-orange-50 text-orange-600 border-orange-200"
-                                    : "bg-red-50 text-red-600 border-red-200"
-                              )}
-                            >
+                            <Badge variant="outline" className={cn(
+                              "text-[9px] sm:text-xs px-1 sm:px-2",
+                              ticket.resolved ? "bg-green-50 text-green-600 border-green-200"
+                                : ticket.status === 'in-progress' || ticket.status === 'paused' ? "bg-orange-50 text-orange-600 border-orange-200"
+                                : "bg-red-50 text-red-600 border-red-200"
+                            )}>
                               {ticket.resolved ? 'Resolvido' : ticket.status === 'in-progress' ? 'Em andamento' : ticket.status === 'paused' ? 'Pausado' : 'Pendente'}
                             </Badge>
                           </td>
                           <td className="p-2 sm:p-3 text-right font-mono text-[10px] sm:text-xs text-red-600 font-semibold">
-                            {formatDuration(stoppedSecs)}
+                            {formatDurationLong(stoppedSecs).full}
                           </td>
                           <td className="p-2 sm:p-3 text-right font-mono text-[10px] sm:text-xs text-orange-600 hidden sm:table-cell">
-                            {formatDuration(ticket.downtime)}
+                            {formatDurationLong(ticket.downtime).full}
                           </td>
                           <td className="p-2 sm:p-3 text-right font-mono text-[10px] sm:text-xs">
                             {formatCurrency(ticket.totalCost)}
                           </td>
-                          <td className="p-2 sm:p-3 text-[10px] sm:text-xs hidden md:table-cell max-w-[80px] truncate">{lastAction?.operatorName || '-'}</td>
+                          <td className="p-2 sm:p-3 text-[10px] sm:text-xs hidden md:table-cell max-w-[80px] truncate">
+                            {lastAction?.operatorName || '-'}
+                          </td>
                         </tr>
                       )
                     })}
                   </tbody>
                 </table>
                 {filteredTickets.length === 0 && (
-                  <div className="p-8 text-center text-muted-foreground">
-                    Nenhuma manutenção encontrada para os filtros selecionados.
-                  </div>
+                  <div className="p-8 text-center text-muted-foreground">Nenhuma manutenção encontrada para os filtros selecionados.</div>
                 )}
                 {filteredTickets.length > 50 && (
                   <div className="p-4 text-center text-muted-foreground text-sm border-t">
@@ -1382,14 +994,12 @@ export function ReportsView() {
           </Card>
         </TabsContent>
 
-        {/* Tab Maquinas */}
+        {/* Tab Máquinas */}
         <TabsContent value="machines" className="mt-4">
           <Card>
             <CardHeader>
               <CardTitle>Ranking por Máquina</CardTitle>
-              <CardDescription>
-                Ordenado por tempo de máquina parada (maior para menor)
-              </CardDescription>
+              <CardDescription>Ordenado por tempo de máquina parada (maior para menor)</CardDescription>
             </CardHeader>
             <CardContent className="p-0">
               <div className="divide-y">
@@ -1406,19 +1016,30 @@ export function ReportsView() {
                         <p className="font-medium truncate">{m.machineName}</p>
                         <p className="text-xs text-muted-foreground">{m.sector} &bull; {m.ticketCount} chamados</p>
                       </div>
-                      {/* Tempo Máquina Parada */}
                       <div className="text-right">
                         <p className="text-[10px] text-red-600 font-medium uppercase tracking-wide">Máquina Parada</p>
-                        <p className="font-bold text-red-600 font-mono">{formatDuration(m.stoppedTime)}</p>
+                        {(() => {
+                          const d = formatDurationLong(m.stoppedTime)
+                          return d.days > 0 ? (
+                            <><p className="font-bold text-red-600 font-mono leading-tight">{d.days}d</p><p className="text-xs text-red-500 font-mono">{d.hhmm}</p></>
+                          ) : (
+                            <p className="font-bold text-red-600 font-mono">{d.hhmm}</p>
+                          )
+                        })()}
                         <p className="text-[10px] text-muted-foreground">abertura → resolução</p>
                       </div>
-                      {/* Tempo Operando */}
                       <div className="text-right hidden sm:block">
                         <p className="text-[10px] text-orange-600 font-medium uppercase tracking-wide">Operando</p>
-                        <p className="font-medium text-orange-600 font-mono">{formatDuration(m.operatingTime)}</p>
+                        {(() => {
+                          const d = formatDurationLong(m.operatingTime)
+                          return d.days > 0 ? (
+                            <><p className="font-medium text-orange-600 font-mono leading-tight">{d.days}d</p><p className="text-xs text-orange-500 font-mono">{d.hhmm}</p></>
+                          ) : (
+                            <p className="font-medium text-orange-600 font-mono">{d.hhmm}</p>
+                          )
+                        })()}
                         <p className="text-[10px] text-muted-foreground">trabalhando</p>
                       </div>
-                      {/* Custo */}
                       <div className="text-right hidden md:block">
                         <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Custo Peças</p>
                         <p className="font-medium text-green-600">{formatCurrency(m.totalCost)}</p>
@@ -1427,23 +1048,19 @@ export function ReportsView() {
                   </div>
                 ))}
                 {machineData.length === 0 && (
-                  <div className="p-8 text-center text-muted-foreground">
-                    Nenhum dado encontrado para os filtros selecionados.
-                  </div>
+                  <div className="p-8 text-center text-muted-foreground">Nenhum dado encontrado para os filtros selecionados.</div>
                 )}
               </div>
             </CardContent>
           </Card>
         </TabsContent>
 
-        {/* Tab Usuarios */}
+        {/* Tab Usuários */}
         <TabsContent value="users" className="mt-4">
           <Card>
             <CardHeader>
               <CardTitle>Performance por Manutentor</CardTitle>
-              <CardDescription>
-                Tempo operando = segmentos reais de trabalho por manutentor
-              </CardDescription>
+              <CardDescription>Tempo operando = segmentos reais de trabalho por manutentor</CardDescription>
             </CardHeader>
             <CardContent className="p-0">
               <div className="divide-y">
@@ -1463,13 +1080,18 @@ export function ReportsView() {
                         <p className="font-bold">{u.ticketCount}</p>
                         <p className="text-xs text-muted-foreground">chamados</p>
                       </div>
-                      {/* Tempo Operando — tempo real do manutentor */}
                       <div className="text-right hidden sm:block">
                         <p className="text-[10px] text-orange-600 font-medium uppercase tracking-wide">Tempo Operando</p>
-                        <p className="font-medium text-orange-600 font-mono">{formatDuration(u.operatingTime)}</p>
+                        {(() => {
+                          const d = formatDurationLong(u.operatingTime)
+                          return d.days > 0 ? (
+                            <><p className="font-medium text-orange-600 font-mono leading-tight">{d.days}d</p><p className="text-xs text-orange-500 font-mono">{d.hhmm}</p></>
+                          ) : (
+                            <p className="font-medium text-orange-600 font-mono">{d.hhmm}</p>
+                          )
+                        })()}
                         <p className="text-[10px] text-muted-foreground">trabalhando</p>
                       </div>
-                      {/* Custo */}
                       <div className="text-right hidden md:block">
                         <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Custo</p>
                         <p className="font-medium text-green-600">{formatCurrency(u.totalCost)}</p>
@@ -1478,23 +1100,19 @@ export function ReportsView() {
                   </div>
                 ))}
                 {userData.length === 0 && (
-                  <div className="p-8 text-center text-muted-foreground">
-                    Nenhum dado encontrado para os filtros selecionados.
-                  </div>
+                  <div className="p-8 text-center text-muted-foreground">Nenhum dado encontrado para os filtros selecionados.</div>
                 )}
               </div>
             </CardContent>
           </Card>
         </TabsContent>
 
-        {/* Tab Pecas */}
+        {/* Tab Peças */}
         <TabsContent value="parts" className="mt-4">
           <Card>
             <CardHeader>
               <CardTitle>Peças Utilizadas</CardTitle>
-              <CardDescription>
-                Ordenado por valor total (maior para menor)
-              </CardDescription>
+              <CardDescription>Ordenado por valor total (maior para menor)</CardDescription>
             </CardHeader>
             <CardContent className="p-0">
               <div className="overflow-x-auto">
@@ -1513,9 +1131,7 @@ export function ReportsView() {
                         <td className="p-3 font-medium">{p.partName}</td>
                         <td className="p-3 text-center">{p.quantity}</td>
                         <td className="p-3 text-right font-mono">{formatCurrency(p.unitPrice)}</td>
-                        <td className="p-3 text-right font-mono font-bold text-green-600">
-                          {formatCurrency(p.totalValue)}
-                        </td>
+                        <td className="p-3 text-right font-mono font-bold text-green-600">{formatCurrency(p.totalValue)}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -1523,17 +1139,13 @@ export function ReportsView() {
                     <tfoot className="bg-muted/50">
                       <tr>
                         <td colSpan={3} className="p-3 text-right font-medium">Total Geral:</td>
-                        <td className="p-3 text-right font-mono font-bold">
-                          {formatCurrency(partsData.reduce((s, p) => s + p.totalValue, 0))}
-                        </td>
+                        <td className="p-3 text-right font-mono font-bold">{formatCurrency(partsData.reduce((s, p) => s + p.totalValue, 0))}</td>
                       </tr>
                     </tfoot>
                   )}
                 </table>
                 {partsData.length === 0 && (
-                  <div className="p-8 text-center text-muted-foreground">
-                    Nenhuma peça utilizada no período selecionado.
-                  </div>
+                  <div className="p-8 text-center text-muted-foreground">Nenhuma peça utilizada no período selecionado.</div>
                 )}
               </div>
             </CardContent>

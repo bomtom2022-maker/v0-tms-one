@@ -365,7 +365,7 @@ export async function createUserInSupabase(name: string, email: string, password
   return { id: result.id }
 }
 
-export async function updateProfileDb(id: string, updates: { name?: string; email?: string; role?: string; active?: boolean }): Promise<void> {
+export async function updateProfileDb(id: string, updates: { name?: string; email?: string; role?: string; active?: boolean; password?: string }): Promise<void> {
   await apiFetch('/api/users/update', {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
