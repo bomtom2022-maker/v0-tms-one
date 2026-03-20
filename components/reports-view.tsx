@@ -1,5 +1,5 @@
 'use client'
-// reports-view v2
+// reports-view v3 - cache bust
 
 import { useState, useMemo, useRef } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -124,8 +124,8 @@ function generatePDF(
         
         .header {
           width: 100%;
-          border-bottom: 3px solid #222;
           padding-bottom: 15px;
+          border-bottom: 3px solid #1e293b;
           margin-bottom: 25px;
         }
         
@@ -136,15 +136,15 @@ function generatePDF(
         }
         
         .header-left h1 {
-          font-size: 24pt;
+          font-size: 22pt;
           font-weight: bold;
-          color: #111;
+          color: #0f172a;
           margin-bottom: 5px;
         }
         
         .header-left p {
           font-size: 11pt;
-          color: #666;
+          color: #64748b;
         }
         
         .header-right {
@@ -154,52 +154,65 @@ function generatePDF(
         .header-right .brand {
           font-size: 18pt;
           font-weight: bold;
-          color: #111;
+          color: #0f172a;
         }
         
         .header-right .info {
           font-size: 10pt;
-          color: #666;
+          color: #64748b;
           margin-top: 3px;
         }
         
         .subtitle {
-          font-size: 12pt;
-          color: #333;
+          font-size: 11pt;
+          color: #334155;
           margin-bottom: 25px;
-          padding: 15px 20px;
-          background: #f5f5f5;
-          border-left: 5px solid #333;
+          padding: 12px 18px;
+          background: #f1f5f9;
+          border-left: 5px solid #1e293b;
+          border-radius: 0 4px 4px 0;
         }
         
         .summary {
           display: flex;
-          gap: 20px;
-          margin-bottom: 30px;
+          gap: 16px;
+          margin-bottom: 28px;
         }
         
         .summary-item {
           flex: 1;
-          padding: 20px;
+          padding: 16px;
           text-align: center;
           background: #fafafa;
-          border: 1px solid #ddd;
+          border: 1px solid #e2e8f0;
           border-radius: 6px;
         }
         
         .summary-item .label {
-          font-size: 10pt;
-          color: #666;
+          font-size: 9pt;
+          color: #64748b;
           text-transform: uppercase;
           letter-spacing: 0.5px;
           display: block;
-          margin-bottom: 8px;
+          margin-bottom: 6px;
         }
         
         .summary-item .value {
-          font-size: 20pt;
+          font-size: 18pt;
           font-weight: bold;
-          color: #111;
+          color: #0f172a;
+        }
+
+        .summary-item .value-days {
+          font-size: 18pt;
+          font-weight: bold;
+          line-height: 1.1;
+        }
+
+        .summary-item .value-hhmm {
+          font-size: 12pt;
+          font-weight: 600;
+          font-family: monospace;
         }
         
         table {
@@ -211,9 +224,9 @@ function generatePDF(
         }
         
         th {
-          background: #333;
+          background: #1e293b;
           color: #fff;
-          padding: 14px 12px;
+          padding: 12px;
           font-weight: 600;
           text-align: left;
           font-size: 10pt;
@@ -222,8 +235,8 @@ function generatePDF(
         }
         
         td {
-          padding: 12px;
-          border-bottom: 1px solid #ddd;
+          padding: 11px 12px;
+          border-bottom: 1px solid #e2e8f0;
           vertical-align: top;
           word-wrap: break-word;
           word-break: break-word;
@@ -232,34 +245,36 @@ function generatePDF(
         }
         
         tr:nth-child(even) {
-          background: #f9f9f9;
+          background: #f8fafc;
         }
+
+        .badge { display: inline-block; padding: 3px 9px; border-radius: 4px; font-size: 10pt; font-weight: bold; }
+        .badge-success { background: #dcfce7; color: #166534; }
+        .badge-warning { background: #fef9c3; color: #854d0e; }
         
         .footer {
-          margin-top: 40px;
-          padding-top: 20px;
-          border-top: 2px solid #222;
+          margin-top: 36px;
+          padding-top: 16px;
+          border-top: 2px solid #1e293b;
           font-size: 10pt;
-          color: #666;
+          color: #64748b;
           display: flex;
           justify-content: space-between;
+          align-items: center;
         }
         
         .empty-message {
-          padding: 60px;
+          padding: 50px;
           text-align: center;
-          color: #888;
-          font-size: 14pt;
+          color: #94a3b8;
+          font-size: 13pt;
           font-style: italic;
-          background: #f9f9f9;
-          border: 1px dashed #ddd;
+          background: #f8fafc;
+          border: 1px dashed #cbd5e1;
         }
         
         @media print {
-          @page {
-            size: A4;
-            margin: 0;
-          }
+          @page { size: A4; margin: 0; }
           html, body { 
             width: 100% !important;
             height: 100% !important;
@@ -268,9 +283,7 @@ function generatePDF(
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
           }
-          .page-container {
-            padding: 40px 50px;
-          }
+          .page-container { padding: 40px 50px; }
         }
       </style>
     </head>
@@ -278,7 +291,7 @@ function generatePDF(
       <div class="page-container">
         <div class="header">
           <div class="header-content">
-            <div class="header-left">
+          <div class="header-left">
               <h1>${title}</h1>
               <p>Relatório gerado automaticamente pelo sistema</p>
             </div>
@@ -414,51 +427,54 @@ function generateMachineDetailPDF(
           page-break-inside: avoid;
         }
         .machine-header {
-          background: #333;
+          background: #1e293b;
           color: white;
           padding: 14px 18px;
           margin-bottom: 15px;
         }
         .machine-header h3 { font-size: 14pt; margin-bottom: 4px; }
-        .machine-header p { font-size: 11pt; opacity: 0.9; }
+        .machine-header p { font-size: 11pt; opacity: 0.85; }
         .machine-stats {
           display: flex;
-          gap: 20px;
+          gap: 16px;
           margin-bottom: 20px;
         }
         .machine-stats > div {
           flex: 1;
           text-align: center;
-          padding: 15px;
+          padding: 14px;
           background: #fafafa;
-          border: 1px solid #ddd;
+          border: 1px solid #e2e8f0;
           border-radius: 6px;
         }
-        .machine-stats .label { font-size: 9pt; color: #666; text-transform: uppercase; display: block; margin-bottom: 6px; }
-        .machine-stats .value { font-size: 16pt; font-weight: bold; color: #111; }
+        .machine-stats .label { font-size: 9pt; color: #64748b; text-transform: uppercase; display: block; margin-bottom: 6px; }
+        .machine-stats .value { font-size: 15pt; font-weight: bold; color: #0f172a; }
+        .machine-stats .value-days { font-size: 15pt; font-weight: bold; line-height: 1.1; }
+        .machine-stats .value-hhmm { font-size: 10pt; font-weight: 600; font-family: monospace; }
         table { width: 100%; border-collapse: collapse; font-size: 11pt; table-layout: fixed; }
-        th { background: #f0f0f0; padding: 12px; text-align: left; font-weight: 600; border: 1px solid #ddd; font-size: 10pt; text-transform: uppercase; }
-        td { padding: 10px 12px; border: 1px solid #ddd; vertical-align: top; word-wrap: break-word; word-break: break-word; white-space: normal; }
-        tr:nth-child(even) { background: #f9f9f9; }
+        th { background: #1e293b; color: #fff; padding: 12px; text-align: left; font-weight: 600; font-size: 10pt; text-transform: uppercase; letter-spacing: 0.5px; }
+        td { padding: 10px 12px; border-bottom: 1px solid #e2e8f0; vertical-align: top; word-wrap: break-word; word-break: break-word; white-space: normal; }
+        tr:nth-child(even) { background: #f8fafc; }
         .badge { display: inline-block; padding: 4px 10px; border-radius: 4px; font-size: 10pt; font-weight: bold; }
-        .badge-success { background: #d4edda; color: #155724; }
-        .badge-warning { background: #fff3cd; color: #856404; }
+        .badge-success { background: #dcfce7; color: #166534; }
+        .badge-warning { background: #fef9c3; color: #854d0e; }
         .footer {
-          margin-top: 40px;
-          padding-top: 20px;
-          border-top: 2px solid #222;
+          margin-top: 36px;
+          padding-top: 16px;
+          border-top: 2px solid #1e293b;
           font-size: 10pt;
-          color: #666;
+          color: #64748b;
           display: flex;
           justify-content: space-between;
+          align-items: center;
         }
         .empty-msg {
           padding: 40px;
           text-align: center;
-          color: #888;
+          color: #94a3b8;
           font-style: italic;
-          background: #f9f9f9;
-          border: 1px dashed #ddd;
+          background: #f8fafc;
+          border: 1px dashed #cbd5e1;
         }
         @media print {
           @page { size: A4; margin: 0; }
@@ -502,15 +518,15 @@ function generateMachineDetailPDF(
                 <span class="label">Total de Chamados</span>
                 <span class="value">${machine.tickets.length}</span>
               </div>
-              <div style="border-color: #ef4444;">
-                <span class="label" style="color:#ef4444;">Máquina Parada</span>
-                <span class="value" style="color:#ef4444;">${formatDuration(machine.stoppedTime)}</span>
-                <span style="font-size:9pt;color:#888;display:block;">abertura → resolução</span>
+              <div style="border-color: #fca5a5;">
+                <span class="label" style="color:#dc2626;">Máquina Parada</span>
+                ${(() => { const d = formatDurationLong(machine.stoppedTime); return d.days > 0 ? `<span class="value-days" style="color:#dc2626;">${d.days}d</span><span class="value-hhmm" style="color:#ef4444;display:block;">${d.hhmm}</span>` : `<span class="value" style="color:#dc2626;">${d.hhmm}</span>` })()}
+                <span style="font-size:9pt;color:#94a3b8;display:block;margin-top:2px;">abertura → resolução</span>
               </div>
-              <div style="border-color: #f97316;">
-                <span class="label" style="color:#f97316;">Tempo Operando</span>
-                <span class="value" style="color:#f97316;">${formatDuration(machine.operatingTime)}</span>
-                <span style="font-size:9pt;color:#888;display:block;">manutentor trabalhando</span>
+              <div style="border-color: #fdba74;">
+                <span class="label" style="color:#ea580c;">Tempo Operando</span>
+                ${(() => { const d = formatDurationLong(machine.operatingTime); return d.days > 0 ? `<span class="value-days" style="color:#ea580c;">${d.days}d</span><span class="value-hhmm" style="color:#f97316;display:block;">${d.hhmm}</span>` : `<span class="value" style="color:#ea580c;">${d.hhmm}</span>` })()}
+                <span style="font-size:9pt;color:#94a3b8;display:block;margin-top:2px;">manutentor trabalhando</span>
               </div>
               <div>
                 <span class="label">Custo Total</span>
@@ -537,8 +553,8 @@ function generateMachineDetailPDF(
                       <td>${t.date}</td>
                       <td>${t.problem}</td>
                       <td><span class="badge ${t.resolved ? 'badge-success' : 'badge-warning'}">${t.resolved ? 'Resolvido' : 'Não Resolvido'}</span></td>
-                      <td style="color:#ef4444;font-weight:600;">${formatDuration(t.stoppedTime)}</td>
-                      <td style="color:#f97316;">${formatDuration(t.downtime)}</td>
+                      <td style="color:#dc2626;font-weight:600;">${formatDurationLong(t.stoppedTime).full}</td>
+                      <td style="color:#ea580c;">${formatDurationLong(t.downtime).full}</td>
                       <td>${formatCurrency(t.cost)}</td>
                       <td>${t.operator}</td>
                       <td>${t.parts || '-'}</td>
@@ -552,6 +568,7 @@ function generateMachineDetailPDF(
         
         <div class="footer">
           <div>TMS ONE - Tool Manager System | Todos os direitos reservados</div>
+          <div style="color:#64748b;font-style:italic;">Sistema desenvolvido em conformidade com as normas TISAX</div>
           <div>Pagina 1</div>
         </div>
       </div>
@@ -1063,11 +1080,13 @@ export function ReportsView() {
           </div>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {/* Linha 1: Período ocupa largura total em mobile, metade em desktop */}
+          <div className="space-y-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-start">
 {/* Período */}
-            <div>
+            <div className="lg:col-span-1">
               <Label className="text-xs">Período</Label>
-              <div className="flex gap-1">
+              <div className="flex gap-1 mb-1">
                 <Button 
                   variant={filters.datePreset === 'today' ? 'default' : 'outline'} 
                   size="sm"
@@ -1090,7 +1109,7 @@ export function ReportsView() {
                   onClick={() => handleDatePreset('month')}
                   className="flex-1 text-xs"
                 >
-                  Mes
+                  Mês
                 </Button>
               </div>
               <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
@@ -1125,7 +1144,7 @@ export function ReportsView() {
             </div>
 
             {/* Maquina */}
-            <div className="space-y-2">
+            <div className="space-y-1">
               <Label className="text-xs">Maquina</Label>
               <Select 
                 value={filters.machineId} 
@@ -1144,7 +1163,7 @@ export function ReportsView() {
             </div>
 
             {/* Usuario/Manutentor */}
-            <div className="space-y-2">
+            <div className="space-y-1">
               <Label className="text-xs">Manutentor</Label>
               <Select 
                 value={filters.userId} 
@@ -1163,7 +1182,7 @@ export function ReportsView() {
             </div>
 
             {/* Status Resolvido */}
-            <div className="space-y-2">
+            <div className="space-y-1">
               <Label className="text-xs">Status</Label>
               <Select 
                 value={filters.resolved} 
@@ -1179,6 +1198,7 @@ export function ReportsView() {
                 </SelectContent>
               </Select>
             </div>
+          </div>
           </div>
         </CardContent>
       </Card>
