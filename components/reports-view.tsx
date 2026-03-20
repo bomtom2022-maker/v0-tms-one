@@ -1,4 +1,5 @@
 'use client'
+// reports-view v2
 
 import { useState, useMemo, useRef } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -21,7 +22,7 @@ import {
 import { Calendar } from '@/components/ui/calendar'
 import { useData } from '@/lib/data-context'
 import { useAuth } from '@/lib/auth-context'
-import { formatDuration, formatCurrency, PRIORITY_CONFIG, type AuditLog } from '@/lib/types'
+import { formatDuration, formatDurationLong, formatCurrency, PRIORITY_CONFIG, type AuditLog } from '@/lib/types'
 import { 
   FileText, 
   Clock, 
@@ -1205,9 +1206,19 @@ export function ReportsView() {
               <div className="p-2 rounded-lg bg-red-500">
                 <Clock className="w-4 h-4 text-white" />
               </div>
-              <div>
-                <p className="text-xs text-muted-foreground font-medium text-red-600">Máquina Parada</p>
-                <p className="text-xl font-bold text-red-600">{formatDuration(stats.totalStoppedTime)}</p>
+              <div className="min-w-0">
+                <p className="text-xs font-medium text-red-600">Máquina Parada</p>
+                {(() => {
+                  const d = formatDurationLong(stats.totalStoppedTime)
+                  return d.days > 0 ? (
+                    <>
+                      <p className="text-xl font-bold text-red-600 leading-tight">{d.days}d</p>
+                      <p className="text-sm font-mono text-red-500">{d.hhmm}</p>
+                    </>
+                  ) : (
+                    <p className="text-xl font-bold text-red-600 font-mono">{d.hhmm}</p>
+                  )
+                })()}
                 <p className="text-[10px] text-muted-foreground">abertura → resolução</p>
               </div>
             </div>
@@ -1221,9 +1232,19 @@ export function ReportsView() {
               <div className="p-2 rounded-lg bg-orange-500">
                 <TrendingUp className="w-4 h-4 text-white" />
               </div>
-              <div>
-                <p className="text-xs text-muted-foreground font-medium text-orange-600">Tempo Operando</p>
-                <p className="text-xl font-bold text-orange-600">{formatDuration(stats.totalOperatingTime)}</p>
+              <div className="min-w-0">
+                <p className="text-xs font-medium text-orange-600">Tempo Operando</p>
+                {(() => {
+                  const d = formatDurationLong(stats.totalOperatingTime)
+                  return d.days > 0 ? (
+                    <>
+                      <p className="text-xl font-bold text-orange-600 leading-tight">{d.days}d</p>
+                      <p className="text-sm font-mono text-orange-500">{d.hhmm}</p>
+                    </>
+                  ) : (
+                    <p className="text-xl font-bold text-orange-600 font-mono">{d.hhmm}</p>
+                  )
+                })()}
                 <p className="text-[10px] text-muted-foreground">manutentor trabalhando</p>
               </div>
             </div>
@@ -1353,10 +1374,10 @@ export function ReportsView() {
                             </Badge>
                           </td>
                           <td className="p-2 sm:p-3 text-right font-mono text-[10px] sm:text-xs text-red-600 font-semibold">
-                            {formatDuration(stoppedSecs)}
+                            {formatDurationLong(stoppedSecs).full}
                           </td>
                           <td className="p-2 sm:p-3 text-right font-mono text-[10px] sm:text-xs text-orange-600 hidden sm:table-cell">
-                            {formatDuration(ticket.downtime)}
+                            {formatDurationLong(ticket.downtime).full}
                           </td>
                           <td className="p-2 sm:p-3 text-right font-mono text-[10px] sm:text-xs">
                             {formatCurrency(ticket.totalCost)}
@@ -1409,13 +1430,33 @@ export function ReportsView() {
                       {/* Tempo Máquina Parada */}
                       <div className="text-right">
                         <p className="text-[10px] text-red-600 font-medium uppercase tracking-wide">Máquina Parada</p>
-                        <p className="font-bold text-red-600 font-mono">{formatDuration(m.stoppedTime)}</p>
+                        {(() => {
+                          const d = formatDurationLong(m.stoppedTime)
+                          return d.days > 0 ? (
+                            <>
+                              <p className="font-bold text-red-600 font-mono leading-tight">{d.days}d</p>
+                              <p className="text-xs text-red-500 font-mono">{d.hhmm}</p>
+                            </>
+                          ) : (
+                            <p className="font-bold text-red-600 font-mono">{d.hhmm}</p>
+                          )
+                        })()}
                         <p className="text-[10px] text-muted-foreground">abertura → resolução</p>
                       </div>
                       {/* Tempo Operando */}
                       <div className="text-right hidden sm:block">
                         <p className="text-[10px] text-orange-600 font-medium uppercase tracking-wide">Operando</p>
-                        <p className="font-medium text-orange-600 font-mono">{formatDuration(m.operatingTime)}</p>
+                        {(() => {
+                          const d = formatDurationLong(m.operatingTime)
+                          return d.days > 0 ? (
+                            <>
+                              <p className="font-medium text-orange-600 font-mono leading-tight">{d.days}d</p>
+                              <p className="text-xs text-orange-500 font-mono">{d.hhmm}</p>
+                            </>
+                          ) : (
+                            <p className="font-medium text-orange-600 font-mono">{d.hhmm}</p>
+                          )
+                        })()}
                         <p className="text-[10px] text-muted-foreground">trabalhando</p>
                       </div>
                       {/* Custo */}
@@ -1466,7 +1507,17 @@ export function ReportsView() {
                       {/* Tempo Operando — tempo real do manutentor */}
                       <div className="text-right hidden sm:block">
                         <p className="text-[10px] text-orange-600 font-medium uppercase tracking-wide">Tempo Operando</p>
-                        <p className="font-medium text-orange-600 font-mono">{formatDuration(u.operatingTime)}</p>
+                        {(() => {
+                          const d = formatDurationLong(u.operatingTime)
+                          return d.days > 0 ? (
+                            <>
+                              <p className="font-medium text-orange-600 font-mono leading-tight">{d.days}d</p>
+                              <p className="text-xs text-orange-500 font-mono">{d.hhmm}</p>
+                            </>
+                          ) : (
+                            <p className="font-medium text-orange-600 font-mono">{d.hhmm}</p>
+                          )
+                        })()}
                         <p className="text-[10px] text-muted-foreground">trabalhando</p>
                       </div>
                       {/* Custo */}

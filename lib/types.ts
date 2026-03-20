@@ -224,8 +224,23 @@ export function formatDuration(seconds: number): string {
   const hours = Math.floor(seconds / 3600)
   const minutes = Math.floor((seconds % 3600) / 60)
   const secs = seconds % 60
-  
+
   return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
+}
+
+// Formata duração longa: "X dias" como destaque + "HH:MM" abaixo
+// Quando < 24h retorna só HH:MM:SS
+export function formatDurationLong(seconds: number): { days: number; hhmm: string; full: string } {
+  const days = Math.floor(seconds / 86400)
+  const remaining = seconds % 86400
+  const hours = Math.floor(remaining / 3600)
+  const minutes = Math.floor((remaining % 3600) / 60)
+  const secs = remaining % 60
+  const hhmm = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
+  const full = days > 0
+    ? `${days}d ${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`
+    : hhmm
+  return { days, hhmm, full }
 }
 
 export function formatCurrency(value: number): string {
