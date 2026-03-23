@@ -31,7 +31,17 @@ export async function POST(request: Request) {
   }
 }
 
-export async function PUT(request: Request) {
+export async function DELETE(request: Request) {
+  try {
+    const { id } = await request.json()
+    const supabase = createAdminClient()
+    const { error } = await supabase.from('parts').delete().eq('id', id)
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json({ success: true })
+  } catch (err: unknown) {
+    return NextResponse.json({ error: err instanceof Error ? err.message : 'Erro interno' }, { status: 500 })
+  }
+}
   try {
     const { id, name, price, description } = await request.json()
     const supabase = createAdminClient()

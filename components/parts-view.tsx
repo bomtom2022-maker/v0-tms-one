@@ -25,10 +25,10 @@ import {
 import { useData } from '@/lib/data-context'
 import { useAuth } from '@/lib/auth-context'
 import { formatCurrency } from '@/lib/types'
-import { Plus, Package, DollarSign, CheckCircle, Pencil } from 'lucide-react'
+import { Plus, Package, DollarSign, CheckCircle, Pencil, Trash2 } from 'lucide-react'
 
 export function PartsView() {
-  const { parts, addPart, updatePart } = useData()
+  const { parts, addPart, updatePart, deletePart } = useData()
   const { currentUser } = useAuth()
   const [showForm, setShowForm] = useState(false)
   const [newPartName, setNewPartName] = useState('')
@@ -36,6 +36,8 @@ export function PartsView() {
   const [newPartDescription, setNewPartDescription] = useState('')
   const [showSuccess, setShowSuccess] = useState(false)
   const [editingPart, setEditingPart] = useState<{ id: string; name: string; price: number; description?: string } | null>(null)
+  const [deletingPart, setDeletingPart] = useState<{ id: string; name: string } | null>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
 
   const totalValue = parts.reduce((sum, part) => sum + part.price, 0)
 
@@ -65,6 +67,19 @@ export function PartsView() {
       setEditingPart(null)
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Erro ao editar peça')
+    }
+  }
+
+  const handleDeletePart = async () => {
+    if (!deletingPart) return
+    setIsDeleting(true)
+    try {
+      await deletePart(deletingPart.id)
+      setDeletingPart(null)
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Erro ao excluir peça')
+    } finally {
+      setIsDeleting(false)
     }
   }
 
@@ -187,6 +202,26 @@ export function PartsView() {
         </Card>
       )}
 
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={!!deletingPart} onOpenChange={(open) => !open && setDeletingPart(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Excluir Peça</DialogTitle>
+            <DialogDescription>
+              Tem certeza que deseja excluir <strong>{deletingPart?.name}</strong>? Esta ação não pode ser desfeita.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeletingPart(null)} disabled={isDeleting}>
+              Cancelar
+            </Button>
+            <Button variant="destructive" onClick={handleDeletePart} disabled={isDeleting}>
+              {isDeleting ? 'Excluindo...' : 'Excluir'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Edit Part Dialog */}
       <Dialog open={!!editingPart} onOpenChange={(open) => !open && setEditingPart(null)}>
         <DialogContent className="sm:max-w-md">
@@ -256,19 +291,24 @@ export function PartsView() {
                   <p className="font-medium text-sm truncate">{part.name}</p>
                   <p className="text-xs text-muted-foreground">{formatCurrency(part.price)}</p>
                 </div>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 shrink-0"
-                  onClick={() => setEditingPart({ 
-                    id: part.id, 
-                    name: part.name, 
-                    price: part.price,
-                    description: part.description 
-                  })}
-                >
-                  <Pencil className="w-4 h-4" />
-                </Button>
+                <div className="flex items-center gap-1 shrink-0">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={() => setEditingPart({ id: part.id, name: part.name, price: part.price, description: part.description })}
+                  >
+                    <Pencil className="w-4 h-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-destructive hover:text-destructive"
+                    onClick={() => setDeletingPart({ id: part.id, name: part.name })}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                </div>
               </div>
             ))}
           </div>
@@ -281,7 +321,7 @@ export function PartsView() {
                   <TableHead className="w-12">#</TableHead>
                   <TableHead>Nome da Peca</TableHead>
                   <TableHead className="text-right">Preco</TableHead>
-                  <TableHead className="w-12">Acoes</TableHead>
+                  <TableHead className="w-24 text-right">Acoes</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -295,19 +335,24 @@ export function PartsView() {
                       {formatCurrency(part.price)}
                     </TableCell>
                     <TableCell>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
-                        onClick={() => setEditingPart({ 
-                          id: part.id, 
-                          name: part.name, 
-                          price: part.price,
-                          description: part.description 
-                        })}
-                      >
-                        <Pencil className="w-4 h-4" />
-                      </Button>
+                      <div className="flex items-center justify-end gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={() => setEditingPart({ id: part.id, name: part.name, price: part.price, description: part.description })}
+                        >
+                          <Pencil className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-destructive hover:text-destructive"
+                          onClick={() => setDeletingPart({ id: part.id, name: part.name })}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}

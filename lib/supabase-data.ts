@@ -127,6 +127,14 @@ export async function updatePartDb(id: string, name: string, price: number, desc
   })
 }
 
+export async function deletePartDb(id: string): Promise<void> {
+  await apiFetch('/api/parts', {
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id }),
+  })
+}
+
 // ─── TICKETS ───────────────────────────────────────────────
 
 function rowToTicket(row: Record<string, unknown>, actions: MaintenanceAction[] = [], usedParts: UsedPart[] = [], timeSegments: TimeSegment[] = []): Ticket {
