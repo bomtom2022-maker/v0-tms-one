@@ -42,6 +42,8 @@ export async function DELETE(request: Request) {
     return NextResponse.json({ error: err instanceof Error ? err.message : 'Erro interno' }, { status: 500 })
   }
 }
+
+export async function PUT(request: Request) {
   try {
     const { id, name, price, description } = await request.json()
     const supabase = createAdminClient()
