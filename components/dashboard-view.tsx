@@ -40,7 +40,7 @@ interface DashboardViewProps {
 }
 
 export function DashboardView({ onSelectTicket }: DashboardViewProps) {
-  const { tickets, machines, problems, getMachineById, getProblemById, cancelTicket } = useData()
+  const { tickets, machines, problems, getMachineById, getProblemById, rejectTicket } = useData()
   const { isManutentor, isLider, currentUser } = useAuth()
   
   const [searchTerm, setSearchTerm] = useState('')
@@ -52,10 +52,10 @@ export function DashboardView({ onSelectTicket }: DashboardViewProps) {
   const [completedDateFilter, setCompletedDateFilter] = useState<Date>(new Date())
   const [calendarOpen, setCalendarOpen] = useState(false)
 
-  // Estado para cancelamento de chamado
-  const [cancellingTicket, setCancellingTicket] = useState<{ id: string; machineName: string } | null>(null)
-  const [cancellationReason, setCancellationReason] = useState('')
-  const [isCancelling, setIsCancelling] = useState(false)
+  // Estado para rejeição de chamado (apenas manutentores)
+  const [rejectingTicket, setRejectingTicket] = useState<{ id: string; machineName: string } | null>(null)
+  const [rejectionReason, setRejectionReason] = useState('')
+  const [isRejecting, setIsRejecting] = useState(false)
 
   // Estatísticas coerentes com StatusCards
   const dashboardStats = useMemo(() => {
@@ -87,18 +87,18 @@ export function DashboardView({ onSelectTicket }: DashboardViewProps) {
     t.status !== 'completed' && t.status !== 'cancelled'
   ).length
 
-  // Handler para cancelar chamado
-  const handleCancelTicket = async () => {
-    if (!cancellingTicket || !cancellationReason.trim() || !currentUser) return
-    setIsCancelling(true)
+  // Handler para rejeitar chamado (apenas manutentores)
+  const handleRejectTicket = async () => {
+    if (!rejectingTicket || !rejectionReason.trim() || !currentUser) return
+    setIsRejecting(true)
     try {
-      await cancelTicket(cancellingTicket.id, cancellationReason.trim(), currentUser.id, currentUser.name)
-      setCancellingTicket(null)
-      setCancellationReason('')
+      await rejectTicket(rejectingTicket.id, rejectionReason.trim(), currentUser.id, currentUser.name)
+      setRejectingTicket(null)
+      setRejectionReason('')
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Erro ao cancelar chamado')
+      alert(err instanceof Error ? err.message : 'Erro ao rejeitar chamado')
     } finally {
-      setIsCancelling(false)
+      setIsRejecting(false)
     }
   }
 
@@ -452,17 +452,17 @@ export function DashboardView({ onSelectTicket }: DashboardViewProps) {
                         </div>
                       )}
 
-                      {/* Botao cancelar - apenas o criador do chamado pode cancelar (somente se em aberto) */}
-                      {ticket.status === 'open' && currentUser && ticket.createdBy === currentUser.id && (
+                      {/* Botao rejeitar - apenas manutentores podem rejeitar chamados em aberto */}
+                      {ticket.status === 'open' && isManutentor && (
                         <div className="shrink-0">
                           <Button
                             variant="outline"
                             size="sm"
                             className="w-full sm:w-auto h-8 text-xs sm:text-sm border-destructive/50 text-destructive hover:bg-destructive/10"
-                            onClick={() => setCancellingTicket({ id: ticket.id, machineName: machine?.name || 'Máquina' })}
+                            onClick={() => setRejectingTicket({ id: ticket.id, machineName: machine?.name || 'Máquina' })}
                           >
                             <XCircle className="w-4 h-4 mr-1" />
-                            Cancelar
+                            Rejeitar
                           </Button>
                         </div>
                       )}
@@ -475,38 +475,38 @@ export function DashboardView({ onSelectTicket }: DashboardViewProps) {
         </CardContent>
       </Card>
 
-      {/* Dialog de Cancelamento */}
-      <Dialog open={!!cancellingTicket} onOpenChange={(open) => !open && setCancellingTicket(null)}>
+      {/* Dialog de Rejeição */}
+      <Dialog open={!!rejectingTicket} onOpenChange={(open) => !open && setRejectingTicket(null)}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Cancelar Chamado</DialogTitle>
+            <DialogTitle>Rejeitar Chamado</DialogTitle>
             <DialogDescription>
-              Tem certeza que deseja cancelar o chamado de <strong>{cancellingTicket?.machineName}</strong>?
+              Tem certeza que deseja rejeitar o chamado de <strong>{rejectingTicket?.machineName}</strong>?
               <br />
               <span className="text-destructive">Esta ação não pode ser desfeita.</span>
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
             <label className="text-sm font-medium">
-              Justificativa <span className="text-destructive">*</span>
+              Motivo da rejeição <span className="text-destructive">*</span>
             </label>
             <Textarea
-              placeholder="Descreva o motivo do cancelamento..."
-              value={cancellationReason}
-              onChange={(e) => setCancellationReason(e.target.value)}
+              placeholder="Descreva o motivo da rejeição do chamado..."
+              value={rejectionReason}
+              onChange={(e) => setRejectionReason(e.target.value)}
               className="min-h-[100px]"
             />
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => { setCancellingTicket(null); setCancellationReason('') }} disabled={isCancelling}>
+            <Button variant="outline" onClick={() => { setRejectingTicket(null); setRejectionReason('') }} disabled={isRejecting}>
               Voltar
             </Button>
             <Button 
               variant="destructive" 
-              onClick={handleCancelTicket} 
-              disabled={isCancelling || !cancellationReason.trim()}
+              onClick={handleRejectTicket} 
+              disabled={isRejecting || !rejectionReason.trim()}
             >
-              {isCancelling ? 'Cancelando...' : 'Confirmar Cancelamento'}
+              {isRejecting ? 'Rejeitando...' : 'Confirmar Rejeição'}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -109,20 +109,16 @@ export function NewTicketView({ onSuccess }: NewTicketViewProps) {
     setSubmitError(null)
 
     try {
-      console.log('[v0] Criando chamado...')
       await addTicket({
         machineId,
-        // Se não tiver problemId (outro), usar o primeiro problema cadastrado
         problemId: problemId || problems[0]?.id || '',
         priority,
         observation,
         machineStopped,
         createdBy: currentUser?.id || '',
         createdByName: currentUser?.name || '',
-        // Campo dedicado para o nome do problema personalizado
         customProblemName: isOtherSelected ? customProblem.trim() : undefined,
       })
-      console.log('[v0] Chamado criado com sucesso!')
 
       setShowSuccess(true)
       

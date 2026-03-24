@@ -6,7 +6,7 @@ import {
   fetchMachines, insertMachine, updateMachineDb, deleteMachineDb,
   fetchProblems, insertProblem, updateProblemDb,
   fetchParts, insertPart, updatePartDb, deletePartDb,
-  fetchTickets, insertTicket, updateTicketDb, insertTicketAction, insertTicketSegment, closeTicketSegment, insertUsedParts, cancelTicketDb,
+  fetchTickets, insertTicket, updateTicketDb, insertTicketAction, insertTicketSegment, closeTicketSegment, insertUsedParts, rejectTicketDb,
   fetchScheduledMaintenances, insertScheduledMaintenance, updateScheduledMaintenanceDb, deleteScheduledMaintenanceDb,
   fetchAuditLogs,
 } from './supabase-data'
@@ -34,7 +34,7 @@ interface DataContextType {
   updateProblem: (id: string, name: string, defaultPriority: Priority, userId: string, userName: string) => Promise<void>
   addTicket: (ticket: Omit<Ticket, 'id' | 'createdAt' | 'usedParts' | 'totalCost' | 'downtime' | 'accumulatedTime' | 'actions' | 'status' | 'timeSegments'>) => Promise<void>
   updateTicketObservation: (ticketId: string, observation: string, userId: string, userName: string) => Promise<void>
-  cancelTicket: (ticketId: string, cancellationReason: string, userId: string, userName: string) => Promise<void>
+  rejectTicket: (ticketId: string, rejectionReason: string, userId: string, userName: string) => Promise<void>
   addScheduledMaintenance: (data: Omit<ScheduledMaintenance, 'id' | 'createdAt' | 'status'>, userId: string, userName: string) => Promise<void>
   updateScheduledMaintenance: (id: string, data: Partial<Omit<ScheduledMaintenance, 'id' | 'createdAt'>>, userId: string, userName: string) => Promise<void>
   deleteScheduledMaintenance: (id: string, userId: string, userName: string) => Promise<void>
@@ -183,19 +183,17 @@ export function DataProvider({ children }: { children: ReactNode }) {
     setTickets(prev => prev.map(t => t.id === ticketId ? { ...t, observation } : t))
   }, [])
 
-  const cancelTicket = useCallback(async (ticketId: string, cancellationReason: string, userId: string, userName: string) => {
-    // Buscar o ticket para verificar quem é o dono
+  const rejectTicket = useCallback(async (ticketId: string, rejectionReason: string, userId: string, userName: string) => {
     const ticket = tickets.find(t => t.id === ticketId)
     if (!ticket) throw new Error('Chamado não encontrado')
-    if (ticket.createdBy !== userId) throw new Error('Apenas o criador do chamado pode cancelá-lo')
     
-    await cancelTicketDb(ticketId, cancellationReason, userId, userName, ticket.createdBy)
+    await rejectTicketDb(ticketId, rejectionReason, userId, userName)
     setTickets(prev => prev.map(t =>
       t.id === ticketId ? { 
         ...t, 
         status: 'cancelled' as const,
         cancelledAt: new Date(),
-        cancellationReason,
+        cancellationReason: rejectionReason,
         cancelledBy: userId,
         cancelledByName: userName,
       } : t
@@ -472,7 +470,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       addMachine, updateMachine, deleteMachine,
       addPart, updatePart, deletePart,
       addProblem, updateProblem,
-      addTicket, updateTicketObservation, cancelTicket,
+      addTicket, updateTicketObservation, rejectTicket,
       addScheduledMaintenance, updateScheduledMaintenance, deleteScheduledMaintenance,
       startMaintenance, pauseMaintenance, resumeMaintenance, completeMaintenance,
       getTicketById, getMachineById, getProblemById, getPartById,
