@@ -5,7 +5,7 @@ import type { Machine, Problem, Part, Ticket, UsedPart, Priority, MaintenanceAct
 import {
   fetchMachines, insertMachine, updateMachineDb, deleteMachineDb,
   fetchProblems, insertProblem, updateProblemDb,
-  fetchParts, insertPart, updatePartDb,
+  fetchParts, insertPart, updatePartDb, deletePartDb,
   fetchTickets, insertTicket, updateTicketDb, insertTicketAction, insertTicketSegment, closeTicketSegment, insertUsedParts,
   fetchScheduledMaintenances, insertScheduledMaintenance, updateScheduledMaintenanceDb, deleteScheduledMaintenanceDb,
   fetchAuditLogs,
@@ -29,6 +29,7 @@ interface DataContextType {
   deleteMachine: (id: string, userId: string, userName: string) => Promise<void>
   addPart: (name: string, price: number, description: string | undefined, userId: string, userName: string) => Promise<void>
   updatePart: (id: string, name: string, price: number, description: string | undefined, userId: string, userName: string, previousPrice?: number) => Promise<void>
+  deletePart: (id: string) => Promise<void>
   addProblem: (name: string, defaultPriority: Priority, userId: string, userName: string) => Promise<void>
   updateProblem: (id: string, name: string, defaultPriority: Priority, userId: string, userName: string) => Promise<void>
   addTicket: (ticket: Omit<Ticket, 'id' | 'createdAt' | 'usedParts' | 'totalCost' | 'downtime' | 'accumulatedTime' | 'actions' | 'status' | 'timeSegments'>) => Promise<void>
@@ -142,6 +143,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const updatePart = useCallback(async (id: string, name: string, price: number, description: string | undefined, _userId: string, _userName: string) => {
     await updatePartDb(id, name, price, description)
     setParts(prev => prev.map(p => p.id === id ? { ...p, name, price, description } : p))
+  }, [])
+
+  const deletePart = useCallback(async (id: string) => {
+    await deletePartDb(id)
+    setParts(prev => prev.filter(p => p.id !== id))
   }, [])
 
   // ─── PROBLEMAS ───────────────────────────────────────────
@@ -451,7 +457,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       machines, problems, parts, tickets, scheduledMaintenances, auditLogs,
       isLoading, reloadData, reloadAuditLogs,
       addMachine, updateMachine, deleteMachine,
-      addPart, updatePart,
+      addPart, updatePart, deletePart,
       addProblem, updateProblem,
       addTicket, updateTicketObservation, cancelTicket,
       addScheduledMaintenance, updateScheduledMaintenance, deleteScheduledMaintenance,
