@@ -135,6 +135,20 @@ export async function deletePartDb(id: string): Promise<void> {
   })
 }
 
+export async function cancelTicketDb(
+  ticketId: string,
+  cancellationReason: string,
+  cancelledBy: string,
+  cancelledByName: string,
+  createdBy: string
+): Promise<void> {
+  await apiFetch('/api/tickets', {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ticketId, cancellationReason, cancelledBy, cancelledByName, createdBy }),
+  })
+}
+
 // ─── TICKETS ───────────────────────────────────────────────
 
 function rowToTicket(row: Record<string, unknown>, actions: MaintenanceAction[] = [], usedParts: UsedPart[] = [], timeSegments: TimeSegment[] = []): Ticket {
@@ -198,6 +212,10 @@ function rowToTicket(row: Record<string, unknown>, actions: MaintenanceAction[] 
     createdByName: row.created_by_name as string,
     reportedDuration: row.reported_duration ? Number(row.reported_duration) : undefined,
     customProblemName: (row.custom_problem_name as string) ?? undefined,
+    cancelledAt: row.cancelled_at ? new Date(row.cancelled_at as string) : undefined,
+    cancellationReason: (row.cancellation_reason as string) ?? undefined,
+    cancelledBy: (row.cancelled_by as string) ?? undefined,
+    cancelledByName: (row.cancelled_by_name as string) ?? undefined,
   }
 }
 

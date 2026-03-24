@@ -54,6 +54,39 @@ export async function POST(request: Request) {
   }
 }
 
+// Cancelar ticket (apenas o dono do chamado pode cancelar)
+export async function PATCH(request: Request) {
+  try {
+    const { ticketId, cancellationReason, cancelledBy, cancelledByName, createdBy } = await request.json()
+    
+    // Verificar se quem está cancelando é o dono do chamado
+    if (cancelledBy !== createdBy) {
+      return NextResponse.json({ error: 'Apenas o criador do chamado pode cancelá-lo' }, { status: 403 })
+    }
+    
+    if (!cancellationReason || cancellationReason.trim().length === 0) {
+      return NextResponse.json({ error: 'Justificativa de cancelamento é obrigatória' }, { status: 400 })
+    }
+    
+    const supabase = createAdminClient()
+    const { error } = await supabase
+      .from('tickets')
+      .update({
+        status: 'cancelled',
+        cancelled_at: new Date().toISOString(),
+        cancellation_reason: cancellationReason.trim(),
+        cancelled_by: toUuidOrNull(cancelledBy),
+        cancelled_by_name: cancelledByName,
+      })
+      .eq('id', ticketId)
+    
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json({ success: true })
+  } catch (err: unknown) {
+    return NextResponse.json({ error: err instanceof Error ? err.message : 'Erro interno' }, { status: 500 })
+  }
+}
+
 export async function PUT(request: Request) {
   try {
     const { id, ...rawUpdates } = await request.json()

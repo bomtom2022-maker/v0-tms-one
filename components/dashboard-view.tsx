@@ -21,7 +21,16 @@ import { Calendar } from '@/components/ui/calendar'
 import { useData } from '@/lib/data-context'
 import { useAuth } from '@/lib/auth-context'
 import { PRIORITY_CONFIG, type Priority } from '@/lib/types'
-import { Clock, Search, Filter, Play, Pause, ArrowRight, AlertCircle, Wrench, CheckCircle2, User, CalendarIcon } from 'lucide-react'
+import { Clock, Search, Filter, Play, Pause, ArrowRight, AlertCircle, Wrench, CheckCircle2, User, CalendarIcon, XCircle } from 'lucide-react'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { Textarea } from '@/components/ui/textarea'
 import { formatDistanceToNow, format, isToday, isSameDay } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { cn } from '@/lib/utils'
@@ -42,6 +51,11 @@ export function DashboardView({ onSelectTicket }: DashboardViewProps) {
   // Filtro de data para finalizadas
   const [completedDateFilter, setCompletedDateFilter] = useState<Date>(new Date())
   const [calendarOpen, setCalendarOpen] = useState(false)
+
+  // Estado para cancelamento de chamado
+  const [cancellingTicket, setCancellingTicket] = useState<{ id: string; machineName: string } | null>(null)
+  const [cancellationReason, setCancellationReason] = useState('')
+  const [isCancelling, setIsCancelling] = useState(false)
 
   // Estatísticas coerentes com StatusCards
   const dashboardStats = useMemo(() => {
@@ -72,6 +86,21 @@ export function DashboardView({ onSelectTicket }: DashboardViewProps) {
   const totalActive = tickets.filter(t =>
     t.status !== 'completed' && t.status !== 'cancelled'
   ).length
+
+  // Handler para cancelar chamado
+  const handleCancelTicket = async () => {
+    if (!cancellingTicket || !cancellationReason.trim() || !currentUser) return
+    setIsCancelling(true)
+    try {
+      await cancelTicket(cancellingTicket.id, cancellationReason.trim(), currentUser.id, currentUser.name)
+      setCancellingTicket(null)
+      setCancellationReason('')
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Erro ao cancelar chamado')
+    } finally {
+      setIsCancelling(false)
+    }
+  }
 
   // Último chamado em aberto criado por este lider (somente status 'open')
   const liderLastOpenTicketId = useMemo(() => {
@@ -423,15 +452,16 @@ export function DashboardView({ onSelectTicket }: DashboardViewProps) {
                         </div>
                       )}
 
-                      {/* Botao cancelar - lider pode cancelar apenas seu ultimo chamado em aberto */}
-                      {isLider && ticket.status === 'open' && ticket.id === liderLastOpenTicketId && (
+                      {/* Botao cancelar - apenas o criador do chamado pode cancelar (somente se em aberto) */}
+                      {ticket.status === 'open' && currentUser && ticket.createdBy === currentUser.id && (
                         <div className="shrink-0">
                           <Button
                             variant="outline"
                             size="sm"
                             className="w-full sm:w-auto h-8 text-xs sm:text-sm border-destructive/50 text-destructive hover:bg-destructive/10"
-                            onClick={() => cancelTicket(ticket.id, currentUser?.id ?? '', currentUser?.name ?? '')}
+                            onClick={() => setCancellingTicket({ id: ticket.id, machineName: machine?.name || 'Máquina' })}
                           >
+                            <XCircle className="w-4 h-4 mr-1" />
                             Cancelar
                           </Button>
                         </div>
@@ -444,6 +474,43 @@ export function DashboardView({ onSelectTicket }: DashboardViewProps) {
           )}
         </CardContent>
       </Card>
+
+      {/* Dialog de Cancelamento */}
+      <Dialog open={!!cancellingTicket} onOpenChange={(open) => !open && setCancellingTicket(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Cancelar Chamado</DialogTitle>
+            <DialogDescription>
+              Tem certeza que deseja cancelar o chamado de <strong>{cancellingTicket?.machineName}</strong>?
+              <br />
+              <span className="text-destructive">Esta ação não pode ser desfeita.</span>
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <label className="text-sm font-medium">
+              Justificativa <span className="text-destructive">*</span>
+            </label>
+            <Textarea
+              placeholder="Descreva o motivo do cancelamento..."
+              value={cancellationReason}
+              onChange={(e) => setCancellationReason(e.target.value)}
+              className="min-h-[100px]"
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setCancellingTicket(null); setCancellationReason('') }} disabled={isCancelling}>
+              Voltar
+            </Button>
+            <Button 
+              variant="destructive" 
+              onClick={handleCancelTicket} 
+              disabled={isCancelling || !cancellationReason.trim()}
+            >
+              {isCancelling ? 'Cancelando...' : 'Confirmar Cancelamento'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
