@@ -126,6 +126,10 @@ export interface Ticket {
   reportedAt?: Date // quando o problema foi reportado (= createdAt, para calculo de tempo total desde abertura)
   reportedDuration?: number // tempo total desde reportado até resolução final (em segundos)
   customProblemName?: string // nome do problema personalizado (quando selecionado "Outro")
+  cancelledAt?: Date // quando o chamado foi cancelado
+  cancellationReason?: string // justificativa do cancelamento
+  cancelledBy?: string // id de quem cancelou
+  cancelledByName?: string // nome de quem cancelou
 }
 
 export interface ScheduledMaintenance {
