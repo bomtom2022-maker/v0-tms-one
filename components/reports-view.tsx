@@ -556,7 +556,7 @@ export function ReportsView() {
             return {
               data: format(new Date(t.createdAt), 'dd/MM/yyyy HH:mm', { locale: ptBR }),
               maquina: machine?.name || '-',
-              problema: problem?.name || '-',
+              problema: t.customProblemName || problem?.name || '-',
               prioridade: PRIORITY_CONFIG[t.priority].label,
               status: t.resolved ? 'Resolvido' : 'Não Resolvido',
               maqParada: formatDurationLong(stoppedSecs).full,
@@ -601,7 +601,7 @@ export function ReportsView() {
               const stoppedSecs = Math.floor(((t.completedAt ? new Date(t.completedAt).getTime() : Date.now()) - new Date(t.createdAt).getTime()) / 1000)
               return {
                 date: format(t.completedAt ?? (t.actions.length > 0 ? new Date(t.actions[t.actions.length - 1].timestamp) : new Date(t.createdAt)), 'dd/MM/yyyy', { locale: ptBR }),
-                problem: problem?.name || '-',
+                problem: t.customProblemName || problem?.name || '-',
                 priority: PRIORITY_CONFIG[t.priority].label,
                 resolved: t.resolved ?? true,
                 stoppedTime: stoppedSecs,
@@ -958,7 +958,7 @@ export function ReportsView() {
                             {format(new Date(ticket.createdAt), 'dd/MM/yy HH:mm', { locale: ptBR })}
                           </td>
                           <td className="p-2 sm:p-3 text-[10px] sm:text-xs max-w-[100px] truncate">{machine?.name || '-'}</td>
-                          <td className="p-2 sm:p-3 text-[10px] sm:text-xs hidden sm:table-cell max-w-[120px] truncate">{problem?.name || '-'}</td>
+                          <td className="p-2 sm:p-3 text-[10px] sm:text-xs hidden sm:table-cell max-w-[120px] truncate">{ticket.customProblemName || problem?.name || '-'}</td>
                           <td className="p-2 sm:p-3 text-center">
                             <Badge variant="outline" className={cn(
                               "text-[9px] sm:text-xs px-1 sm:px-2",

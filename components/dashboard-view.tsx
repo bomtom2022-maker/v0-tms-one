@@ -100,7 +100,8 @@ export function DashboardView({ onSelectTicket }: DashboardViewProps) {
         if (searchTerm) {
           const search = searchTerm.toLowerCase()
           const matchMachine = machine?.name.toLowerCase().includes(search)
-          const matchProblem = problem?.name.toLowerCase().includes(search)
+          const problemName = t.customProblemName || problem?.name || ''
+          const matchProblem = problemName.toLowerCase().includes(search)
           const matchObservation = t.observation.toLowerCase().includes(search)
           if (!matchMachine && !matchProblem && !matchObservation) return false
         }
@@ -379,7 +380,7 @@ export function DashboardView({ onSelectTicket }: DashboardViewProps) {
                           )}
                         </div>
                         <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
-                          {problem?.name || 'Problema'}
+                          {ticket.customProblemName || problem?.name || 'Problema'}
                         </p>
                         <div className="flex items-center gap-2 mt-1.5 text-[10px] sm:text-xs text-muted-foreground">
                           <Badge variant="outline" className={cn("text-[10px] sm:text-xs px-1.5 py-0", statusColor)}>

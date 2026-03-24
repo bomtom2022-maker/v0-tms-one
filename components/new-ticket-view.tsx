@@ -106,21 +106,18 @@ export function NewTicketView({ onSuccess }: NewTicketViewProps) {
 
     setIsSubmitting(true)
 
-    // Se é problema personalizado, usar o texto como observação
-    const finalObservation = isOtherSelected 
-      ? `[Problema: ${customProblem.trim()}] ${observation}`.trim()
-      : observation
-
     setTimeout(() => {
       addTicket({
         machineId,
-        // Se não tiver problemId (outro), usar o primeiro problema cadastrado ou criar observação especial
+        // Se não tiver problemId (outro), usar o primeiro problema cadastrado
         problemId: problemId || problems[0]?.id || '',
         priority,
-        observation: finalObservation,
+        observation,
         machineStopped,
         createdBy: currentUser?.id || '',
         createdByName: currentUser?.name || '',
+        // Campo dedicado para o nome do problema personalizado
+        customProblemName: isOtherSelected ? customProblem.trim() : undefined,
       })
 
       setShowSuccess(true)
