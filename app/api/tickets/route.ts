@@ -43,7 +43,8 @@ export async function POST(request: Request) {
         machine_stopped: body.machineStopped || false,
         created_by: toUuidOrNull(body.createdBy),
         created_by_name: body.createdByName,
-        custom_problem_name: body.customProblemName || null,
+        // Só incluir se o campo existir no banco (pode não ter rodado a migration ainda)
+        ...(body.customProblemName ? { custom_problem_name: body.customProblemName } : {}),
       })
       .select()
       .single()
