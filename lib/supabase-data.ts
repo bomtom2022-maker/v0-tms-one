@@ -135,17 +135,16 @@ export async function deletePartDb(id: string): Promise<void> {
   })
 }
 
-export async function cancelTicketDb(
+export async function rejectTicketDb(
   ticketId: string,
-  cancellationReason: string,
-  cancelledBy: string,
-  cancelledByName: string,
-  createdBy: string
+  rejectionReason: string,
+  rejectedBy: string,
+  rejectedByName: string
 ): Promise<void> {
   await apiFetch('/api/tickets', {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ticketId, cancellationReason, cancelledBy, cancelledByName, createdBy }),
+    body: JSON.stringify({ ticketId, rejectionReason, rejectedBy, rejectedByName }),
   })
 }
 

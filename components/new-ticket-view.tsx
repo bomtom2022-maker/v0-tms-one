@@ -37,6 +37,7 @@ export function NewTicketView({ onSuccess }: NewTicketViewProps) {
   const [machineStopped, setMachineStopped] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [showSuccess, setShowSuccess] = useState(false)
+  const [submitError, setSubmitError] = useState<string | null>(null)
   const [problemSearch, setProblemSearch] = useState('')
   const [showAllProblems, setShowAllProblems] = useState(false)
   const [customProblem, setCustomProblem] = useState('')
@@ -98,25 +99,24 @@ export function NewTicketView({ onSuccess }: NewTicketViewProps) {
     }
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
     if (!machineId || (!problemId && !isOtherSelected)) return
     if (isOtherSelected && !customProblem.trim()) return
 
     setIsSubmitting(true)
+    setSubmitError(null)
 
-    setTimeout(() => {
-      addTicket({
+    try {
+      await addTicket({
         machineId,
-        // Se não tiver problemId (outro), usar o primeiro problema cadastrado
         problemId: problemId || problems[0]?.id || '',
         priority,
         observation,
         machineStopped,
         createdBy: currentUser?.id || '',
         createdByName: currentUser?.name || '',
-        // Campo dedicado para o nome do problema personalizado
         customProblemName: isOtherSelected ? customProblem.trim() : undefined,
       })
 
@@ -128,7 +128,6 @@ export function NewTicketView({ onSuccess }: NewTicketViewProps) {
       setManualPriority(false)
       setObservation('')
       setMachineStopped(false)
-      setIsSubmitting(false)
       setProblemSearch('')
       setShowAllProblems(false)
       setCustomProblem('')
@@ -138,7 +137,12 @@ export function NewTicketView({ onSuccess }: NewTicketViewProps) {
         setShowSuccess(false)
         onSuccess()
       }, 2000)
-    }, 500)
+    } catch (err) {
+      console.error('[v0] Erro ao criar chamado:', err)
+      setSubmitError(err instanceof Error ? err.message : 'Erro ao criar chamado. Tente novamente.')
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   if (showSuccess) {
@@ -176,6 +180,18 @@ export function NewTicketView({ onSuccess }: NewTicketViewProps) {
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
+        {/* Mensagem de erro */}
+        {submitError && (
+          <Card className="border-destructive bg-destructive/10">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-2 text-destructive">
+                <AlertCircle className="w-5 h-5" />
+                <p className="text-sm font-medium">{submitError}</p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Seleção de Máquina */}
         <Card>
           <CardHeader className="p-3 sm:p-6 pb-2 sm:pb-3">

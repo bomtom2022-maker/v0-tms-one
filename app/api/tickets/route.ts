@@ -43,7 +43,8 @@ export async function POST(request: Request) {
         machine_stopped: body.machineStopped || false,
         created_by: toUuidOrNull(body.createdBy),
         created_by_name: body.createdByName,
-        custom_problem_name: body.customProblemName || null,
+        // Só incluir se o campo existir no banco (pode não ter rodado a migration ainda)
+        ...(body.customProblemName ? { custom_problem_name: body.customProblemName } : {}),
       })
       .select()
       .single()
@@ -54,18 +55,13 @@ export async function POST(request: Request) {
   }
 }
 
-// Cancelar ticket (apenas o dono do chamado pode cancelar)
+// Rejeitar ticket (apenas manutentores podem rejeitar, com justificativa obrigatória)
 export async function PATCH(request: Request) {
   try {
-    const { ticketId, cancellationReason, cancelledBy, cancelledByName, createdBy } = await request.json()
+    const { ticketId, rejectionReason, rejectedBy, rejectedByName } = await request.json()
     
-    // Verificar se quem está cancelando é o dono do chamado
-    if (cancelledBy !== createdBy) {
-      return NextResponse.json({ error: 'Apenas o criador do chamado pode cancelá-lo' }, { status: 403 })
-    }
-    
-    if (!cancellationReason || cancellationReason.trim().length === 0) {
-      return NextResponse.json({ error: 'Justificativa de cancelamento é obrigatória' }, { status: 400 })
+    if (!rejectionReason || rejectionReason.trim().length === 0) {
+      return NextResponse.json({ error: 'Motivo da rejeição é obrigatório' }, { status: 400 })
     }
     
     const supabase = createAdminClient()
@@ -74,9 +70,9 @@ export async function PATCH(request: Request) {
       .update({
         status: 'cancelled',
         cancelled_at: new Date().toISOString(),
-        cancellation_reason: cancellationReason.trim(),
-        cancelled_by: toUuidOrNull(cancelledBy),
-        cancelled_by_name: cancelledByName,
+        cancellation_reason: rejectionReason.trim(),
+        cancelled_by: toUuidOrNull(rejectedBy),
+        cancelled_by_name: rejectedByName,
       })
       .eq('id', ticketId)
     
