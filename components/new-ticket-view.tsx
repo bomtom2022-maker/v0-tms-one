@@ -18,7 +18,8 @@ import {
 import { useData } from '@/lib/data-context'
 import { useAuth } from '@/lib/auth-context'
 import { PRIORITY_CONFIG, type Priority } from '@/lib/types'
-import { CheckCircle, AlertTriangle, Clock, AlertCircle, AlertOctagon } from 'lucide-react'
+import { CheckCircle, AlertTriangle, Clock, AlertCircle, AlertOctagon, Search, ChevronDown, X } from 'lucide-react'
+import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
 
 interface NewTicketViewProps {
@@ -36,6 +37,10 @@ export function NewTicketView({ onSuccess }: NewTicketViewProps) {
   const [machineStopped, setMachineStopped] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [showSuccess, setShowSuccess] = useState(false)
+  const [problemSearch, setProblemSearch] = useState('')
+  const [showAllProblems, setShowAllProblems] = useState(false)
+  const [customProblem, setCustomProblem] = useState('')
+  const [isOtherSelected, setIsOtherSelected] = useState(false)
 
   // Auto-selecionar prioridade baseada no problema
   useEffect(() => {
@@ -59,8 +64,26 @@ export function NewTicketView({ onSuccess }: NewTicketViewProps) {
     }
   }, [machineStopped, manualPriority])
 
+  // Filtrar problemas: busca + mostrar apenas os 5 mais recentes se não estiver buscando
+  const filteredProblems = problems.filter(p => 
+    p.name.toLowerCase().includes(problemSearch.toLowerCase())
+  )
+  
+  // Pegar os 5 últimos cadastrados (assumindo que os mais recentes estão no final do array)
+  const recentProblems = showAllProblems || problemSearch 
+    ? filteredProblems 
+    : filteredProblems.slice(-5).reverse()
+
   const handleProblemChange = (value: string) => {
-    setProblemId(value)
+    if (value === 'OTHER_CUSTOM') {
+      setIsOtherSelected(true)
+      setProblemId('')
+      setManualPriority(true) // Problema personalizado requer prioridade manual
+    } else {
+      setIsOtherSelected(false)
+      setCustomProblem('')
+      setProblemId(value)
+    }
   }
 
   const handleManualPriorityChange = (checked: boolean) => {
@@ -78,16 +101,23 @@ export function NewTicketView({ onSuccess }: NewTicketViewProps) {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     
-    if (!machineId || !problemId) return
+    if (!machineId || (!problemId && !isOtherSelected)) return
+    if (isOtherSelected && !customProblem.trim()) return
 
     setIsSubmitting(true)
+
+    // Se é problema personalizado, usar o texto como observação
+    const finalObservation = isOtherSelected 
+      ? `[Problema: ${customProblem.trim()}] ${observation}`.trim()
+      : observation
 
     setTimeout(() => {
       addTicket({
         machineId,
-        problemId,
+        // Se não tiver problemId (outro), usar o primeiro problema cadastrado ou criar observação especial
+        problemId: problemId || problems[0]?.id || '',
         priority,
-        observation,
+        observation: finalObservation,
         machineStopped,
         createdBy: currentUser?.id || '',
         createdByName: currentUser?.name || '',
@@ -102,6 +132,10 @@ export function NewTicketView({ onSuccess }: NewTicketViewProps) {
       setObservation('')
       setMachineStopped(false)
       setIsSubmitting(false)
+      setProblemSearch('')
+      setShowAllProblems(false)
+      setCustomProblem('')
+      setIsOtherSelected(false)
 
       setTimeout(() => {
         setShowSuccess(false)
@@ -126,8 +160,11 @@ export function NewTicketView({ onSuccess }: NewTicketViewProps) {
   
   // Verifica se é o problema "Outros" (requer observação obrigatória)
   const isOtherProblem = selectedProblem?.name.toLowerCase() === 'outros' || selectedProblem?.name.toLowerCase() === 'outro'
-  const isObservationRequired = isOtherProblem
-  const isFormValid = machineId && problemId && (!isObservationRequired || observation.trim().length > 0)
+  const isObservationRequired = isOtherProblem || isOtherSelected
+  
+  // Validação do formulário
+  const hasValidProblem = problemId || (isOtherSelected && customProblem.trim().length > 0)
+  const isFormValid = machineId && hasValidProblem && (!isObservationRequired || observation.trim().length > 0 || customProblem.trim().length > 0)
 
   return (
     <div className="max-w-2xl mx-auto space-y-4 sm:space-y-6">
@@ -209,35 +246,110 @@ export function NewTicketView({ onSuccess }: NewTicketViewProps) {
           <CardHeader className="p-3 sm:p-6 pb-2 sm:pb-3">
             <CardTitle className="text-sm sm:text-base">Tipo de Problema</CardTitle>
             <CardDescription className="text-xs sm:text-sm">
-              Selecione o problema identificado
+              {isOtherSelected ? 'Descreva o problema' : 'Selecione ou busque o problema'}
             </CardDescription>
           </CardHeader>
-          <CardContent className="p-3 sm:p-6 pt-0">
-            <Select value={problemId} onValueChange={handleProblemChange}>
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Selecione o problema..." />
-              </SelectTrigger>
-              <SelectContent>
-                {problems.map((problem) => {
-                  const config = PRIORITY_CONFIG[problem.defaultPriority]
-                  return (
-                    <SelectItem key={problem.id} value={problem.id}>
-                      <div className="flex items-center gap-2">
-                        {problem.requiresManualPriority ? (
-                          <div className="w-2 h-2 rounded-full bg-gray-400" />
-                        ) : (
-                          <div className={cn("w-2 h-2 rounded-full", config.color)} />
+          <CardContent className="p-3 sm:p-6 pt-0 space-y-3">
+            {/* Campo de busca */}
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                placeholder="Buscar problema..."
+                value={problemSearch}
+                onChange={(e) => setProblemSearch(e.target.value)}
+                className="pl-9 pr-8"
+              />
+              {problemSearch && (
+                <button
+                  type="button"
+                  onClick={() => setProblemSearch('')}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+
+            {/* Lista de problemas ou select */}
+            {!isOtherSelected ? (
+              <div className="space-y-2">
+                <div className="grid gap-2 max-h-48 overflow-y-auto">
+                  {recentProblems.map((problem) => {
+                    const config = PRIORITY_CONFIG[problem.defaultPriority]
+                    const isSelected = problemId === problem.id
+                    return (
+                      <button
+                        key={problem.id}
+                        type="button"
+                        onClick={() => handleProblemChange(problem.id)}
+                        className={cn(
+                          "flex items-center gap-2 p-3 rounded-lg border text-left transition-all",
+                          isSelected 
+                            ? "border-primary bg-primary/5" 
+                            : "border-border hover:border-muted-foreground/50"
                         )}
-                        <span>{problem.name}</span>
-                      </div>
-                    </SelectItem>
-                  )
-                })}
-              </SelectContent>
-            </Select>
+                      >
+                        {problem.requiresManualPriority ? (
+                          <div className="w-2.5 h-2.5 rounded-full bg-gray-400 shrink-0" />
+                        ) : (
+                          <div className={cn("w-2.5 h-2.5 rounded-full shrink-0", config.color)} />
+                        )}
+                        <span className={cn("text-sm", isSelected && "font-medium")}>{problem.name}</span>
+                      </button>
+                    )
+                  })}
+                </div>
+
+                {/* Mostrar mais / menos */}
+                {!problemSearch && problems.length > 5 && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="w-full text-xs"
+                    onClick={() => setShowAllProblems(!showAllProblems)}
+                  >
+                    <ChevronDown className={cn("w-4 h-4 mr-1 transition-transform", showAllProblems && "rotate-180")} />
+                    {showAllProblems ? 'Mostrar menos' : `Ver todos (${problems.length})`}
+                  </Button>
+                )}
+
+                {/* Opção "Outro" */}
+                <button
+                  type="button"
+                  onClick={() => handleProblemChange('OTHER_CUSTOM')}
+                  className="flex items-center gap-2 p-3 rounded-lg border border-dashed border-muted-foreground/30 hover:border-primary hover:bg-primary/5 w-full text-left transition-all"
+                >
+                  <div className="w-2.5 h-2.5 rounded-full bg-amber-500 shrink-0" />
+                  <span className="text-sm text-muted-foreground">Outro problema (descrever)</span>
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <Input
+                  placeholder="Descreva o problema..."
+                  value={customProblem}
+                  onChange={(e) => setCustomProblem(e.target.value)}
+                  className="w-full"
+                  autoFocus
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setIsOtherSelected(false)
+                    setCustomProblem('')
+                    setManualPriority(false)
+                  }}
+                >
+                  Voltar para lista
+                </Button>
+              </div>
+            )}
             
             {selectedProblem && !manualPriority && !machineStopped && !selectedProblem.requiresManualPriority && (
-              <div className="mt-3 p-3 rounded-lg bg-muted/50">
+              <div className="p-3 rounded-lg bg-muted/50">
                 <p className="text-sm text-muted-foreground">
                   Prioridade automática: <span className={cn("font-medium", PRIORITY_CONFIG[selectedProblem.defaultPriority].textColor)}>
                     {PRIORITY_CONFIG[selectedProblem.defaultPriority].label}

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+// Parts CRUD API - v2
 
 export async function GET() {
   try {
