@@ -69,7 +69,7 @@ export function TicketList({ onSelectTicket }: TicketListProps) {
                       )}
                     </div>
                     <p className="text-sm text-muted-foreground mt-1">
-                      {problem?.name || 'Problema não especificado'}
+                      {ticket.customProblemName || problem?.name || 'Problema não especificado'}
                     </p>
                     <p className="text-sm text-foreground/80 mt-2 line-clamp-2">
                       {ticket.observation}

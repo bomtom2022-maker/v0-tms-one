@@ -125,6 +125,7 @@ export interface Ticket {
   createdByName: string // nome de quem criou o chamado
   reportedAt?: Date // quando o problema foi reportado (= createdAt, para calculo de tempo total desde abertura)
   reportedDuration?: number // tempo total desde reportado até resolução final (em segundos)
+  customProblemName?: string // nome do problema personalizado (quando selecionado "Outro")
 }
 
 export interface ScheduledMaintenance {

@@ -170,9 +170,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
     const machine = machines.find(m => m.id === ticketData.machineId)
     const problem = problems.find(p => p.id === ticketData.problemId)
+    const problemName = ticketData.customProblemName || problem?.name || 'Problema'
     notify(
       'Novo Chamado Aberto',
-      `${machine?.name || 'Maquina'} - ${problem?.name || 'Problema'}`,
+      `${machine?.name || 'Maquina'} - ${problemName}`,
       ticketData.priority === 'high' ? 'warning' : 'info'
     )
   }, [machines, problems])

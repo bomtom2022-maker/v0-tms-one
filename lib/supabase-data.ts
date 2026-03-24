@@ -197,6 +197,7 @@ function rowToTicket(row: Record<string, unknown>, actions: MaintenanceAction[] 
     createdBy: row.created_by as string,
     createdByName: row.created_by_name as string,
     reportedDuration: row.reported_duration ? Number(row.reported_duration) : undefined,
+    customProblemName: (row.custom_problem_name as string) ?? undefined,
   }
 }
 

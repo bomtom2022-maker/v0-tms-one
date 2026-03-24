@@ -43,6 +43,7 @@ export async function POST(request: Request) {
         machine_stopped: body.machineStopped || false,
         created_by: toUuidOrNull(body.createdBy),
         created_by_name: body.createdByName,
+        custom_problem_name: body.customProblemName || null,
       })
       .select()
       .single()

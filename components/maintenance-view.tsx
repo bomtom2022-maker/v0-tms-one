@@ -356,8 +356,8 @@ export function MaintenanceView({ ticketId, onBack, onComplete }: MaintenanceVie
         </CardHeader>
         <CardContent className="p-3 sm:p-6 pt-0 space-y-3">
           <div>
-            <p className="text-xs sm:text-sm font-medium text-muted-foreground">Problema</p>
-            <p className="text-sm sm:text-base text-foreground">{problem?.name}</p>
+  <p className="text-xs sm:text-sm font-medium text-muted-foreground">Problema</p>
+  <p className="text-sm sm:text-base text-foreground">{ticket.customProblemName || problem?.name}</p>
           </div>
           {ticket.observation && (
             <div>
