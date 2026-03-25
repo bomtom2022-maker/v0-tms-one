@@ -24,8 +24,7 @@ import {
 } from '@/components/ui/dialog'
 import { useData } from '@/lib/data-context'
 import { useAuth } from '@/lib/auth-context'
-import { formatCurrency } from '@/lib/types'
-import { Plus, Package, DollarSign, CheckCircle, Pencil, Trash2 } from 'lucide-react'
+import { Plus, Package, CheckCircle, Pencil, Trash2 } from 'lucide-react'
 
 export function PartsView() {
   const { parts, addPart, updatePart, deletePart } = useData()
@@ -116,19 +115,6 @@ export function PartsView() {
             </div>
           </CardContent>
         </Card>
-        <Card>
-          <CardContent className="p-3 sm:p-4 lg:p-6">
-            <div className="flex items-center gap-2 sm:gap-3">
-              <div className="p-1.5 sm:p-2 lg:p-3 rounded-lg bg-green-500">
-                <DollarSign className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
-              </div>
-              <div>
-                <p className="text-[10px] sm:text-sm text-muted-foreground">Valor</p>
-                <p className="text-lg sm:text-2xl font-bold">{formatCurrency(totalValue)}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
       </div>
 
       {/* New Part Form */}
@@ -165,18 +151,6 @@ export function PartsView() {
                       placeholder="Ex: Rolamento SKF 6205"
                     />
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="partPrice">Preço Unitário (R$)</Label>
-                    <Input
-                      id="partPrice"
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      value={newPartPrice}
-                      onChange={(e) => setNewPartPrice(e.target.value)}
-                      placeholder="Ex: 85.00"
-                    />
-                  </div>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="partDescription">Descrição (opcional)</Label>
@@ -189,7 +163,7 @@ export function PartsView() {
                   />
                 </div>
                 <div className="flex gap-3">
-                  <Button type="submit" disabled={!newPartName.trim() || !newPartPrice}>
+                  <Button type="submit" disabled={!newPartName.trim()}>
                     Cadastrar Peça
                   </Button>
                   <Button type="button" variant="outline" onClick={() => setShowForm(false)}>
@@ -243,17 +217,6 @@ export function PartsView() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="edit-part-price">Preço Unitário (R$)</Label>
-                <Input
-                  id="edit-part-price"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={editingPart.price}
-                  onChange={(e) => setEditingPart({ ...editingPart, price: parseFloat(e.target.value) || 0 })}
-                />
-              </div>
-              <div className="space-y-2">
                 <Label htmlFor="edit-part-description">Descrição (opcional)</Label>
                 <Textarea
                   id="edit-part-description"
@@ -289,7 +252,7 @@ export function PartsView() {
               <div key={part.id} className="flex items-center justify-between p-3 rounded-lg border bg-card">
                 <div className="flex-1 min-w-0">
                   <p className="font-medium text-sm truncate">{part.name}</p>
-                  <p className="text-xs text-muted-foreground">{formatCurrency(part.price)}</p>
+                  <p className="text-xs text-muted-foreground">Estoque: {part.quantity}</p>
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
                   <Button
@@ -320,7 +283,7 @@ export function PartsView() {
                 <TableRow>
                   <TableHead className="w-12">#</TableHead>
                   <TableHead>Nome da Peca</TableHead>
-                  <TableHead className="text-right">Preco</TableHead>
+                  <TableHead className="text-center">Estoque</TableHead>
                   <TableHead className="w-24 text-right">Acoes</TableHead>
                 </TableRow>
               </TableHeader>
@@ -331,8 +294,8 @@ export function PartsView() {
                       {index + 1}
                     </TableCell>
                     <TableCell className="font-medium text-sm">{part.name}</TableCell>
-                    <TableCell className="text-right text-sm">
-                      {formatCurrency(part.price)}
+                    <TableCell className="text-center text-sm">
+                      {part.quantity}
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center justify-end gap-1">

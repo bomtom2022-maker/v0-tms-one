@@ -18,7 +18,7 @@ import {
 } from '@/components/ui/dialog'
 import { useData } from '@/lib/data-context'
 import { useAuth } from '@/lib/auth-context'
-import { PRIORITY_CONFIG, formatDuration, formatCurrency, type UsedPart } from '@/lib/types'
+import { PRIORITY_CONFIG, formatDuration, type UsedPart } from '@/lib/types'
 import { Play, Pause, Square, ArrowLeft, Package, CheckCircle, User, History, MessageSquare, AlertTriangle, CheckCircle2, XCircle, Clock } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { format } from 'date-fns'
@@ -656,12 +656,7 @@ export function MaintenanceView({ ticketId, onBack, onComplete }: MaintenanceVie
               <div className="space-y-3 p-4 bg-muted/50 rounded-lg border">
                 <Label className="text-muted-foreground">Peças já utilizadas anteriormente:</Label>
                 <div className="space-y-2">
-                  {/* usedParts agrupados por partId para evitar chaves duplicadas */}
                   <UsedPartsList usedParts={ticket.usedParts} parts={parts} />
-                  <div className="flex items-center justify-between font-medium pt-2 border-t">
-                    <span>Custo anterior:</span>
-                    <span>{formatCurrency(ticket.totalCost || 0)}</span>
-                  </div>
                 </div>
               </div>
             )}
@@ -685,7 +680,7 @@ export function MaintenanceView({ ticketId, onBack, onComplete }: MaintenanceVie
                     <Label htmlFor={part.id} className="flex-1 cursor-pointer">
                       <span className="font-medium">{part.name}</span>
                       <span className="text-muted-foreground text-sm ml-2">
-                        {formatCurrency(part.price)}
+                        (Estoque: {part.quantity})
                       </span>
                     </Label>
                     {(selectedParts[part.id] || 0) > 0 && (
@@ -706,17 +701,6 @@ export function MaintenanceView({ ticketId, onBack, onComplete }: MaintenanceVie
             </div>
 
             <div className="border-t pt-4">
-              {previousCost > 0 && newPartsCost > 0 && (
-                <div className="flex justify-between items-center mb-2 text-sm text-muted-foreground">
-                  <span>Novas peças:</span>
-                  <span>{formatCurrency(newPartsCost)}</span>
-                </div>
-              )}
-              <div className="flex justify-between items-center mb-4">
-                <span className="font-medium">Custo Total em Peças:</span>
-                <span className="text-xl font-bold">{formatCurrency(totalCost)}</span>
-              </div>
-
               <div className="grid grid-cols-2 gap-3">
                 <Button variant="outline" onClick={() => {
                   setShowCompletionForm(false)

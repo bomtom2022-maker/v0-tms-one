@@ -1,7 +1,6 @@
 'use client'
 
-import { formatCurrency, type UsedPart } from '@/lib/types'
-import type { Part } from '@/lib/types'
+import type { UsedPart, Part } from '@/lib/types'
 
 interface UsedPartsListProps {
   usedParts: UsedPart[]
@@ -28,7 +27,7 @@ export function UsedPartsList({ usedParts, parts }: UsedPartsListProps) {
           <div key={partId} className="flex items-center justify-between text-sm">
             <span>{part?.name || 'Peca nao encontrada'}</span>
             <span className="text-muted-foreground">
-              {item.quantity}x - {formatCurrency((part?.price || 0) * item.quantity)}
+              {item.quantity}x
             </span>
           </div>
         )
