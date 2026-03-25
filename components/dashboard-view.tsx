@@ -99,10 +99,8 @@ export function DashboardView({ onSelectTicket }: DashboardViewProps) {
   const handleRejectTicket = async () => {
     if (!rejectingTicket || !rejectionReason.trim() || !currentUser) return
     setIsRejecting(true)
-    console.log('[v0] Iniciando rejeição do chamado:', rejectingTicket.id)
     try {
       await rejectTicket(rejectingTicket.id, rejectionReason.trim(), currentUser.id, currentUser.name)
-      console.log('[v0] Chamado rejeitado com sucesso!')
       
       // Notificar sobre a rejeição
       notify(
@@ -114,7 +112,6 @@ export function DashboardView({ onSelectTicket }: DashboardViewProps) {
       setRejectingTicket(null)
       setRejectionReason('')
     } catch (err) {
-      console.error('[v0] Erro ao rejeitar chamado:', err)
       alert(err instanceof Error ? err.message : 'Erro ao rejeitar chamado')
     } finally {
       setIsRejecting(false)
@@ -169,11 +166,9 @@ export function DashboardView({ onSelectTicket }: DashboardViewProps) {
 
   // Lista de chamados rejeitados
   const rejectedTickets = useMemo(() => {
-    const cancelled = tickets.filter(t => t.status === 'cancelled')
-    console.log('[v0] Total de tickets:', tickets.length)
-    console.log('[v0] Tickets com status cancelled:', cancelled.length)
-    console.log('[v0] Tickets cancelled:', cancelled.map(t => ({ id: t.id, status: t.status, reason: t.cancellationReason })))
-    return cancelled.sort((a, b) => {
+    return tickets
+      .filter(t => t.status === 'cancelled')
+      .sort((a, b) => {
         const dateA = a.cancelledAt ? new Date(a.cancelledAt).getTime() : 0
         const dateB = b.cancelledAt ? new Date(b.cancelledAt).getTime() : 0
         return dateB - dateA // Mais recentes primeiro

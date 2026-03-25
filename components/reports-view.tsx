@@ -416,14 +416,23 @@ export function ReportsView() {
 
   const filteredTickets = useMemo(() => {
     return tickets.filter(t => {
-      if (t.status === 'open' || t.status === 'cancelled') return false
-      const refDate = t.completedAt
-        ? new Date(t.completedAt)
-        : t.actions.length > 0
-          ? new Date(t.actions[t.actions.length - 1].timestamp)
-          : new Date(t.createdAt)
+      // Se filtro é "rejected", mostrar apenas os cancelled
+      if (filters.resolved === 'rejected') {
+        if (t.status !== 'cancelled') return false
+      } else {
+        // Para outros filtros, excluir open e cancelled
+        if (t.status === 'open' || t.status === 'cancelled') return false
+      }
+      
+      const refDate = t.status === 'cancelled' && t.cancelledAt
+        ? new Date(t.cancelledAt)
+        : t.completedAt
+          ? new Date(t.completedAt)
+          : t.actions.length > 0
+            ? new Date(t.actions[t.actions.length - 1].timestamp)
+            : new Date(t.createdAt)
       if (filters.dateRange?.from && filters.dateRange?.to) {
-        const checkDate = t.status === 'completed' || t.status === 'unresolved' ? refDate : new Date(t.createdAt)
+        const checkDate = t.status === 'completed' || t.status === 'unresolved' || t.status === 'cancelled' ? refDate : new Date(t.createdAt)
         if (!isWithinInterval(checkDate, { start: startOfDay(filters.dateRange.from), end: endOfDay(filters.dateRange.to) })) return false
       }
       if (filters.machineId !== 'all' && t.machineId !== filters.machineId) return false
@@ -436,7 +445,7 @@ export function ReportsView() {
       if (filters.partId !== 'all') {
         if (!t.usedParts.some(up => up.partId === filters.partId)) return false
       }
-      if (filters.resolved !== 'all') {
+      if (filters.resolved !== 'all' && filters.resolved !== 'rejected') {
         if (filters.resolved === 'yes' && !t.resolved) return false
         if (filters.resolved === 'no' && t.resolved !== false) return false
       }
@@ -788,6 +797,7 @@ export function ReportsView() {
                   <SelectItem value="all">Todos os Status</SelectItem>
                   <SelectItem value="yes">Resolvidos</SelectItem>
                   <SelectItem value="no">Não Resolvidos</SelectItem>
+                  <SelectItem value="rejected">Rejeitados</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -928,8 +938,8 @@ export function ReportsView() {
         <TabsContent value="general" className="mt-4">
           <Card>
             <CardHeader>
-              <CardTitle>Lista de Manutenções</CardTitle>
-              <CardDescription>{filteredTickets.length} manutenções encontradas</CardDescription>
+              <CardTitle>{filters.resolved === 'rejected' ? 'Chamados Rejeitados' : 'Lista de Manutenções'}</CardTitle>
+              <CardDescription>{filteredTickets.length} {filters.resolved === 'rejected' ? 'chamados rejeitados' : 'manutenções encontradas'}</CardDescription>
             </CardHeader>
             <CardContent className="p-0">
               <div className="overflow-x-auto -mx-4 sm:mx-0">
@@ -940,10 +950,20 @@ export function ReportsView() {
                       <th className="p-2 sm:p-3 text-left font-medium text-[10px] sm:text-xs">Máquina</th>
                       <th className="p-2 sm:p-3 text-left font-medium text-[10px] sm:text-xs hidden sm:table-cell">Problema</th>
                       <th className="p-2 sm:p-3 text-center font-medium text-[10px] sm:text-xs">Status</th>
-                      <th className="p-2 sm:p-3 text-right font-medium text-[10px] sm:text-xs text-red-600">Maq. Parada</th>
-                      <th className="p-2 sm:p-3 text-right font-medium text-[10px] sm:text-xs text-orange-600 hidden sm:table-cell">Operando</th>
-                      <th className="p-2 sm:p-3 text-right font-medium text-[10px] sm:text-xs">Custo</th>
-                      <th className="p-2 sm:p-3 text-left font-medium text-[10px] sm:text-xs hidden md:table-cell">Operador</th>
+                      {filters.resolved === 'rejected' ? (
+                        <>
+                          <th className="p-2 sm:p-3 text-left font-medium text-[10px] sm:text-xs text-red-600">Motivo da Rejeição</th>
+                          <th className="p-2 sm:p-3 text-left font-medium text-[10px] sm:text-xs hidden md:table-cell">Rejeitado por</th>
+                          <th className="p-2 sm:p-3 text-left font-medium text-[10px] sm:text-xs hidden md:table-cell">Reportado por</th>
+                        </>
+                      ) : (
+                        <>
+                          <th className="p-2 sm:p-3 text-right font-medium text-[10px] sm:text-xs text-red-600">Maq. Parada</th>
+                          <th className="p-2 sm:p-3 text-right font-medium text-[10px] sm:text-xs text-orange-600 hidden sm:table-cell">Operando</th>
+                          <th className="p-2 sm:p-3 text-right font-medium text-[10px] sm:text-xs">Custo</th>
+                          <th className="p-2 sm:p-3 text-left font-medium text-[10px] sm:text-xs hidden md:table-cell">Operador</th>
+                        </>
+                      )}
                     </tr>
                   </thead>
                   <tbody className="divide-y">
@@ -952,6 +972,35 @@ export function ReportsView() {
                       const problem = getProblemById(ticket.problemId)
                       const lastAction = ticket.actions[ticket.actions.length - 1]
                       const stoppedSecs = Math.floor(((ticket.completedAt ? new Date(ticket.completedAt).getTime() : Date.now()) - new Date(ticket.createdAt).getTime()) / 1000)
+                      
+                      if (filters.resolved === 'rejected') {
+                        return (
+                          <tr key={ticket.id} className="hover:bg-muted/50">
+                            <td className="p-2 sm:p-3 whitespace-nowrap text-[10px] sm:text-xs">
+                              {ticket.cancelledAt 
+                                ? format(new Date(ticket.cancelledAt), 'dd/MM/yy HH:mm', { locale: ptBR })
+                                : format(new Date(ticket.createdAt), 'dd/MM/yy HH:mm', { locale: ptBR })}
+                            </td>
+                            <td className="p-2 sm:p-3 text-[10px] sm:text-xs max-w-[100px] truncate">{machine?.name || '-'}</td>
+                            <td className="p-2 sm:p-3 text-[10px] sm:text-xs hidden sm:table-cell max-w-[120px] truncate">{ticket.customProblemName || problem?.name || '-'}</td>
+                            <td className="p-2 sm:p-3 text-center">
+                              <Badge variant="outline" className="text-[9px] sm:text-xs px-1 sm:px-2 bg-gray-100 text-gray-700 border-gray-300">
+                                Rejeitado
+                              </Badge>
+                            </td>
+                            <td className="p-2 sm:p-3 text-[10px] sm:text-xs text-red-600 max-w-[200px]">
+                              <p className="line-clamp-2">{ticket.cancellationReason || '-'}</p>
+                            </td>
+                            <td className="p-2 sm:p-3 text-[10px] sm:text-xs hidden md:table-cell max-w-[80px] truncate">
+                              {ticket.cancelledByName || '-'}
+                            </td>
+                            <td className="p-2 sm:p-3 text-[10px] sm:text-xs hidden md:table-cell max-w-[80px] truncate">
+                              {ticket.createdByName || '-'}
+                            </td>
+                          </tr>
+                        )
+                      }
+                      
                       return (
                         <tr key={ticket.id} className="hover:bg-muted/50">
                           <td className="p-2 sm:p-3 whitespace-nowrap text-[10px] sm:text-xs">
@@ -987,7 +1036,11 @@ export function ReportsView() {
                   </tbody>
                 </table>
                 {filteredTickets.length === 0 && (
-                  <div className="p-8 text-center text-muted-foreground">Nenhuma manutenção encontrada para os filtros selecionados.</div>
+                  <div className="p-8 text-center text-muted-foreground">
+                    {filters.resolved === 'rejected' 
+                      ? 'Nenhum chamado rejeitado encontrado para os filtros selecionados.'
+                      : 'Nenhuma manutenção encontrada para os filtros selecionados.'}
+                  </div>
                 )}
                 {filteredTickets.length > 50 && (
                   <div className="p-4 text-center text-muted-foreground text-sm border-t">
