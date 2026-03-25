@@ -20,6 +20,7 @@ import {
 import { Calendar } from '@/components/ui/calendar'
 import { useData } from '@/lib/data-context'
 import { useAuth } from '@/lib/auth-context'
+import { useNotification } from '@/lib/notification-context'
 import { PRIORITY_CONFIG, type Priority } from '@/lib/types'
 import { Clock, Search, Filter, Play, Pause, ArrowRight, AlertCircle, Wrench, CheckCircle2, User, CalendarIcon, XCircle } from 'lucide-react'
 import {
@@ -42,6 +43,7 @@ interface DashboardViewProps {
 export function DashboardView({ onSelectTicket }: DashboardViewProps) {
   const { tickets, machines, problems, getMachineById, getProblemById, rejectTicket } = useData()
   const { isManutentor, isLider, currentUser } = useAuth()
+  const { notify } = useNotification()
   
   const [searchTerm, setSearchTerm] = useState('')
   const [filterMachine, setFilterMachine] = useState<string>('all')
@@ -56,6 +58,9 @@ export function DashboardView({ onSelectTicket }: DashboardViewProps) {
   const [rejectingTicket, setRejectingTicket] = useState<{ id: string; machineName: string } | null>(null)
   const [rejectionReason, setRejectionReason] = useState('')
   const [isRejecting, setIsRejecting] = useState(false)
+  
+  // Estado para exibir aba de chamados rejeitados
+  const [showRejected, setShowRejected] = useState(false)
 
   // Estatísticas coerentes com StatusCards
   const dashboardStats = useMemo(() => {
@@ -72,6 +77,8 @@ export function DashboardView({ onSelectTicket }: DashboardViewProps) {
       if (t.status !== 'completed' || !t.completedAt) return false
       return isSameDay(t.completedAt, completedDateFilter)
     }).length
+    // Rejeitados (cancelled)
+    const rejectedTickets = tickets.filter(t => t.status === 'cancelled').length
 
     return {
       open: openTickets,
@@ -79,6 +86,7 @@ export function DashboardView({ onSelectTicket }: DashboardViewProps) {
       paused: pausedTickets,
       unresolved: unresolvedTickets,
       completed: completedOnDate,
+      rejected: rejectedTickets,
     }
   }, [tickets, completedDateFilter])
 
@@ -93,6 +101,14 @@ export function DashboardView({ onSelectTicket }: DashboardViewProps) {
     setIsRejecting(true)
     try {
       await rejectTicket(rejectingTicket.id, rejectionReason.trim(), currentUser.id, currentUser.name)
+      
+      // Notificar sobre a rejeição
+      notify(
+        'Chamado Rejeitado',
+        `O chamado para a máquina ${rejectingTicket.machineName} foi rejeitado. Motivo: ${rejectionReason.trim()}`,
+        'warning'
+      )
+      
       setRejectingTicket(null)
       setRejectionReason('')
     } catch (err) {
@@ -148,6 +164,17 @@ export function DashboardView({ onSelectTicket }: DashboardViewProps) {
       })
   }, [tickets, searchTerm, filterMachine, filterProblem, filterPriority, getMachineById, getProblemById])
 
+  // Lista de chamados rejeitados
+  const rejectedTickets = useMemo(() => {
+    return tickets
+      .filter(t => t.status === 'cancelled')
+      .sort((a, b) => {
+        const dateA = a.cancelledAt ? new Date(a.cancelledAt).getTime() : 0
+        const dateB = b.cancelledAt ? new Date(b.cancelledAt).getTime() : 0
+        return dateB - dateA // Mais recentes primeiro
+      })
+  }, [tickets])
+
   const clearFilters = () => {
     setSearchTerm('')
     setFilterMachine('all')
@@ -178,8 +205,8 @@ export function DashboardView({ onSelectTicket }: DashboardViewProps) {
         </div>
       </div>
 
-      {/* Status Cards - 5 contadores coerentes */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-3">
+      {/* Status Cards - 6 contadores */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-3">
         {/* Em Aberto */}
         <Card className="border-l-2 sm:border-l-4 border-l-red-500">
           <CardContent className="p-2 sm:p-3">
@@ -282,7 +309,93 @@ export function DashboardView({ onSelectTicket }: DashboardViewProps) {
             </Popover>
           </CardContent>
         </Card>
+
+        {/* Rejeitados */}
+        <Card 
+          className={cn(
+            "border-l-2 sm:border-l-4 border-l-gray-500 cursor-pointer transition-all hover:shadow-md",
+            showRejected && "ring-2 ring-gray-500"
+          )}
+          onClick={() => setShowRejected(!showRejected)}
+        >
+          <CardContent className="p-2 sm:p-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-[10px] sm:text-xs text-muted-foreground font-medium">Rejeitados</p>
+                <p className="text-2xl sm:text-3xl font-bold text-gray-500">{dashboardStats.rejected}</p>
+                <p className="text-[9px] text-muted-foreground">Clique para ver</p>
+              </div>
+              <div className="p-2 bg-gray-100 rounded-full">
+                <XCircle className="w-4 h-4 text-gray-500" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
+
+      {/* Lista de Chamados Rejeitados */}
+      {showRejected && (
+        <Card>
+          <CardHeader className="p-3 sm:p-6 pb-2 sm:pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm sm:text-base flex items-center gap-2">
+                <XCircle className="w-4 h-4 text-gray-500" />
+                Chamados Rejeitados
+              </CardTitle>
+              <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => setShowRejected(false)}>
+                Fechar
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent className="p-3 sm:p-6 pt-0">
+            {rejectedTickets.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-4">Nenhum chamado rejeitado</p>
+            ) : (
+              <div className="space-y-2">
+                {rejectedTickets.map((ticket) => {
+                  const machine = getMachineById(ticket.machineId)
+                  const problem = getProblemById(ticket.problemId)
+                  return (
+                    <div key={ticket.id} className="p-3 rounded-lg border bg-muted/30">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0 flex-1">
+                          <p className="font-medium text-sm truncate">{machine?.name || 'Máquina'}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {ticket.customProblemName || problem?.name || 'Problema'}
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Reportado por: {ticket.createdByName}
+                          </p>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <Badge variant="outline" className="text-[10px] bg-gray-100 text-gray-700">
+                            Rejeitado
+                          </Badge>
+                          {ticket.cancelledAt && (
+                            <p className="text-[10px] text-muted-foreground mt-1">
+                              {format(new Date(ticket.cancelledAt), "dd/MM HH:mm", { locale: ptBR })}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                      {/* Motivo da Rejeição */}
+                      <div className="mt-2 p-2 rounded bg-destructive/10 border border-destructive/20">
+                        <p className="text-[10px] font-medium text-destructive">Motivo da Rejeição:</p>
+                        <p className="text-xs text-foreground">{ticket.cancellationReason || '-'}</p>
+                        {ticket.cancelledByName && (
+                          <p className="text-[10px] text-muted-foreground mt-1">
+                            Rejeitado por: {ticket.cancelledByName}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Filters - Compacto para mobile */}
       <Card>
