@@ -26,7 +26,6 @@ import { formatDuration, formatDurationLong, formatCurrency, PRIORITY_CONFIG, ty
 import {
   FileText,
   Clock,
-  DollarSign,
   Wrench,
   TrendingUp,
   Calendar as CalendarIcon,
@@ -305,37 +304,28 @@ function generateMachineDetailPDF(
                 }
                 <span style="font-size:8pt;color:#94a3b8;display:block;margin-top:2px;">manutentor trabalhando</span>
               </div>
-              <div>
-                <span class="label">Custo Total</span>
-                <span class="value">${formatCurrency(machine.totalCost)}</span>
-              </div>
             </div>
             ${machine.tickets.length > 0 ? `
               <table>
                 <thead>
                   <tr>
-                    <th style="width:10%">Data</th>
-                    <th style="width:20%">Problema</th>
-                    <th style="width:10%">Status</th>
-                    <th style="width:12%;color:#fca5a5;">Maq. Parada</th>
-                    <th style="width:12%;color:#fdba74;">Operando</th>
-                    <th style="width:10%">Custo</th>
-                    <th style="width:12%">Operador</th>
-                    <th style="width:14%">Peças</th>
+                    <th style="width:12%">Data</th>
+                    <th style="width:25%">Problema</th>
+                    <th style="width:12%">Status</th>
+                    <th style="width:15%;color:#fca5a5;">Maq. Parada</th>
+                    <th style="width:18%">Operador</th>
+                    <th style="width:18%">Peças</th>
                   </tr>
                 </thead>
                 <tbody>
                   ${machine.tickets.map(t => {
                     const ts = formatDurationLong(t.stoppedTime)
-                    const td2 = formatDurationLong(t.downtime)
                     return `
                     <tr>
                       <td>${t.date}</td>
                       <td>${t.problem}</td>
                       <td><span class="badge ${t.resolved ? 'badge-success' : 'badge-warning'}">${t.resolved ? 'Resolvido' : 'Pendente'}</span></td>
                       <td style="color:#dc2626;font-weight:600;">${ts.full}</td>
-                      <td style="color:#ea580c;">${td2.full}</td>
-                      <td>${formatCurrency(t.cost)}</td>
                       <td>${t.operator}</td>
                       <td>${t.parts || '-'}</td>
                     </tr>`
@@ -416,14 +406,23 @@ export function ReportsView() {
 
   const filteredTickets = useMemo(() => {
     return tickets.filter(t => {
-      if (t.status === 'open' || t.status === 'cancelled') return false
-      const refDate = t.completedAt
-        ? new Date(t.completedAt)
-        : t.actions.length > 0
-          ? new Date(t.actions[t.actions.length - 1].timestamp)
-          : new Date(t.createdAt)
+      // Se filtro é "rejected", mostrar apenas os cancelled
+      if (filters.resolved === 'rejected') {
+        if (t.status !== 'cancelled') return false
+      } else {
+        // Para outros filtros, excluir open e cancelled
+        if (t.status === 'open' || t.status === 'cancelled') return false
+      }
+      
+      const refDate = t.status === 'cancelled' && t.cancelledAt
+        ? new Date(t.cancelledAt)
+        : t.completedAt
+          ? new Date(t.completedAt)
+          : t.actions.length > 0
+            ? new Date(t.actions[t.actions.length - 1].timestamp)
+            : new Date(t.createdAt)
       if (filters.dateRange?.from && filters.dateRange?.to) {
-        const checkDate = t.status === 'completed' || t.status === 'unresolved' ? refDate : new Date(t.createdAt)
+        const checkDate = t.status === 'completed' || t.status === 'unresolved' || t.status === 'cancelled' ? refDate : new Date(t.createdAt)
         if (!isWithinInterval(checkDate, { start: startOfDay(filters.dateRange.from), end: endOfDay(filters.dateRange.to) })) return false
       }
       if (filters.machineId !== 'all' && t.machineId !== filters.machineId) return false
@@ -436,7 +435,7 @@ export function ReportsView() {
       if (filters.partId !== 'all') {
         if (!t.usedParts.some(up => up.partId === filters.partId)) return false
       }
-      if (filters.resolved !== 'all') {
+      if (filters.resolved !== 'all' && filters.resolved !== 'rejected') {
         if (filters.resolved === 'yes' && !t.resolved) return false
         if (filters.resolved === 'no' && t.resolved !== false) return false
       }
@@ -560,8 +559,6 @@ export function ReportsView() {
               prioridade: PRIORITY_CONFIG[t.priority].label,
               status: t.resolved ? 'Resolvido' : 'Não Resolvido',
               maqParada: formatDurationLong(stoppedSecs).full,
-              operando: formatDurationLong(t.downtime).full,
-              custo: formatCurrency(t.totalCost),
               operador: lastAction?.operatorName || '-',
             }
           }),
@@ -572,16 +569,12 @@ export function ReportsView() {
             { key: 'prioridade', label: 'Prioridade', align: 'center' },
             { key: 'status', label: 'Status', align: 'center' },
             { key: 'maqParada', label: 'Maq. Parada', align: 'right' },
-            { key: 'operando', label: 'Operando', align: 'right' },
-            { key: 'custo', label: 'Custo', align: 'right' },
             { key: 'operador', label: 'Operador' },
           ],
           [
             { label: 'Total de Manutenções', value: String(stats.total) },
             { label: 'Tempo Máquina Parada', value: formatDurationLong(stats.totalStoppedTime).full, color: '#dc2626' },
-            { label: 'Tempo Operando', value: formatDurationLong(stats.totalOperatingTime).full, color: '#ea580c' },
-            { label: 'Custo Total', value: formatCurrency(stats.totalCost) },
-            { label: 'Resolvidos', value: `${stats.resolved} (${stats.total > 0 ? Math.round(stats.resolved / stats.total * 100) : 0}%)` },
+            { label: 'Resolvidos', value: `${stats.resolved} de ${stats.total}` },
           ]
         )
         break
@@ -626,7 +619,6 @@ export function ReportsView() {
             resolvidos: `${u.resolvedCount} (${Math.round(u.resolvedCount / u.ticketCount * 100)}%)`,
             operando: formatDurationLong(u.operatingTime).full,
             media: formatDurationLong(Math.round(u.operatingTime / u.ticketCount)).full,
-            custo: formatCurrency(u.totalCost),
           })),
           [
             { key: 'nome', label: 'Manutentor' },
@@ -634,7 +626,6 @@ export function ReportsView() {
             { key: 'resolvidos', label: 'Resolvidos', align: 'center' },
             { key: 'operando', label: 'Tempo Operando', align: 'right' },
             { key: 'media', label: 'Media/Chamado', align: 'right' },
-            { key: 'custo', label: 'Custo Total', align: 'right' },
           ],
           [
             { label: 'Total de Manutentores', value: String(userData.length) },
@@ -652,18 +643,14 @@ export function ReportsView() {
           partsData.map(p => ({
             peca: p.partName,
             quantidade: String(p.quantity),
-            precoUnit: formatCurrency(p.unitPrice),
-            total: formatCurrency(p.totalValue),
           })),
           [
             { key: 'peca', label: 'Peca' },
             { key: 'quantidade', label: 'Quantidade', align: 'center' },
-            { key: 'precoUnit', label: 'Preco Unit.', align: 'right' },
-            { key: 'total', label: 'Total', align: 'right' },
           ],
           [
-            { label: 'Total de Tipos', value: String(partsData.length) },
-            { label: 'Custo Total', value: formatCurrency(partsData.reduce((s, p) => s + p.totalValue, 0)) },
+            { label: 'Total de Tipos de Peças', value: String(partsData.length) },
+            { label: 'Total de Peças Usadas', value: String(partsData.reduce((s, p) => s + p.quantity, 0)) },
           ]
         )
         break
@@ -788,6 +775,7 @@ export function ReportsView() {
                   <SelectItem value="all">Todos os Status</SelectItem>
                   <SelectItem value="yes">Resolvidos</SelectItem>
                   <SelectItem value="no">Não Resolvidos</SelectItem>
+                  <SelectItem value="rejected">Rejeitados</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -864,41 +852,17 @@ export function ReportsView() {
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-green-500">
-                <DollarSign className="w-4 h-4 text-white" />
+              <div className="p-2 rounded-lg bg-blue-500">
+                <Settings className="w-4 h-4 text-white" />
               </div>
               <div>
-                <p className="text-xs text-muted-foreground">Custo em Peças</p>
-                <p className="text-xl font-bold">{formatCurrency(stats.totalCost)}</p>
+                <p className="text-xs text-muted-foreground">Máquinas Afetadas</p>
+                <p className="text-xl font-bold">{stats.uniqueMachines}</p>
               </div>
             </div>
           </CardContent>
         </Card>
       </div>
-
-      {/* Taxa de Resolução */}
-      <Card>
-        <CardContent className="p-4">
-          <div className="flex items-center gap-6">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-blue-500">
-                <CheckCircle className="w-4 h-4 text-white" />
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground">Taxa Resolução</p>
-                <p className="text-xl font-bold">
-                  {stats.total > 0 ? Math.round(stats.resolved / stats.total * 100) : 0}%
-                </p>
-              </div>
-            </div>
-            <div className="flex-1 hidden sm:flex items-center gap-6 text-sm">
-              <span className="text-green-600 font-medium">{stats.resolved} resolvidos</span>
-              <span className="text-orange-600 font-medium">{stats.notResolved} pendentes</span>
-              <span className="text-muted-foreground">{stats.uniqueMachines} máquinas afetadas</span>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
 
       {/* Abas */}
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as ReportType)}>
@@ -928,8 +892,8 @@ export function ReportsView() {
         <TabsContent value="general" className="mt-4">
           <Card>
             <CardHeader>
-              <CardTitle>Lista de Manutenções</CardTitle>
-              <CardDescription>{filteredTickets.length} manutenções encontradas</CardDescription>
+              <CardTitle>{filters.resolved === 'rejected' ? 'Chamados Rejeitados' : 'Lista de Manutenções'}</CardTitle>
+              <CardDescription>{filteredTickets.length} {filters.resolved === 'rejected' ? 'chamados rejeitados' : 'manutenções encontradas'}</CardDescription>
             </CardHeader>
             <CardContent className="p-0">
               <div className="overflow-x-auto -mx-4 sm:mx-0">
@@ -940,10 +904,18 @@ export function ReportsView() {
                       <th className="p-2 sm:p-3 text-left font-medium text-[10px] sm:text-xs">Máquina</th>
                       <th className="p-2 sm:p-3 text-left font-medium text-[10px] sm:text-xs hidden sm:table-cell">Problema</th>
                       <th className="p-2 sm:p-3 text-center font-medium text-[10px] sm:text-xs">Status</th>
-                      <th className="p-2 sm:p-3 text-right font-medium text-[10px] sm:text-xs text-red-600">Maq. Parada</th>
-                      <th className="p-2 sm:p-3 text-right font-medium text-[10px] sm:text-xs text-orange-600 hidden sm:table-cell">Operando</th>
-                      <th className="p-2 sm:p-3 text-right font-medium text-[10px] sm:text-xs">Custo</th>
-                      <th className="p-2 sm:p-3 text-left font-medium text-[10px] sm:text-xs hidden md:table-cell">Operador</th>
+                      {filters.resolved === 'rejected' ? (
+                        <>
+                          <th className="p-2 sm:p-3 text-left font-medium text-[10px] sm:text-xs text-red-600">Motivo da Rejeição</th>
+                          <th className="p-2 sm:p-3 text-left font-medium text-[10px] sm:text-xs hidden md:table-cell">Rejeitado por</th>
+                          <th className="p-2 sm:p-3 text-left font-medium text-[10px] sm:text-xs hidden md:table-cell">Reportado por</th>
+                        </>
+                      ) : (
+                        <>
+                          <th className="p-2 sm:p-3 text-right font-medium text-[10px] sm:text-xs text-red-600">Maq. Parada</th>
+                          <th className="p-2 sm:p-3 text-left font-medium text-[10px] sm:text-xs hidden md:table-cell">Operador</th>
+                        </>
+                      )}
                     </tr>
                   </thead>
                   <tbody className="divide-y">
@@ -952,6 +924,35 @@ export function ReportsView() {
                       const problem = getProblemById(ticket.problemId)
                       const lastAction = ticket.actions[ticket.actions.length - 1]
                       const stoppedSecs = Math.floor(((ticket.completedAt ? new Date(ticket.completedAt).getTime() : Date.now()) - new Date(ticket.createdAt).getTime()) / 1000)
+                      
+                      if (filters.resolved === 'rejected') {
+                        return (
+                          <tr key={ticket.id} className="hover:bg-muted/50">
+                            <td className="p-2 sm:p-3 whitespace-nowrap text-[10px] sm:text-xs">
+                              {ticket.cancelledAt 
+                                ? format(new Date(ticket.cancelledAt), 'dd/MM/yy HH:mm', { locale: ptBR })
+                                : format(new Date(ticket.createdAt), 'dd/MM/yy HH:mm', { locale: ptBR })}
+                            </td>
+                            <td className="p-2 sm:p-3 text-[10px] sm:text-xs max-w-[100px] truncate">{machine?.name || '-'}</td>
+                            <td className="p-2 sm:p-3 text-[10px] sm:text-xs hidden sm:table-cell max-w-[120px] truncate">{ticket.customProblemName || problem?.name || '-'}</td>
+                            <td className="p-2 sm:p-3 text-center">
+                              <Badge variant="outline" className="text-[9px] sm:text-xs px-1 sm:px-2 bg-gray-100 text-gray-700 border-gray-300">
+                                Rejeitado
+                              </Badge>
+                            </td>
+                            <td className="p-2 sm:p-3 text-[10px] sm:text-xs text-red-600 max-w-[200px]">
+                              <p className="line-clamp-2">{ticket.cancellationReason || '-'}</p>
+                            </td>
+                            <td className="p-2 sm:p-3 text-[10px] sm:text-xs hidden md:table-cell max-w-[80px] truncate">
+                              {ticket.cancelledByName || '-'}
+                            </td>
+                            <td className="p-2 sm:p-3 text-[10px] sm:text-xs hidden md:table-cell max-w-[80px] truncate">
+                              {ticket.createdByName || '-'}
+                            </td>
+                          </tr>
+                        )
+                      }
+                      
                       return (
                         <tr key={ticket.id} className="hover:bg-muted/50">
                           <td className="p-2 sm:p-3 whitespace-nowrap text-[10px] sm:text-xs">
@@ -972,13 +973,7 @@ export function ReportsView() {
                           <td className="p-2 sm:p-3 text-right font-mono text-[10px] sm:text-xs text-red-600 font-semibold">
                             {formatDurationLong(stoppedSecs).full}
                           </td>
-                          <td className="p-2 sm:p-3 text-right font-mono text-[10px] sm:text-xs text-orange-600 hidden sm:table-cell">
-                            {formatDurationLong(ticket.downtime).full}
-                          </td>
-                          <td className="p-2 sm:p-3 text-right font-mono text-[10px] sm:text-xs">
-                            {formatCurrency(ticket.totalCost)}
-                          </td>
-                          <td className="p-2 sm:p-3 text-[10px] sm:text-xs hidden md:table-cell max-w-[80px] truncate">
+                          <td className="p-2 sm:p-3 text-[10px] sm:text-xs hidden md:table-cell max-w-[100px] truncate">
                             {lastAction?.operatorName || '-'}
                           </td>
                         </tr>
@@ -987,7 +982,11 @@ export function ReportsView() {
                   </tbody>
                 </table>
                 {filteredTickets.length === 0 && (
-                  <div className="p-8 text-center text-muted-foreground">Nenhuma manutenção encontrada para os filtros selecionados.</div>
+                  <div className="p-8 text-center text-muted-foreground">
+                    {filters.resolved === 'rejected' 
+                      ? 'Nenhum chamado rejeitado encontrado para os filtros selecionados.'
+                      : 'Nenhuma manutenção encontrada para os filtros selecionados.'}
+                  </div>
                 )}
                 {filteredTickets.length > 50 && (
                   <div className="p-4 text-center text-muted-foreground text-sm border-t">
@@ -1045,10 +1044,6 @@ export function ReportsView() {
                         })()}
                         <p className="text-[10px] text-muted-foreground">trabalhando</p>
                       </div>
-                      <div className="text-right hidden md:block">
-                        <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Custo Peças</p>
-                        <p className="font-medium text-green-600">{formatCurrency(m.totalCost)}</p>
-                      </div>
                     </div>
                   </div>
                 ))}
@@ -1097,10 +1092,6 @@ export function ReportsView() {
                         })()}
                         <p className="text-[10px] text-muted-foreground">trabalhando</p>
                       </div>
-                      <div className="text-right hidden md:block">
-                        <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Custo</p>
-                        <p className="font-medium text-green-600">{formatCurrency(u.totalCost)}</p>
-                      </div>
                     </div>
                   </div>
                 ))}
@@ -1117,7 +1108,7 @@ export function ReportsView() {
           <Card>
             <CardHeader>
               <CardTitle>Peças Utilizadas</CardTitle>
-              <CardDescription>Ordenado por valor total (maior para menor)</CardDescription>
+              <CardDescription>Ordenado por quantidade utilizada (maior para menor)</CardDescription>
             </CardHeader>
             <CardContent className="p-0">
               <div className="overflow-x-auto">
@@ -1125,26 +1116,22 @@ export function ReportsView() {
                   <thead className="bg-muted">
                     <tr>
                       <th className="p-3 text-left font-medium">Peça</th>
-                      <th className="p-3 text-center font-medium">Quantidade</th>
-                      <th className="p-3 text-right font-medium">Preço Unit.</th>
-                      <th className="p-3 text-right font-medium">Total</th>
+                      <th className="p-3 text-center font-medium">Quantidade Usada</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y">
                     {partsData.map((p) => (
                       <tr key={p.partId} className="hover:bg-muted/50">
                         <td className="p-3 font-medium">{p.partName}</td>
-                        <td className="p-3 text-center">{p.quantity}</td>
-                        <td className="p-3 text-right font-mono">{formatCurrency(p.unitPrice)}</td>
-                        <td className="p-3 text-right font-mono font-bold text-green-600">{formatCurrency(p.totalValue)}</td>
+                        <td className="p-3 text-center font-mono font-bold">{p.quantity}</td>
                       </tr>
                     ))}
                   </tbody>
                   {partsData.length > 0 && (
                     <tfoot className="bg-muted/50">
                       <tr>
-                        <td colSpan={3} className="p-3 text-right font-medium">Total Geral:</td>
-                        <td className="p-3 text-right font-mono font-bold">{formatCurrency(partsData.reduce((s, p) => s + p.totalValue, 0))}</td>
+                        <td className="p-3 text-right font-medium">Total de Peças:</td>
+                        <td className="p-3 text-center font-mono font-bold">{partsData.reduce((s, p) => s + p.quantity, 0)}</td>
                       </tr>
                     </tfoot>
                   )}
