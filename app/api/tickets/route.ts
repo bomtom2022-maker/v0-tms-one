@@ -59,13 +59,14 @@ export async function POST(request: Request) {
 export async function PATCH(request: Request) {
   try {
     const { ticketId, rejectionReason, rejectedBy, rejectedByName } = await request.json()
+    console.log('[v0] PATCH /api/tickets - Rejeitando ticket:', { ticketId, rejectionReason, rejectedBy, rejectedByName })
     
     if (!rejectionReason || rejectionReason.trim().length === 0) {
       return NextResponse.json({ error: 'Motivo da rejeição é obrigatório' }, { status: 400 })
     }
     
     const supabase = createAdminClient()
-    const { error } = await supabase
+    const { error, data } = await supabase
       .from('tickets')
       .update({
         status: 'cancelled',
@@ -75,10 +76,17 @@ export async function PATCH(request: Request) {
         cancelled_by_name: rejectedByName,
       })
       .eq('id', ticketId)
+      .select()
     
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    console.log('[v0] Resultado do update:', { error, data })
+    
+    if (error) {
+      console.error('[v0] Erro ao rejeitar ticket:', error)
+      return NextResponse.json({ error: error.message }, { status: 500 })
+    }
     return NextResponse.json({ success: true })
   } catch (err: unknown) {
+    console.error('[v0] Erro na rota PATCH:', err)
     return NextResponse.json({ error: err instanceof Error ? err.message : 'Erro interno' }, { status: 500 })
   }
 }
