@@ -91,7 +91,7 @@ export async function GET() {
           id: action.id,
           action: auditAction,
           userId: action.operator_id || '',
-          userName: action.operator_name || 'Operador',
+          userName: action.operator_name || 'Manutentor',
           timestamp: action.timestamp,
           entityType: 'ticket',
           entityId: ticket.id,

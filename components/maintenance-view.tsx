@@ -268,7 +268,7 @@ export function MaintenanceView({ ticketId, onBack, onComplete }: MaintenanceVie
                 <User className="w-5 h-5 text-primary" />
               </div>
               <div>
-                <p className="text-sm text-muted-foreground">Operador</p>
+                <p className="text-sm text-muted-foreground">Manutentor</p>
                 <p className="font-medium">{operatorName}</p>
               </div>
             </div>
