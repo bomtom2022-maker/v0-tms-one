@@ -1286,14 +1286,16 @@ export function ReportsView() {
                             value={localMachineShifts[machine.id] || 'none'}
                             onValueChange={async (value) => {
                               const newShiftId = value === 'none' ? null : value
+                              const oldShiftId = localMachineShifts[machine.id]
                               // Atualizar estado local imediatamente
                               setLocalMachineShifts(prev => ({ ...prev, [machine.id]: newShiftId }))
                               try {
                                 await updateMachineShift(machine.id, newShiftId)
-                              } catch {
+                              } catch (err) {
                                 // Reverter em caso de erro
-                                setLocalMachineShifts(prev => ({ ...prev, [machine.id]: machine.shiftId || null }))
-                                alert('Erro ao atualizar turno da máquina')
+                                setLocalMachineShifts(prev => ({ ...prev, [machine.id]: oldShiftId }))
+                                console.error('[v0] Erro ao atualizar turno:', err)
+                                alert('Erro ao atualizar turno. Verifique se a coluna shift_id existe na tabela machines do banco de dados.')
                               }
                             }}
                           >
