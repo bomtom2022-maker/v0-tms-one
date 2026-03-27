@@ -58,7 +58,7 @@ interface FilterState {
   priority: string
 }
 
-// Função para gerar PDF de métricas MTBF/MTTR com múltiplas páginas
+// Função para gerar PDF de métricas MTBF/MTTR (com opção de incluir pausas)
 function generateMetricsPDF(
   metricsData: Array<{
     machineName: string
@@ -75,7 +75,8 @@ function generateMetricsPDF(
     pausedAt: string
     pausedBy: string
   }>,
-  periodLabel: string
+  periodLabel: string,
+  includePaused: boolean = false
 ) {
   const printWindow = window.open('', '_blank')
   if (!printWindow) {
@@ -84,6 +85,64 @@ function generateMetricsPDF(
   }
 
   const currentDate = new Date().toLocaleString('pt-BR')
+  const totalPages = includePaused ? 2 : 1
+
+  const pausedPage = includePaused ? `
+      <!-- Página 2: Chamados Pausados -->
+      <div class="page">
+        <div class="header">
+          <div class="header-left">
+            <h1>Chamados Pausados - Motivos</h1>
+            <p>Detalhamento dos chamados pausados e seus motivos</p>
+          </div>
+          <div class="header-right">
+            <div class="brand">TMS ONE</div>
+            <div class="info">Tool Manager System</div>
+            <div class="info">${currentDate}</div>
+          </div>
+        </div>
+
+        <div class="subtitle">Período: ${periodLabel}</div>
+
+        <div class="summary">
+          <div class="summary-item">
+            <span class="label">Total de Pausados</span>
+            <span class="value text-orange">${pausedTickets.length}</span>
+          </div>
+        </div>
+
+        ${pausedTickets.length > 0 ? `
+          <table>
+            <thead>
+              <tr>
+                <th style="width:18%">Máquina</th>
+                <th style="width:22%">Problema</th>
+                <th style="width:30%">Motivo da Pausa</th>
+                <th style="width:15%" class="text-center">Data da Pausa</th>
+                <th style="width:15%">Pausado Por</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${pausedTickets.map(t => `
+                <tr>
+                  <td>${t.machine}</td>
+                  <td>${t.problem}</td>
+                  <td>${t.pauseReason || 'Não informado'}</td>
+                  <td class="text-center">${t.pausedAt}</td>
+                  <td>${t.pausedBy}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        ` : '<div class="empty-message">Nenhum chamado pausado no período selecionado.</div>'}
+
+        <div class="footer">
+          <div>TMS ONE - Tool Manager System | Todos os direitos reservados</div>
+          <div style="font-style:italic;">Sistema desenvolvido em conformidade com as normas TISAX</div>
+          <div>Página 2 de ${totalPages}</div>
+        </div>
+      </div>
+  ` : ''
 
   const html = `
     <!DOCTYPE html>
@@ -92,29 +151,29 @@ function generateMetricsPDF(
       <meta charset="UTF-8">
       <title>Relatório MTBF/MTTR - TMS ONE</title>
       <style>
-        @page { size: A4 landscape; margin: 0; }
+        @page { size: A4 landscape; margin: 15mm 12mm; }
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        html, body { width: 100%; font-family: 'Segoe UI', Arial, sans-serif; font-size: 9pt; line-height: 1.3; color: #1e293b; background: #fff; }
-        .page { width: 100%; min-height: 100vh; padding: 28px 36px; page-break-after: always; }
+        html, body { width: 100%; font-family: 'Segoe UI', Arial, sans-serif; font-size: 9pt; line-height: 1.4; color: #1e293b; background: #fff; }
+        .page { width: 100%; padding: 0; page-break-after: always; }
         .page:last-child { page-break-after: avoid; }
-        .header { width: 100%; padding-bottom: 10px; border-bottom: 3px solid #1e293b; margin-bottom: 14px; display: flex; justify-content: space-between; align-items: flex-start; }
-        .header-left h1 { font-size: 16pt; font-weight: bold; color: #0f172a; margin-bottom: 3px; }
-        .header-left p { font-size: 8pt; color: #64748b; }
+        .header { width: 100%; padding-bottom: 12px; border-bottom: 3px solid #1e293b; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: flex-start; }
+        .header-left h1 { font-size: 15pt; font-weight: bold; color: #0f172a; margin-bottom: 4px; }
+        .header-left p { font-size: 9pt; color: #64748b; }
         .header-right { text-align: right; }
-        .header-right .brand { font-size: 14pt; font-weight: bold; color: #0f172a; }
+        .header-right .brand { font-size: 13pt; font-weight: bold; color: #0f172a; }
         .header-right .info { font-size: 8pt; color: #64748b; margin-top: 2px; }
-        .subtitle { font-size: 8pt; color: #334155; margin-bottom: 14px; padding: 8px 12px; background: #f1f5f9; border-left: 4px solid #1e293b; }
-        .summary { display: flex; gap: 10px; margin-bottom: 16px; }
-        .summary-item { flex: 1; padding: 10px 8px; text-align: center; background: #fafafa; border: 1px solid #e2e8f0; border-radius: 5px; }
-        .summary-item .label { font-size: 7pt; color: #64748b; text-transform: uppercase; letter-spacing: 0.3px; display: block; margin-bottom: 4px; }
-        .summary-item .value { font-size: 14pt; font-weight: bold; color: #0f172a; display: block; }
-        .metrics-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
-        .metric-box { padding: 12px; border: 1px solid #e2e8f0; border-radius: 5px; }
-        .metric-box h3 { font-size: 10pt; color: #334155; margin-bottom: 4px; font-weight: 600; }
-        .metric-box p { font-size: 8pt; color: #64748b; }
-        table { width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 8pt; table-layout: auto; }
-        th { background: #1e293b; color: #fff; padding: 8px 6px; font-weight: 600; text-align: left; font-size: 7.5pt; text-transform: uppercase; letter-spacing: 0.3px; white-space: nowrap; }
-        td { padding: 7px 6px; border-bottom: 1px solid #e2e8f0; vertical-align: middle; word-wrap: break-word; word-break: break-word; }
+        .subtitle { font-size: 9pt; color: #334155; margin-bottom: 16px; padding: 10px 14px; background: #f1f5f9; border-left: 4px solid #1e293b; }
+        .summary { display: flex; gap: 12px; margin-bottom: 18px; }
+        .summary-item { flex: 1; padding: 12px 10px; text-align: center; background: #fafafa; border: 1px solid #e2e8f0; border-radius: 6px; }
+        .summary-item .label { font-size: 8pt; color: #64748b; text-transform: uppercase; letter-spacing: 0.4px; display: block; margin-bottom: 5px; }
+        .summary-item .value { font-size: 15pt; font-weight: bold; color: #0f172a; display: block; }
+        .metrics-grid { display: flex; gap: 16px; margin-bottom: 18px; }
+        .metric-box { flex: 1; padding: 14px; border: 1px solid #e2e8f0; border-radius: 6px; background: #fafafa; }
+        .metric-box h3 { font-size: 10pt; color: #334155; margin-bottom: 6px; font-weight: 600; }
+        .metric-box p { font-size: 8pt; color: #64748b; line-height: 1.4; }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 9pt; }
+        th { background: #1e293b; color: #fff; padding: 10px 8px; font-weight: 600; text-align: left; font-size: 8pt; text-transform: uppercase; letter-spacing: 0.4px; }
+        td { padding: 9px 8px; border-bottom: 1px solid #e2e8f0; vertical-align: middle; }
         tr:nth-child(even) { background: #f8fafc; }
         .text-center { text-align: center; }
         .text-right { text-align: right; }
@@ -123,17 +182,15 @@ function generateMetricsPDF(
         .text-green { color: #16a34a; }
         .text-yellow { color: #ca8a04; }
         .text-red { color: #dc2626; }
-        .badge { display: inline-block; padding: 2px 6px; border-radius: 3px; font-size: 7.5pt; font-weight: bold; }
+        .badge { display: inline-block; padding: 3px 8px; border-radius: 4px; font-size: 8pt; font-weight: bold; }
         .badge-green { background: #dcfce7; color: #166534; }
         .badge-yellow { background: #fef9c3; color: #854d0e; }
         .badge-red { background: #fee2e2; color: #991b1b; }
-        .footer { margin-top: 20px; padding-top: 10px; border-top: 2px solid #1e293b; font-size: 8pt; color: #64748b; display: flex; justify-content: space-between; align-items: center; }
-        .section-title { font-size: 12pt; font-weight: bold; color: #0f172a; margin-bottom: 12px; padding-bottom: 6px; border-bottom: 2px solid #e2e8f0; }
-        .empty-message { padding: 20px; text-align: center; color: #94a3b8; font-size: 10pt; font-style: italic; background: #f8fafc; border: 1px dashed #cbd5e1; }
+        .footer { margin-top: auto; padding-top: 12px; border-top: 2px solid #1e293b; font-size: 8pt; color: #64748b; display: flex; justify-content: space-between; align-items: center; }
+        .empty-message { padding: 24px; text-align: center; color: #94a3b8; font-size: 10pt; font-style: italic; background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 6px; }
         @media print {
-          @page { size: A4 landscape; margin: 0; }
+          @page { size: A4 landscape; margin: 15mm 12mm; }
           html, body { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-          .page { padding: 28px 36px; }
         }
       </style>
     </head>
@@ -184,12 +241,12 @@ function generateMetricsPDF(
           <table>
             <thead>
               <tr>
-                <th>Máquina</th>
-                <th class="text-center">Turno</th>
-                <th class="text-center">Falhas</th>
-                <th class="text-center">MTBF (h)</th>
-                <th class="text-center">MTTR (h)</th>
-                <th class="text-center">Disponibilidade</th>
+                <th style="width:25%">Máquina</th>
+                <th style="width:20%" class="text-center">Turno</th>
+                <th style="width:10%" class="text-center">Falhas</th>
+                <th style="width:15%" class="text-center">MTBF (h)</th>
+                <th style="width:15%" class="text-center">MTTR (h)</th>
+                <th style="width:15%" class="text-center">Disponibilidade</th>
               </tr>
             </thead>
             <tbody>
@@ -212,64 +269,11 @@ function generateMetricsPDF(
         <div class="footer">
           <div>TMS ONE - Tool Manager System | Todos os direitos reservados</div>
           <div style="font-style:italic;">Sistema desenvolvido em conformidade com as normas TISAX</div>
-          <div>Página 1 de 2</div>
+          <div>Página 1 de ${totalPages}</div>
         </div>
       </div>
 
-      <!-- Página 2: Chamados Pausados -->
-      <div class="page">
-        <div class="header">
-          <div class="header-left">
-            <h1>Chamados Pausados - Motivos</h1>
-            <p>Detalhamento dos chamados pausados e seus motivos</p>
-          </div>
-          <div class="header-right">
-            <div class="brand">TMS ONE</div>
-            <div class="info">Tool Manager System</div>
-            <div class="info">${currentDate}</div>
-          </div>
-        </div>
-
-        <div class="subtitle">Período: ${periodLabel}</div>
-
-        <div class="summary">
-          <div class="summary-item">
-            <span class="label">Total de Pausados</span>
-            <span class="value text-orange">${pausedTickets.length}</span>
-          </div>
-        </div>
-
-        ${pausedTickets.length > 0 ? `
-          <table>
-            <thead>
-              <tr>
-                <th>Máquina</th>
-                <th>Problema</th>
-                <th>Motivo da Pausa</th>
-                <th class="text-center">Data da Pausa</th>
-                <th>Pausado Por</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${pausedTickets.map(t => `
-                <tr>
-                  <td>${t.machine}</td>
-                  <td>${t.problem}</td>
-                  <td>${t.pauseReason || 'Não informado'}</td>
-                  <td class="text-center">${t.pausedAt}</td>
-                  <td>${t.pausedBy}</td>
-                </tr>
-              `).join('')}
-            </tbody>
-          </table>
-        ` : '<div class="empty-message">Nenhum chamado pausado no período selecionado.</div>'}
-
-        <div class="footer">
-          <div>TMS ONE - Tool Manager System | Todos os direitos reservados</div>
-          <div style="font-style:italic;">Sistema desenvolvido em conformidade com as normas TISAX</div>
-          <div>Página 2 de 2</div>
-        </div>
-      </div>
+      ${pausedPage}
 
       <script>window.onload = function() { setTimeout(function() { window.print(); }, 300); }</script>
     </body>
@@ -604,6 +608,7 @@ export function ReportsView() {
   const [metricsPeriod, setMetricsPeriod] = useState<'week' | 'month' | 'year'>('month')
   const [metricsSearchMachine, setMetricsSearchMachine] = useState('')
   const [localMachineShifts, setLocalMachineShifts] = useState<Record<string, string | null>>({})
+  const [metricsIncludePaused, setMetricsIncludePaused] = useState(false)
   
   // Inicializar shifts locais das máquinas
   useEffect(() => {
@@ -992,7 +997,7 @@ export function ReportsView() {
             }
           })
         
-        generateMetricsPDF(metricsForPDF, pausedTicketsForPDF, periodLabel)
+        generateMetricsPDF(metricsForPDF, pausedTicketsForPDF, periodLabel, metricsIncludePaused)
         break
     }
   }
@@ -1483,6 +1488,30 @@ export function ReportsView() {
 
         {/* Tab MTBF/MTTR */}
         <TabsContent value="metrics" className="mt-4 space-y-4">
+          {/* Botão PDF e checkbox incluir pausas */}
+          <div className="flex items-center justify-between flex-wrap gap-3">
+            <div className="flex items-center gap-3">
+              <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={metricsIncludePaused}
+                  onChange={(e) => setMetricsIncludePaused(e.target.checked)}
+                  className="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary"
+                />
+                <span>Incluir chamados pausados no PDF</span>
+              </label>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handleGeneratePDF()}
+              className="gap-2"
+            >
+              <Printer className="w-4 h-4" />
+              Gerar PDF
+            </Button>
+          </div>
+
           {/* Explicação dos indicadores */}
           <Card>
             <CardHeader className="pb-2">
