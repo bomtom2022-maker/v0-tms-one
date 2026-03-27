@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 
+// API para vincular máquinas aos turnos de trabalho
 export async function PUT(request: Request) {
   try {
     const { machineId, shiftId } = await request.json()

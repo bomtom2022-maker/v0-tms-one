@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 
+// API para gerenciar turnos de trabalho (shifts)
 export async function GET() {
   try {
     const supabase = createAdminClient()
