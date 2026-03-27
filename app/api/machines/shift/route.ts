@@ -1,9 +1,11 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 
+// PUT - Atualizar o turno de uma maquina
 export async function PUT(request: Request) {
   try {
-    const { machineId, shiftId } = await request.json()
+    const body = await request.json()
+    const { machineId, shiftId } = body
     
     if (!machineId) {
       return NextResponse.json({ error: 'ID da maquina e obrigatorio' }, { status: 400 })

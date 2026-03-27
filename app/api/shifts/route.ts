@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 
+// GET - Listar todos os turnos
 export async function GET() {
   try {
     const supabase = createAdminClient()
@@ -10,6 +11,7 @@ export async function GET() {
       .order('hours_per_day', { ascending: true })
     
     if (error) {
+      // Se a tabela não existe, retorna array vazio
       if (error.code === '42P01') {
         return NextResponse.json([])
       }
@@ -22,9 +24,11 @@ export async function GET() {
   }
 }
 
+// POST - Criar novo turno
 export async function POST(request: Request) {
   try {
-    const { name, hours_per_day, days_per_week, description } = await request.json()
+    const body = await request.json()
+    const { name, hours_per_day, days_per_week, description } = body
     
     if (!name || !hours_per_day || !days_per_week) {
       return NextResponse.json({ error: 'Nome, horas por dia e dias por semana sao obrigatorios' }, { status: 400 })
@@ -44,9 +48,11 @@ export async function POST(request: Request) {
   }
 }
 
+// PUT - Atualizar turno existente
 export async function PUT(request: Request) {
   try {
-    const { id, name, hours_per_day, days_per_week, description } = await request.json()
+    const body = await request.json()
+    const { id, name, hours_per_day, days_per_week, description } = body
     
     if (!id) {
       return NextResponse.json({ error: 'ID e obrigatorio' }, { status: 400 })
@@ -65,9 +71,11 @@ export async function PUT(request: Request) {
   }
 }
 
+// DELETE - Remover turno
 export async function DELETE(request: Request) {
   try {
-    const { id } = await request.json()
+    const body = await request.json()
+    const { id } = body
     
     if (!id) {
       return NextResponse.json({ error: 'ID e obrigatorio' }, { status: 400 })
