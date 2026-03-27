@@ -59,7 +59,12 @@ export function DashboardView({ onSelectTicket }: DashboardViewProps) {
   const [rejectionReason, setRejectionReason] = useState('')
   const [isRejecting, setIsRejecting] = useState(false)
   
-  // Estado para exibir aba de chamados rejeitados
+  // Estados para exibir abas de chamados por status
+  const [showOpen, setShowOpen] = useState(false)
+  const [showInMaintenance, setShowInMaintenance] = useState(false)
+  const [showPaused, setShowPaused] = useState(false)
+  const [showUnresolved, setShowUnresolved] = useState(false)
+  const [showCompleted, setShowCompleted] = useState(false)
   const [showRejected, setShowRejected] = useState(false)
 
   // Estatísticas coerentes com StatusCards
@@ -164,14 +169,48 @@ export function DashboardView({ onSelectTicket }: DashboardViewProps) {
       })
   }, [tickets, searchTerm, filterMachine, filterProblem, filterPriority, getMachineById, getProblemById])
 
-  // Lista de chamados rejeitados
+  // Listas de chamados por status
+  const openTickets = useMemo(() => {
+    return tickets.filter(t => t.status === 'open').sort((a, b) => 
+      new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    )
+  }, [tickets])
+
+  const inMaintenanceTickets = useMemo(() => {
+    return tickets.filter(t => t.status === 'in-progress').sort((a, b) => 
+      new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    )
+  }, [tickets])
+
+  const pausedTickets = useMemo(() => {
+    return tickets.filter(t => t.status === 'paused').sort((a, b) => 
+      new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    )
+  }, [tickets])
+
+  const unresolvedTickets = useMemo(() => {
+    return tickets.filter(t => t.status === 'unresolved').sort((a, b) => 
+      new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    )
+  }, [tickets])
+
+  const completedTickets = useMemo(() => {
+    return tickets
+      .filter(t => t.status === 'completed' && t.completedAt && isSameDay(t.completedAt, completedDateFilter))
+      .sort((a, b) => {
+        const dateA = a.completedAt ? new Date(a.completedAt).getTime() : 0
+        const dateB = b.completedAt ? new Date(b.completedAt).getTime() : 0
+        return dateB - dateA
+      })
+  }, [tickets, completedDateFilter])
+
   const rejectedTickets = useMemo(() => {
     return tickets
       .filter(t => t.status === 'cancelled')
       .sort((a, b) => {
         const dateA = a.cancelledAt ? new Date(a.cancelledAt).getTime() : 0
         const dateB = b.cancelledAt ? new Date(b.cancelledAt).getTime() : 0
-        return dateB - dateA // Mais recentes primeiro
+        return dateB - dateA
       })
   }, [tickets])
 
@@ -208,13 +247,19 @@ export function DashboardView({ onSelectTicket }: DashboardViewProps) {
       {/* Status Cards - 6 contadores */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-3">
         {/* Em Aberto */}
-        <Card className="border-l-2 sm:border-l-4 border-l-red-500">
+        <Card 
+          className={cn(
+            "border-l-2 sm:border-l-4 border-l-red-500 cursor-pointer transition-all hover:shadow-md",
+            showOpen && "ring-2 ring-red-500"
+          )}
+          onClick={() => setShowOpen(!showOpen)}
+        >
           <CardContent className="p-2 sm:p-3">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-[10px] sm:text-xs text-muted-foreground font-medium">Em Aberto</p>
                 <p className="text-2xl sm:text-3xl font-bold text-red-500">{dashboardStats.open}</p>
-                <p className="text-[9px] text-muted-foreground">Aguardando</p>
+                <p className="text-[9px] text-muted-foreground">Clique para ver</p>
               </div>
               <div className="p-2 bg-red-50 rounded-full">
                 <AlertCircle className="w-4 h-4 text-red-500" />
@@ -224,13 +269,19 @@ export function DashboardView({ onSelectTicket }: DashboardViewProps) {
         </Card>
 
         {/* Em Manutenção */}
-        <Card className="border-l-2 sm:border-l-4 border-l-blue-500">
+        <Card 
+          className={cn(
+            "border-l-2 sm:border-l-4 border-l-blue-500 cursor-pointer transition-all hover:shadow-md",
+            showInMaintenance && "ring-2 ring-blue-500"
+          )}
+          onClick={() => setShowInMaintenance(!showInMaintenance)}
+        >
           <CardContent className="p-2 sm:p-3">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-[10px] sm:text-xs text-muted-foreground font-medium">Em Manutenção</p>
                 <p className="text-2xl sm:text-3xl font-bold text-blue-500">{dashboardStats.inMaintenance}</p>
-                <p className="text-[9px] text-muted-foreground">Trabalhando</p>
+                <p className="text-[9px] text-muted-foreground">Clique para ver</p>
               </div>
               <div className="p-2 bg-blue-50 rounded-full">
                 <Wrench className="w-4 h-4 text-blue-500" />
@@ -240,13 +291,19 @@ export function DashboardView({ onSelectTicket }: DashboardViewProps) {
         </Card>
 
         {/* Pausados */}
-        <Card className="border-l-2 sm:border-l-4 border-l-orange-500">
+        <Card 
+          className={cn(
+            "border-l-2 sm:border-l-4 border-l-orange-500 cursor-pointer transition-all hover:shadow-md",
+            showPaused && "ring-2 ring-orange-500"
+          )}
+          onClick={() => setShowPaused(!showPaused)}
+        >
           <CardContent className="p-2 sm:p-3">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-[10px] sm:text-xs text-muted-foreground font-medium">Pausados</p>
                 <p className="text-2xl sm:text-3xl font-bold text-orange-500">{dashboardStats.paused}</p>
-                <p className="text-[9px] text-muted-foreground">Interrompidos</p>
+                <p className="text-[9px] text-muted-foreground">Clique para ver</p>
               </div>
               <div className="p-2 bg-orange-50 rounded-full">
                 <Pause className="w-4 h-4 text-orange-500" />
@@ -256,13 +313,19 @@ export function DashboardView({ onSelectTicket }: DashboardViewProps) {
         </Card>
 
         {/* Não Resolvidos */}
-        <Card className="border-l-2 sm:border-l-4 border-l-yellow-500">
+        <Card 
+          className={cn(
+            "border-l-2 sm:border-l-4 border-l-yellow-500 cursor-pointer transition-all hover:shadow-md",
+            showUnresolved && "ring-2 ring-yellow-500"
+          )}
+          onClick={() => setShowUnresolved(!showUnresolved)}
+        >
           <CardContent className="p-2 sm:p-3">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-[10px] sm:text-xs text-muted-foreground font-medium">Não Resolvidos</p>
                 <p className="text-2xl sm:text-3xl font-bold text-yellow-600">{dashboardStats.unresolved}</p>
-                <p className="text-[9px] text-muted-foreground">Nova atenção</p>
+                <p className="text-[9px] text-muted-foreground">Clique para ver</p>
               </div>
               <div className="p-2 bg-yellow-50 rounded-full">
                 <Play className="w-4 h-4 text-yellow-600" />
@@ -272,12 +335,19 @@ export function DashboardView({ onSelectTicket }: DashboardViewProps) {
         </Card>
 
         {/* Finalizadas hoje - Com filtro de data */}
-        <Card className="border-l-2 sm:border-l-4 border-l-green-500 col-span-2 sm:col-span-1">
+        <Card 
+          className={cn(
+            "border-l-2 sm:border-l-4 border-l-green-500 col-span-2 sm:col-span-1 cursor-pointer transition-all hover:shadow-md",
+            showCompleted && "ring-2 ring-green-500"
+          )}
+          onClick={() => setShowCompleted(!showCompleted)}
+        >
           <CardContent className="p-2 sm:p-3">
             <div className="flex items-center justify-between mb-1">
               <div>
                 <p className="text-[10px] sm:text-xs text-muted-foreground font-medium">Finalizados</p>
                 <p className="text-2xl sm:text-3xl font-bold text-green-500">{dashboardStats.completed}</p>
+                <p className="text-[9px] text-muted-foreground">Clique para ver</p>
               </div>
               <div className="p-2 bg-green-50 rounded-full">
                 <CheckCircle2 className="w-4 h-4 text-green-500" />
@@ -290,6 +360,7 @@ export function DashboardView({ onSelectTicket }: DashboardViewProps) {
                   variant="outline" 
                   size="sm" 
                   className="w-full justify-start text-left font-normal h-6 text-[9px] px-2 mt-1"
+                  onClick={(e) => e.stopPropagation()}
                 >
                   <CalendarIcon className="mr-1 h-3 w-3" />
                   {isToday(completedDateFilter) 
@@ -332,6 +403,238 @@ export function DashboardView({ onSelectTicket }: DashboardViewProps) {
           </CardContent>
         </Card>
       </div>
+
+      {/* Lista de Chamados Em Aberto */}
+      {showOpen && (
+        <Card>
+          <CardHeader className="p-3 sm:p-6 pb-2 sm:pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm sm:text-base flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 text-red-500" />
+                Chamados Em Aberto
+              </CardTitle>
+              <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => setShowOpen(false)}>
+                Fechar
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent className="p-3 sm:p-6 pt-0">
+            {openTickets.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-4">Nenhum chamado em aberto</p>
+            ) : (
+              <div className="space-y-2">
+                {openTickets.map((ticket) => {
+                  const machine = getMachineById(ticket.machineId)
+                  const problem = getProblemById(ticket.problemId)
+                  return (
+                    <div key={ticket.id} className="p-3 rounded-lg border bg-muted/30 cursor-pointer hover:bg-muted/50" onClick={() => onSelectTicket(ticket.id)}>
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0 flex-1">
+                          <p className="font-medium text-sm truncate">{machine?.name || 'Máquina'}</p>
+                          <p className="text-xs text-muted-foreground">{ticket.customProblemName || problem?.name || 'Problema'}</p>
+                          <p className="text-xs text-muted-foreground mt-1">Reportado por: {ticket.createdByName}</p>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <Badge variant="outline" className="text-[10px] bg-red-50 text-red-600 border-red-200">Aguardando</Badge>
+                          <p className="text-[10px] text-muted-foreground mt-1">{format(new Date(ticket.createdAt), "dd/MM HH:mm", { locale: ptBR })}</p>
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Lista de Chamados Em Manutenção */}
+      {showInMaintenance && (
+        <Card>
+          <CardHeader className="p-3 sm:p-6 pb-2 sm:pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm sm:text-base flex items-center gap-2">
+                <Wrench className="w-4 h-4 text-blue-500" />
+                Chamados Em Manutenção
+              </CardTitle>
+              <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => setShowInMaintenance(false)}>
+                Fechar
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent className="p-3 sm:p-6 pt-0">
+            {inMaintenanceTickets.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-4">Nenhum chamado em manutenção</p>
+            ) : (
+              <div className="space-y-2">
+                {inMaintenanceTickets.map((ticket) => {
+                  const machine = getMachineById(ticket.machineId)
+                  const problem = getProblemById(ticket.problemId)
+                  const lastAction = ticket.actions[ticket.actions.length - 1]
+                  return (
+                    <div key={ticket.id} className="p-3 rounded-lg border bg-muted/30 cursor-pointer hover:bg-muted/50" onClick={() => onSelectTicket(ticket.id)}>
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0 flex-1">
+                          <p className="font-medium text-sm truncate">{machine?.name || 'Máquina'}</p>
+                          <p className="text-xs text-muted-foreground">{ticket.customProblemName || problem?.name || 'Problema'}</p>
+                          <p className="text-xs text-muted-foreground mt-1">Manutentor: {lastAction?.operatorName || '-'}</p>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <Badge variant="outline" className="text-[10px] bg-blue-50 text-blue-600 border-blue-200">Trabalhando</Badge>
+                          <p className="text-[10px] text-muted-foreground mt-1">{format(new Date(ticket.createdAt), "dd/MM HH:mm", { locale: ptBR })}</p>
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Lista de Chamados Pausados */}
+      {showPaused && (
+        <Card>
+          <CardHeader className="p-3 sm:p-6 pb-2 sm:pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm sm:text-base flex items-center gap-2">
+                <Pause className="w-4 h-4 text-orange-500" />
+                Chamados Pausados
+              </CardTitle>
+              <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => setShowPaused(false)}>
+                Fechar
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent className="p-3 sm:p-6 pt-0">
+            {pausedTickets.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-4">Nenhum chamado pausado</p>
+            ) : (
+              <div className="space-y-2">
+                {pausedTickets.map((ticket) => {
+                  const machine = getMachineById(ticket.machineId)
+                  const problem = getProblemById(ticket.problemId)
+                  const lastPauseAction = [...ticket.actions].reverse().find(a => a.type === 'pause')
+                  return (
+                    <div key={ticket.id} className="p-3 rounded-lg border bg-muted/30 cursor-pointer hover:bg-muted/50" onClick={() => onSelectTicket(ticket.id)}>
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0 flex-1">
+                          <p className="font-medium text-sm truncate">{machine?.name || 'Máquina'}</p>
+                          <p className="text-xs text-muted-foreground">{ticket.customProblemName || problem?.name || 'Problema'}</p>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <Badge variant="outline" className="text-[10px] bg-orange-50 text-orange-600 border-orange-200">Pausado</Badge>
+                          <p className="text-[10px] text-muted-foreground mt-1">{format(new Date(ticket.createdAt), "dd/MM HH:mm", { locale: ptBR })}</p>
+                        </div>
+                      </div>
+                      {lastPauseAction?.reason && (
+                        <div className="mt-2 p-2 rounded bg-orange-50 border border-orange-200 dark:bg-orange-950 dark:border-orange-800">
+                          <p className="text-[10px] font-medium text-orange-700 dark:text-orange-300">Motivo da pausa:</p>
+                          <p className="text-xs text-orange-800 dark:text-orange-200">{lastPauseAction.reason}</p>
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Lista de Chamados Não Resolvidos */}
+      {showUnresolved && (
+        <Card>
+          <CardHeader className="p-3 sm:p-6 pb-2 sm:pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm sm:text-base flex items-center gap-2">
+                <Play className="w-4 h-4 text-yellow-600" />
+                Chamados Não Resolvidos
+              </CardTitle>
+              <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => setShowUnresolved(false)}>
+                Fechar
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent className="p-3 sm:p-6 pt-0">
+            {unresolvedTickets.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-4">Nenhum chamado não resolvido</p>
+            ) : (
+              <div className="space-y-2">
+                {unresolvedTickets.map((ticket) => {
+                  const machine = getMachineById(ticket.machineId)
+                  const problem = getProblemById(ticket.problemId)
+                  return (
+                    <div key={ticket.id} className="p-3 rounded-lg border bg-muted/30 cursor-pointer hover:bg-muted/50" onClick={() => onSelectTicket(ticket.id)}>
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0 flex-1">
+                          <p className="font-medium text-sm truncate">{machine?.name || 'Máquina'}</p>
+                          <p className="text-xs text-muted-foreground">{ticket.customProblemName || problem?.name || 'Problema'}</p>
+                          <p className="text-xs text-muted-foreground mt-1">Reportado por: {ticket.createdByName}</p>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <Badge variant="outline" className="text-[10px] bg-yellow-50 text-yellow-700 border-yellow-300">Não Resolvido</Badge>
+                          <p className="text-[10px] text-muted-foreground mt-1">{format(new Date(ticket.createdAt), "dd/MM HH:mm", { locale: ptBR })}</p>
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Lista de Chamados Finalizados */}
+      {showCompleted && (
+        <Card>
+          <CardHeader className="p-3 sm:p-6 pb-2 sm:pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm sm:text-base flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-green-500" />
+                Chamados Finalizados ({isToday(completedDateFilter) ? 'Hoje' : format(completedDateFilter, "dd/MM", { locale: ptBR })})
+              </CardTitle>
+              <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => setShowCompleted(false)}>
+                Fechar
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent className="p-3 sm:p-6 pt-0">
+            {completedTickets.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-4">Nenhum chamado finalizado nesta data</p>
+            ) : (
+              <div className="space-y-2">
+                {completedTickets.map((ticket) => {
+                  const machine = getMachineById(ticket.machineId)
+                  const problem = getProblemById(ticket.problemId)
+                  const lastAction = ticket.actions[ticket.actions.length - 1]
+                  return (
+                    <div key={ticket.id} className="p-3 rounded-lg border bg-muted/30 cursor-pointer hover:bg-muted/50" onClick={() => onSelectTicket(ticket.id)}>
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0 flex-1">
+                          <p className="font-medium text-sm truncate">{machine?.name || 'Máquina'}</p>
+                          <p className="text-xs text-muted-foreground">{ticket.customProblemName || problem?.name || 'Problema'}</p>
+                          <p className="text-xs text-muted-foreground mt-1">Finalizado por: {lastAction?.operatorName || '-'}</p>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <Badge variant="outline" className="text-[10px] bg-green-50 text-green-600 border-green-200">
+                            {ticket.resolved ? 'Resolvido' : 'Finalizado'}
+                          </Badge>
+                          {ticket.completedAt && (
+                            <p className="text-[10px] text-muted-foreground mt-1">{format(new Date(ticket.completedAt), "dd/MM HH:mm", { locale: ptBR })}</p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Lista de Chamados Rejeitados */}
       {showRejected && (
