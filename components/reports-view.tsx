@@ -379,6 +379,18 @@ export function ReportsView() {
   const [shifts, setShifts] = useState<Shift[]>([])
   const [loadingShifts, setLoadingShifts] = useState(false)
   const [shiftsError, setShiftsError] = useState<string | null>(null)
+  const [metricsPeriod, setMetricsPeriod] = useState<'week' | 'month' | 'year'>('month')
+  const [metricsSearchMachine, setMetricsSearchMachine] = useState('')
+  const [localMachineShifts, setLocalMachineShifts] = useState<Record<string, string | null>>({})
+  
+  // Inicializar shifts locais das máquinas
+  useEffect(() => {
+    const initial: Record<string, string | null> = {}
+    machines.forEach(m => {
+      initial[m.id] = m.shiftId || null
+    })
+    setLocalMachineShifts(initial)
+  }, [machines])
   
   // Carregar shifts quando aba MTBF/MTTR é acessada
   useEffect(() => {
@@ -1271,13 +1283,16 @@ export function ReportsView() {
                         <div key={machine.id} className="flex items-center justify-between p-2 rounded border bg-card hover:bg-muted/30">
                           <span className="text-sm font-medium">{machine.name}</span>
                           <Select
-                            value={machine.shiftId || 'none'}
+                            value={localMachineShifts[machine.id] || 'none'}
                             onValueChange={async (value) => {
+                              const newShiftId = value === 'none' ? null : value
+                              // Atualizar estado local imediatamente
+                              setLocalMachineShifts(prev => ({ ...prev, [machine.id]: newShiftId }))
                               try {
-                                await updateMachineShift(machine.id, value === 'none' ? null : value)
-                                // Atualizar localmente
-                                // O usuário precisará recarregar para ver a mudança refletida nos cálculos
+                                await updateMachineShift(machine.id, newShiftId)
                               } catch {
+                                // Reverter em caso de erro
+                                setLocalMachineShifts(prev => ({ ...prev, [machine.id]: machine.shiftId || null }))
                                 alert('Erro ao atualizar turno da máquina')
                               }
                             }}
@@ -1303,13 +1318,36 @@ export function ReportsView() {
 
           {/* Tabela de Métricas por Máquina */}
           <Card>
-            <CardHeader>
-              <CardTitle>Métricas por Máquina</CardTitle>
-              <CardDescription>
-                Período: {filters.dateRange?.from && filters.dateRange?.to 
-                  ? `${format(filters.dateRange.from, 'dd/MM/yyyy', { locale: ptBR })} a ${format(filters.dateRange.to, 'dd/MM/yyyy', { locale: ptBR })}`
-                  : 'Todos'}
-              </CardDescription>
+            <CardHeader className="pb-2">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <div>
+                  <CardTitle>Métricas por Máquina</CardTitle>
+                  <CardDescription className="mt-1">
+                    Análise de MTBF, MTTR e Disponibilidade
+                  </CardDescription>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {/* Filtro de período */}
+                  <Select value={metricsPeriod} onValueChange={(v) => setMetricsPeriod(v as 'week' | 'month' | 'year')}>
+                    <SelectTrigger className="w-[130px] h-8 text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="week">Última Semana</SelectItem>
+                      <SelectItem value="month">Último Mês</SelectItem>
+                      <SelectItem value="year">Último Ano</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {/* Busca por máquina */}
+                  <input
+                    type="text"
+                    placeholder="Buscar máquina..."
+                    className="h-8 px-2 text-xs border rounded-md w-[150px] bg-background"
+                    value={metricsSearchMachine}
+                    onChange={(e) => setMetricsSearchMachine(e.target.value)}
+                  />
+                </div>
+              </div>
             </CardHeader>
             <CardContent className="p-0">
               <div className="overflow-x-auto">
@@ -1326,24 +1364,48 @@ export function ReportsView() {
                   </thead>
                   <tbody className="divide-y">
                     {(() => {
+                      // Definir período baseado no filtro
+                      const now = new Date()
+                      let periodStart: Date
+                      let periodDays: number
+                      
+                      switch (metricsPeriod) {
+                        case 'week':
+                          periodStart = subDays(now, 7)
+                          periodDays = 7
+                          break
+                        case 'year':
+                          periodStart = subDays(now, 365)
+                          periodDays = 365
+                          break
+                        case 'month':
+                        default:
+                          periodStart = subDays(now, 30)
+                          periodDays = 30
+                      }
+                      
+                      // Filtrar máquinas pela busca
+                      const filteredMachines = machines.filter(m => 
+                        metricsSearchMachine === '' || 
+                        m.name.toLowerCase().includes(metricsSearchMachine.toLowerCase())
+                      )
+                      
                       // Calcular métricas para cada máquina
-                      const metricsData: MachineMetrics[] = machines.map(machine => {
-                        const shift = shifts.find(s => s.id === machine.shiftId)
+                      const metricsData: MachineMetrics[] = filteredMachines.map(machine => {
+                        // Usar shift local atualizado ou o original da máquina
+                        const shiftId = localMachineShifts[machine.id] || machine.shiftId
+                        const shift = shifts.find(s => s.id === shiftId)
                         
-                        // Filtrar tickets da máquina no período
-                        const machineTickets = filteredTickets.filter(t => 
+                        // Filtrar tickets da máquina no período selecionado
+                        const machineTickets = tickets.filter(t => 
                           t.machineId === machine.id && 
-                          (t.status === 'completed' || t.status === 'unresolved')
+                          (t.status === 'completed' || t.status === 'unresolved') &&
+                          new Date(t.createdAt) >= periodStart &&
+                          new Date(t.createdAt) <= now
                         )
                         
                         const totalFailures = machineTickets.length
                         const totalRepairTime = machineTickets.reduce((sum, t) => sum + t.downtime, 0)
-                        
-                        // Calcular horas esperadas no período
-                        let periodDays = 30 // default
-                        if (filters.dateRange?.from && filters.dateRange?.to) {
-                          periodDays = Math.ceil((filters.dateRange.to.getTime() - filters.dateRange.from.getTime()) / (1000 * 60 * 60 * 24))
-                        }
                         
                         // Horas esperadas baseado no turno (ou 8h/dia, 5 dias como padrão)
                         const hoursPerDay = shift?.hoursPerDay || 8
@@ -1383,6 +1445,16 @@ export function ReportsView() {
                       // Ordenar por número de falhas (mais problemáticas primeiro)
                       metricsData.sort((a, b) => b.totalFailures - a.totalFailures)
                       
+                      if (metricsData.length === 0) {
+                        return (
+                          <tr>
+                            <td colSpan={6} className="p-8 text-center text-muted-foreground">
+                              Nenhuma máquina encontrada com o filtro atual.
+                            </td>
+                          </tr>
+                        )
+                      }
+                      
                       return metricsData.map(m => (
                         <tr key={m.machineId} className="hover:bg-muted/50">
                           <td className="p-3 font-medium">{m.machineName}</td>
@@ -1421,9 +1493,9 @@ export function ReportsView() {
             </CardContent>
           </Card>
 
-          {/* Legenda */}
+          {/* Legenda e informações */}
           <Card>
-            <CardContent className="p-4">
+            <CardContent className="p-4 space-y-3">
               <div className="flex flex-wrap gap-4 text-xs">
                 <div className="flex items-center gap-1">
                   <div className="w-3 h-3 rounded bg-green-500"></div>
@@ -1437,6 +1509,11 @@ export function ReportsView() {
                   <div className="w-3 h-3 rounded bg-red-500"></div>
                   <span>Disponibilidade menor que 85%</span>
                 </div>
+              </div>
+              <div className="text-xs text-muted-foreground border-t pt-3">
+                <p className="font-medium mb-1">Período selecionado: {metricsPeriod === 'week' ? 'Última Semana (7 dias)' : metricsPeriod === 'month' ? 'Último Mês (30 dias)' : 'Último Ano (365 dias)'}</p>
+                <p>Os cálculos consideram apenas chamados finalizados (resolvidos ou não resolvidos) dentro do período.</p>
+                <p>Máquinas sem turno definido usam valores padrão: 8h/dia, 5 dias/semana.</p>
               </div>
             </CardContent>
           </Card>
