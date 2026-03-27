@@ -542,7 +542,7 @@ function generateMachineDetailPDF(
                     <th style="width:25%">Problema</th>
                     <th style="width:12%">Status</th>
                     <th style="width:15%;color:#fca5a5;">Maq. Parada</th>
-                    <th style="width:18%">Operador</th>
+                    <th style="width:18%">Manutentor</th>
                     <th style="width:18%">Peças</th>
                   </tr>
                 </thead>
@@ -821,7 +821,7 @@ export function ReportsView() {
               prioridade: PRIORITY_CONFIG[t.priority].label,
               status: t.resolved ? 'Resolvido' : 'Não Resolvido',
               maqParada: formatDurationLong(stoppedSecs).full,
-              operador: lastAction?.operatorName || '-',
+              manutentor: lastAction?.operatorName || '-',
             }
           }),
           [
@@ -831,7 +831,7 @@ export function ReportsView() {
             { key: 'prioridade', label: 'Prioridade', align: 'center' },
             { key: 'status', label: 'Status', align: 'center' },
             { key: 'maqParada', label: 'Maq. Parada', align: 'right' },
-            { key: 'operador', label: 'Operador' },
+            { key: 'manutentor', label: 'Manutentor' },
           ],
           [
             { label: 'Total de Manutenções', value: String(stats.total) },
@@ -1242,7 +1242,7 @@ export function ReportsView() {
                       ) : (
                         <>
                           <th className="p-2 sm:p-3 text-right font-medium text-[10px] sm:text-xs text-red-600">Maq. Parada</th>
-                          <th className="p-2 sm:p-3 text-left font-medium text-[10px] sm:text-xs hidden md:table-cell">Operador</th>
+                          <th className="p-2 sm:p-3 text-left font-medium text-[10px] sm:text-xs hidden md:table-cell">Manutentor</th>
                         </>
                       )}
                     </tr>

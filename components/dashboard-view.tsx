@@ -66,6 +66,11 @@ export function DashboardView({ onSelectTicket }: DashboardViewProps) {
   const [showUnresolved, setShowUnresolved] = useState(false)
   const [showCompleted, setShowCompleted] = useState(false)
   const [showRejected, setShowRejected] = useState(false)
+  
+  // Filtros para listas expandidas
+  const [pausedFilter, setPausedFilter] = useState({ search: '', machine: 'all', date: '' })
+  const [rejectedFilter, setRejectedFilter] = useState({ search: '', machine: 'all', date: '' })
+  const [unresolvedFilter, setUnresolvedFilter] = useState({ search: '', machine: 'all', date: '' })
 
   // Estatísticas coerentes com StatusCards
   const dashboardStats = useMemo(() => {
@@ -500,45 +505,89 @@ export function DashboardView({ onSelectTicket }: DashboardViewProps) {
             <div className="flex items-center justify-between">
               <CardTitle className="text-sm sm:text-base flex items-center gap-2">
                 <Pause className="w-4 h-4 text-orange-500" />
-                Chamados Pausados
+                Chamados Pausados ({pausedTickets.length})
               </CardTitle>
               <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => setShowPaused(false)}>
                 Fechar
               </Button>
             </div>
+            {/* Filtros */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-3">
+              <div className="relative">
+                <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground" />
+                <Input
+                  placeholder="Buscar..."
+                  value={pausedFilter.search}
+                  onChange={(e) => setPausedFilter(f => ({ ...f, search: e.target.value }))}
+                  className="pl-7 h-8 text-xs"
+                />
+              </div>
+              <Select value={pausedFilter.machine} onValueChange={(v) => setPausedFilter(f => ({ ...f, machine: v }))}>
+                <SelectTrigger className="h-8 text-xs">
+                  <SelectValue placeholder="Máquina" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas as máquinas</SelectItem>
+                  {machines.map((m) => (
+                    <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Input
+                type="date"
+                value={pausedFilter.date}
+                onChange={(e) => setPausedFilter(f => ({ ...f, date: e.target.value }))}
+                className="h-8 text-xs"
+              />
+            </div>
           </CardHeader>
           <CardContent className="p-3 sm:p-6 pt-0">
-            {pausedTickets.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-4">Nenhum chamado pausado</p>
-            ) : (
-              <div className="space-y-2">
-                {pausedTickets.map((ticket) => {
-                  const machine = getMachineById(ticket.machineId)
-                  const problem = getProblemById(ticket.problemId)
-                  const lastPauseAction = [...ticket.actions].reverse().find(a => a.type === 'pause')
-                  return (
-                    <div key={ticket.id} className="p-3 rounded-lg border bg-muted/30 cursor-pointer hover:bg-muted/50" onClick={() => onSelectTicket(ticket.id)}>
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0 flex-1">
-                          <p className="font-medium text-sm truncate">{machine?.name || 'Máquina'}</p>
-                          <p className="text-xs text-muted-foreground">{ticket.customProblemName || problem?.name || 'Problema'}</p>
+            {(() => {
+              const filtered = pausedTickets.filter(ticket => {
+                const machine = getMachineById(ticket.machineId)
+                const problem = getProblemById(ticket.problemId)
+                const matchSearch = pausedFilter.search === '' || 
+                  machine?.name.toLowerCase().includes(pausedFilter.search.toLowerCase()) ||
+                  (ticket.customProblemName || problem?.name || '').toLowerCase().includes(pausedFilter.search.toLowerCase())
+                const matchMachine = pausedFilter.machine === 'all' || ticket.machineId === pausedFilter.machine
+                const matchDate = pausedFilter.date === '' || format(new Date(ticket.createdAt), 'yyyy-MM-dd') === pausedFilter.date
+                return matchSearch && matchMachine && matchDate
+              })
+              
+              if (filtered.length === 0) {
+                return <p className="text-sm text-muted-foreground text-center py-4">Nenhum chamado pausado encontrado</p>
+              }
+              
+              return (
+                <div className="space-y-2 max-h-[400px] overflow-y-auto">
+                  {filtered.map((ticket) => {
+                    const machine = getMachineById(ticket.machineId)
+                    const problem = getProblemById(ticket.problemId)
+                    const lastPauseAction = [...ticket.actions].reverse().find(a => a.type === 'pause')
+                    return (
+                      <div key={ticket.id} className="p-3 rounded-lg border bg-muted/30 cursor-pointer hover:bg-muted/50" onClick={() => onSelectTicket(ticket.id)}>
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0 flex-1">
+                            <p className="font-medium text-sm truncate">{machine?.name || 'Máquina'}</p>
+                            <p className="text-xs text-muted-foreground">{ticket.customProblemName || problem?.name || 'Problema'}</p>
+                          </div>
+                          <div className="text-right shrink-0">
+                            <Badge variant="outline" className="text-[10px] bg-orange-50 text-orange-600 border-orange-200">Pausado</Badge>
+                            <p className="text-[10px] text-muted-foreground mt-1">{format(new Date(ticket.createdAt), "dd/MM HH:mm", { locale: ptBR })}</p>
+                          </div>
                         </div>
-                        <div className="text-right shrink-0">
-                          <Badge variant="outline" className="text-[10px] bg-orange-50 text-orange-600 border-orange-200">Pausado</Badge>
-                          <p className="text-[10px] text-muted-foreground mt-1">{format(new Date(ticket.createdAt), "dd/MM HH:mm", { locale: ptBR })}</p>
-                        </div>
+                        {lastPauseAction?.reason && (
+                          <div className="mt-2 p-2 rounded bg-orange-50 border border-orange-200 dark:bg-orange-950 dark:border-orange-800">
+                            <p className="text-[10px] font-medium text-orange-700 dark:text-orange-300">Motivo da pausa:</p>
+                            <p className="text-xs text-orange-800 dark:text-orange-200">{lastPauseAction.reason}</p>
+                          </div>
+                        )}
                       </div>
-                      {lastPauseAction?.reason && (
-                        <div className="mt-2 p-2 rounded bg-orange-50 border border-orange-200 dark:bg-orange-950 dark:border-orange-800">
-                          <p className="text-[10px] font-medium text-orange-700 dark:text-orange-300">Motivo da pausa:</p>
-                          <p className="text-xs text-orange-800 dark:text-orange-200">{lastPauseAction.reason}</p>
-                        </div>
-                      )}
-                    </div>
-                  )
-                })}
-              </div>
-            )}
+                    )
+                  })}
+                </div>
+              )
+            })()}
           </CardContent>
         </Card>
       )}
@@ -550,39 +599,83 @@ export function DashboardView({ onSelectTicket }: DashboardViewProps) {
             <div className="flex items-center justify-between">
               <CardTitle className="text-sm sm:text-base flex items-center gap-2">
                 <Play className="w-4 h-4 text-yellow-600" />
-                Chamados Não Resolvidos
+                Chamados Não Resolvidos ({unresolvedTickets.length})
               </CardTitle>
               <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => setShowUnresolved(false)}>
                 Fechar
               </Button>
             </div>
+            {/* Filtros */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-3">
+              <div className="relative">
+                <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground" />
+                <Input
+                  placeholder="Buscar..."
+                  value={unresolvedFilter.search}
+                  onChange={(e) => setUnresolvedFilter(f => ({ ...f, search: e.target.value }))}
+                  className="pl-7 h-8 text-xs"
+                />
+              </div>
+              <Select value={unresolvedFilter.machine} onValueChange={(v) => setUnresolvedFilter(f => ({ ...f, machine: v }))}>
+                <SelectTrigger className="h-8 text-xs">
+                  <SelectValue placeholder="Máquina" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas as máquinas</SelectItem>
+                  {machines.map((m) => (
+                    <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Input
+                type="date"
+                value={unresolvedFilter.date}
+                onChange={(e) => setUnresolvedFilter(f => ({ ...f, date: e.target.value }))}
+                className="h-8 text-xs"
+              />
+            </div>
           </CardHeader>
           <CardContent className="p-3 sm:p-6 pt-0">
-            {unresolvedTickets.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-4">Nenhum chamado não resolvido</p>
-            ) : (
-              <div className="space-y-2">
-                {unresolvedTickets.map((ticket) => {
-                  const machine = getMachineById(ticket.machineId)
-                  const problem = getProblemById(ticket.problemId)
-                  return (
-                    <div key={ticket.id} className="p-3 rounded-lg border bg-muted/30 cursor-pointer hover:bg-muted/50" onClick={() => onSelectTicket(ticket.id)}>
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0 flex-1">
-                          <p className="font-medium text-sm truncate">{machine?.name || 'Máquina'}</p>
-                          <p className="text-xs text-muted-foreground">{ticket.customProblemName || problem?.name || 'Problema'}</p>
-                          <p className="text-xs text-muted-foreground mt-1">Reportado por: {ticket.createdByName}</p>
-                        </div>
-                        <div className="text-right shrink-0">
-                          <Badge variant="outline" className="text-[10px] bg-yellow-50 text-yellow-700 border-yellow-300">Não Resolvido</Badge>
-                          <p className="text-[10px] text-muted-foreground mt-1">{format(new Date(ticket.createdAt), "dd/MM HH:mm", { locale: ptBR })}</p>
+            {(() => {
+              const filtered = unresolvedTickets.filter(ticket => {
+                const machine = getMachineById(ticket.machineId)
+                const problem = getProblemById(ticket.problemId)
+                const matchSearch = unresolvedFilter.search === '' || 
+                  machine?.name.toLowerCase().includes(unresolvedFilter.search.toLowerCase()) ||
+                  (ticket.customProblemName || problem?.name || '').toLowerCase().includes(unresolvedFilter.search.toLowerCase())
+                const matchMachine = unresolvedFilter.machine === 'all' || ticket.machineId === unresolvedFilter.machine
+                const matchDate = unresolvedFilter.date === '' || format(new Date(ticket.createdAt), 'yyyy-MM-dd') === unresolvedFilter.date
+                return matchSearch && matchMachine && matchDate
+              })
+              
+              if (filtered.length === 0) {
+                return <p className="text-sm text-muted-foreground text-center py-4">Nenhum chamado não resolvido encontrado</p>
+              }
+              
+              return (
+                <div className="space-y-2 max-h-[400px] overflow-y-auto">
+                  {filtered.map((ticket) => {
+                    const machine = getMachineById(ticket.machineId)
+                    const problem = getProblemById(ticket.problemId)
+                    return (
+                      <div key={ticket.id} className="p-3 rounded-lg border bg-muted/30 cursor-pointer hover:bg-muted/50" onClick={() => onSelectTicket(ticket.id)}>
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0 flex-1">
+                            <p className="font-medium text-sm truncate">{machine?.name || 'Máquina'}</p>
+                            <p className="text-xs text-muted-foreground">{ticket.customProblemName || problem?.name || 'Problema'}</p>
+                            <p className="text-xs text-muted-foreground mt-1">Reportado por: {ticket.createdByName}</p>
+                          </div>
+                          <div className="text-right shrink-0">
+                            <Badge variant="outline" className="text-[10px] bg-yellow-50 text-yellow-700 border-yellow-300">Não Resolvido</Badge>
+                            <p className="text-[10px] text-muted-foreground mt-1">{format(new Date(ticket.createdAt), "dd/MM HH:mm", { locale: ptBR })}</p>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  )
-                })}
-              </div>
-            )}
+                    )
+                  })}
+                </div>
+              )
+            })()}
           </CardContent>
         </Card>
       )}
@@ -643,59 +736,105 @@ export function DashboardView({ onSelectTicket }: DashboardViewProps) {
             <div className="flex items-center justify-between">
               <CardTitle className="text-sm sm:text-base flex items-center gap-2">
                 <XCircle className="w-4 h-4 text-gray-500" />
-                Chamados Rejeitados
+                Chamados Rejeitados ({rejectedTickets.length})
               </CardTitle>
               <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => setShowRejected(false)}>
                 Fechar
               </Button>
             </div>
+            {/* Filtros */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-3">
+              <div className="relative">
+                <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground" />
+                <Input
+                  placeholder="Buscar..."
+                  value={rejectedFilter.search}
+                  onChange={(e) => setRejectedFilter(f => ({ ...f, search: e.target.value }))}
+                  className="pl-7 h-8 text-xs"
+                />
+              </div>
+              <Select value={rejectedFilter.machine} onValueChange={(v) => setRejectedFilter(f => ({ ...f, machine: v }))}>
+                <SelectTrigger className="h-8 text-xs">
+                  <SelectValue placeholder="Máquina" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas as máquinas</SelectItem>
+                  {machines.map((m) => (
+                    <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Input
+                type="date"
+                value={rejectedFilter.date}
+                onChange={(e) => setRejectedFilter(f => ({ ...f, date: e.target.value }))}
+                className="h-8 text-xs"
+              />
+            </div>
           </CardHeader>
           <CardContent className="p-3 sm:p-6 pt-0">
-            {rejectedTickets.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-4">Nenhum chamado rejeitado</p>
-            ) : (
-              <div className="space-y-2">
-                {rejectedTickets.map((ticket) => {
-                  const machine = getMachineById(ticket.machineId)
-                  const problem = getProblemById(ticket.problemId)
-                  return (
-                    <div key={ticket.id} className="p-3 rounded-lg border bg-muted/30">
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0 flex-1">
-                          <p className="font-medium text-sm truncate">{machine?.name || 'Máquina'}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {ticket.customProblemName || problem?.name || 'Problema'}
-                          </p>
-                          <p className="text-xs text-muted-foreground mt-1">
-                            Reportado por: {ticket.createdByName}
-                          </p>
+            {(() => {
+              const filtered = rejectedTickets.filter(ticket => {
+                const machine = getMachineById(ticket.machineId)
+                const problem = getProblemById(ticket.problemId)
+                const matchSearch = rejectedFilter.search === '' || 
+                  machine?.name.toLowerCase().includes(rejectedFilter.search.toLowerCase()) ||
+                  (ticket.customProblemName || problem?.name || '').toLowerCase().includes(rejectedFilter.search.toLowerCase()) ||
+                  (ticket.cancellationReason || '').toLowerCase().includes(rejectedFilter.search.toLowerCase())
+                const matchMachine = rejectedFilter.machine === 'all' || ticket.machineId === rejectedFilter.machine
+                const ticketDate = ticket.cancelledAt ? format(new Date(ticket.cancelledAt), 'yyyy-MM-dd') : format(new Date(ticket.createdAt), 'yyyy-MM-dd')
+                const matchDate = rejectedFilter.date === '' || ticketDate === rejectedFilter.date
+                return matchSearch && matchMachine && matchDate
+              })
+              
+              if (filtered.length === 0) {
+                return <p className="text-sm text-muted-foreground text-center py-4">Nenhum chamado rejeitado encontrado</p>
+              }
+              
+              return (
+                <div className="space-y-2 max-h-[400px] overflow-y-auto">
+                  {filtered.map((ticket) => {
+                    const machine = getMachineById(ticket.machineId)
+                    const problem = getProblemById(ticket.problemId)
+                    return (
+                      <div key={ticket.id} className="p-3 rounded-lg border bg-muted/30">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0 flex-1">
+                            <p className="font-medium text-sm truncate">{machine?.name || 'Máquina'}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {ticket.customProblemName || problem?.name || 'Problema'}
+                            </p>
+                            <p className="text-xs text-muted-foreground mt-1">
+                              Reportado por: {ticket.createdByName}
+                            </p>
+                          </div>
+                          <div className="text-right shrink-0">
+                            <Badge variant="outline" className="text-[10px] bg-gray-100 text-gray-700">
+                              Rejeitado
+                            </Badge>
+                            {ticket.cancelledAt && (
+                              <p className="text-[10px] text-muted-foreground mt-1">
+                                {format(new Date(ticket.cancelledAt), "dd/MM HH:mm", { locale: ptBR })}
+                              </p>
+                            )}
+                          </div>
                         </div>
-                        <div className="text-right shrink-0">
-                          <Badge variant="outline" className="text-[10px] bg-gray-100 text-gray-700">
-                            Rejeitado
-                          </Badge>
-                          {ticket.cancelledAt && (
+                        {/* Motivo da Rejeição */}
+                        <div className="mt-2 p-2 rounded bg-destructive/10 border border-destructive/20">
+                          <p className="text-[10px] font-medium text-destructive">Motivo da Rejeição:</p>
+                          <p className="text-xs text-foreground">{ticket.cancellationReason || '-'}</p>
+                          {ticket.cancelledByName && (
                             <p className="text-[10px] text-muted-foreground mt-1">
-                              {format(new Date(ticket.cancelledAt), "dd/MM HH:mm", { locale: ptBR })}
+                              Rejeitado por: {ticket.cancelledByName}
                             </p>
                           )}
                         </div>
                       </div>
-                      {/* Motivo da Rejeição */}
-                      <div className="mt-2 p-2 rounded bg-destructive/10 border border-destructive/20">
-                        <p className="text-[10px] font-medium text-destructive">Motivo da Rejeição:</p>
-                        <p className="text-xs text-foreground">{ticket.cancellationReason || '-'}</p>
-                        {ticket.cancelledByName && (
-                          <p className="text-[10px] text-muted-foreground mt-1">
-                            Rejeitado por: {ticket.cancelledByName}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            )}
+                    )
+                  })}
+                </div>
+              )
+            })()}
           </CardContent>
         </Card>
       )}
