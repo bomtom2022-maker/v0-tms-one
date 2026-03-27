@@ -1,4 +1,4 @@
-import type { Machine, Problem, Part, Ticket, ScheduledMaintenance, UsedPart, MachineStatus, Priority, MaintenanceAction, TimeSegment } from '@/lib/types'
+import type { Machine, Problem, Part, Ticket, ScheduledMaintenance, UsedPart, MachineStatus, Priority, MaintenanceAction, TimeSegment, Shift } from '@/lib/types'
 
 // v2 — todas as operacoes via API Routes (sem createClient browser)
 const FETCH_TIMEOUT_MS = 15000 // 15s
@@ -40,6 +40,7 @@ export async function fetchMachines(): Promise<Machine[]> {
     model: (row.model as string) || undefined,
     controller: (row.controller as string) || undefined,
     status: row.status as MachineStatus,
+    shiftId: (row.shift_id as string) || undefined,
   }))
 }
 
@@ -414,5 +415,61 @@ export async function deactivateUserDb(id: string): Promise<void> {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ id }),
+  })
+}
+
+// ─── TURNOS (SHIFTS) ───────────────────────────────────────
+
+export async function fetchShifts(): Promise<Shift[]> {
+  const data = await apiFetch('/api/shifts')
+  return (data || []).map((row: Record<string, unknown>) => ({
+    id: row.id as string,
+    name: row.name as string,
+    hoursPerDay: row.hours_per_day as number,
+    daysPerWeek: row.days_per_week as number,
+    description: (row.description as string) || undefined,
+    createdAt: new Date(row.created_at as string),
+    updatedAt: new Date(row.updated_at as string),
+  }))
+}
+
+export async function insertShift(name: string, hoursPerDay: number, daysPerWeek: number, description?: string): Promise<Shift> {
+  const row = await apiFetch('/api/shifts', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name, hours_per_day: hoursPerDay, days_per_week: daysPerWeek, description }),
+  })
+  return {
+    id: row.id,
+    name: row.name,
+    hoursPerDay: row.hours_per_day,
+    daysPerWeek: row.days_per_week,
+    description: row.description,
+    createdAt: new Date(row.created_at),
+    updatedAt: new Date(row.updated_at),
+  }
+}
+
+export async function updateShiftDb(id: string, name: string, hoursPerDay: number, daysPerWeek: number, description?: string): Promise<void> {
+  await apiFetch('/api/shifts', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id, name, hours_per_day: hoursPerDay, days_per_week: daysPerWeek, description }),
+  })
+}
+
+export async function deleteShiftDb(id: string): Promise<void> {
+  await apiFetch('/api/shifts', {
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id }),
+  })
+}
+
+export async function updateMachineShift(machineId: string, shiftId: string | null): Promise<void> {
+  await apiFetch('/api/machines/shift', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ machineId, shiftId }),
   })
 }

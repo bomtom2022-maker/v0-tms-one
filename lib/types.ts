@@ -66,6 +66,7 @@ export interface Machine {
   model?: string
   controller?: string
   status: MachineStatus
+  shiftId?: string // referência ao turno de trabalho
 }
 
 export interface Problem {
@@ -141,6 +142,32 @@ export interface ScheduledMaintenance {
   type: 'preventive' | 'corrective' | 'inspection'
   status: 'pending' | 'completed' | 'cancelled'
   createdAt: Date
+}
+
+// Turno de trabalho para cálculo de MTBF/MTTR
+export interface Shift {
+  id: string
+  name: string
+  hoursPerDay: number
+  daysPerWeek: number
+  description?: string
+  createdAt: Date
+  updatedAt: Date
+}
+
+// Estatísticas MTBF/MTTR por máquina
+export interface MachineMetrics {
+  machineId: string
+  machineName: string
+  shiftName: string
+  periodDays: number
+  expectedHours: number // horas esperadas de operação
+  totalFailures: number // número de falhas (tickets)
+  totalRepairTime: number // tempo total de reparo em segundos
+  totalDowntime: number // tempo total parado em segundos
+  mtbf: number // Mean Time Between Failures (em horas)
+  mttr: number // Mean Time To Repair (em horas)
+  availability: number // Disponibilidade (%)
 }
 
 export const MAINTENANCE_TYPE_CONFIG = {
