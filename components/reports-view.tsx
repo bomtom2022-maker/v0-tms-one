@@ -58,6 +58,228 @@ interface FilterState {
   priority: string
 }
 
+// Função para gerar PDF de métricas MTBF/MTTR com múltiplas páginas
+function generateMetricsPDF(
+  metricsData: Array<{
+    machineName: string
+    shiftName: string
+    totalFailures: number
+    mtbf: number
+    mttr: number
+    availability: number
+  }>,
+  pausedTickets: Array<{
+    machine: string
+    problem: string
+    pauseReason: string
+    pausedAt: string
+    pausedBy: string
+  }>,
+  periodLabel: string
+) {
+  const printWindow = window.open('', '_blank')
+  if (!printWindow) {
+    alert('Permita pop-ups para gerar o PDF')
+    return
+  }
+
+  const currentDate = new Date().toLocaleString('pt-BR')
+
+  const html = `
+    <!DOCTYPE html>
+    <html lang="pt-BR">
+    <head>
+      <meta charset="UTF-8">
+      <title>Relatório MTBF/MTTR - TMS ONE</title>
+      <style>
+        @page { size: A4 landscape; margin: 0; }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html, body { width: 100%; font-family: 'Segoe UI', Arial, sans-serif; font-size: 9pt; line-height: 1.3; color: #1e293b; background: #fff; }
+        .page { width: 100%; min-height: 100vh; padding: 28px 36px; page-break-after: always; }
+        .page:last-child { page-break-after: avoid; }
+        .header { width: 100%; padding-bottom: 10px; border-bottom: 3px solid #1e293b; margin-bottom: 14px; display: flex; justify-content: space-between; align-items: flex-start; }
+        .header-left h1 { font-size: 16pt; font-weight: bold; color: #0f172a; margin-bottom: 3px; }
+        .header-left p { font-size: 8pt; color: #64748b; }
+        .header-right { text-align: right; }
+        .header-right .brand { font-size: 14pt; font-weight: bold; color: #0f172a; }
+        .header-right .info { font-size: 8pt; color: #64748b; margin-top: 2px; }
+        .subtitle { font-size: 8pt; color: #334155; margin-bottom: 14px; padding: 8px 12px; background: #f1f5f9; border-left: 4px solid #1e293b; }
+        .summary { display: flex; gap: 10px; margin-bottom: 16px; }
+        .summary-item { flex: 1; padding: 10px 8px; text-align: center; background: #fafafa; border: 1px solid #e2e8f0; border-radius: 5px; }
+        .summary-item .label { font-size: 7pt; color: #64748b; text-transform: uppercase; letter-spacing: 0.3px; display: block; margin-bottom: 4px; }
+        .summary-item .value { font-size: 14pt; font-weight: bold; color: #0f172a; display: block; }
+        .metrics-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+        .metric-box { padding: 12px; border: 1px solid #e2e8f0; border-radius: 5px; }
+        .metric-box h3 { font-size: 10pt; color: #334155; margin-bottom: 4px; font-weight: 600; }
+        .metric-box p { font-size: 8pt; color: #64748b; }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 8pt; table-layout: auto; }
+        th { background: #1e293b; color: #fff; padding: 8px 6px; font-weight: 600; text-align: left; font-size: 7.5pt; text-transform: uppercase; letter-spacing: 0.3px; white-space: nowrap; }
+        td { padding: 7px 6px; border-bottom: 1px solid #e2e8f0; vertical-align: middle; word-wrap: break-word; word-break: break-word; }
+        tr:nth-child(even) { background: #f8fafc; }
+        .text-center { text-align: center; }
+        .text-right { text-align: right; }
+        .text-blue { color: #2563eb; }
+        .text-orange { color: #ea580c; }
+        .text-green { color: #16a34a; }
+        .text-yellow { color: #ca8a04; }
+        .text-red { color: #dc2626; }
+        .badge { display: inline-block; padding: 2px 6px; border-radius: 3px; font-size: 7.5pt; font-weight: bold; }
+        .badge-green { background: #dcfce7; color: #166534; }
+        .badge-yellow { background: #fef9c3; color: #854d0e; }
+        .badge-red { background: #fee2e2; color: #991b1b; }
+        .footer { margin-top: 20px; padding-top: 10px; border-top: 2px solid #1e293b; font-size: 8pt; color: #64748b; display: flex; justify-content: space-between; align-items: center; }
+        .section-title { font-size: 12pt; font-weight: bold; color: #0f172a; margin-bottom: 12px; padding-bottom: 6px; border-bottom: 2px solid #e2e8f0; }
+        .empty-message { padding: 20px; text-align: center; color: #94a3b8; font-size: 10pt; font-style: italic; background: #f8fafc; border: 1px dashed #cbd5e1; }
+        @media print {
+          @page { size: A4 landscape; margin: 0; }
+          html, body { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+          .page { padding: 28px 36px; }
+        }
+      </style>
+    </head>
+    <body>
+      <!-- Página 1: Métricas MTBF/MTTR -->
+      <div class="page">
+        <div class="header">
+          <div class="header-left">
+            <h1>Indicadores de Manutenção - MTBF/MTTR</h1>
+            <p>Relatório de confiabilidade e eficiência das máquinas</p>
+          </div>
+          <div class="header-right">
+            <div class="brand">TMS ONE</div>
+            <div class="info">Tool Manager System</div>
+            <div class="info">${currentDate}</div>
+          </div>
+        </div>
+
+        <div class="subtitle">Período: ${periodLabel}</div>
+
+        <div class="metrics-grid">
+          <div class="metric-box">
+            <h3 class="text-blue">MTBF - Tempo Médio Entre Falhas</h3>
+            <p>Indica quanto tempo, em média, uma máquina opera até apresentar uma falha. Quanto maior, melhor a confiabilidade.</p>
+          </div>
+          <div class="metric-box">
+            <h3 class="text-orange">MTTR - Tempo Médio de Reparo</h3>
+            <p>Indica quanto tempo, em média, leva para reparar uma máquina após uma falha. Quanto menor, mais eficiente.</p>
+          </div>
+        </div>
+
+        <div class="summary">
+          <div class="summary-item">
+            <span class="label">Total de Máquinas</span>
+            <span class="value">${metricsData.length}</span>
+          </div>
+          <div class="summary-item">
+            <span class="label">Total de Falhas</span>
+            <span class="value text-red">${metricsData.reduce((s, m) => s + m.totalFailures, 0)}</span>
+          </div>
+          <div class="summary-item">
+            <span class="label">Disponibilidade Média</span>
+            <span class="value text-green">${metricsData.length > 0 ? (metricsData.reduce((s, m) => s + m.availability, 0) / metricsData.length).toFixed(1) : 0}%</span>
+          </div>
+        </div>
+
+        ${metricsData.length > 0 ? `
+          <table>
+            <thead>
+              <tr>
+                <th>Máquina</th>
+                <th class="text-center">Turno</th>
+                <th class="text-center">Falhas</th>
+                <th class="text-center">MTBF (h)</th>
+                <th class="text-center">MTTR (h)</th>
+                <th class="text-center">Disponibilidade</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${metricsData.map(m => `
+                <tr>
+                  <td>${m.machineName}</td>
+                  <td class="text-center">${m.shiftName}</td>
+                  <td class="text-center">${m.totalFailures}</td>
+                  <td class="text-center text-blue" style="font-weight:600;">${m.totalFailures > 0 ? m.mtbf.toFixed(1) : '-'}</td>
+                  <td class="text-center text-orange" style="font-weight:600;">${m.totalFailures > 0 ? m.mttr.toFixed(2) : '-'}</td>
+                  <td class="text-center">
+                    <span class="badge ${m.availability >= 95 ? 'badge-green' : m.availability >= 85 ? 'badge-yellow' : 'badge-red'}">${m.availability.toFixed(1)}%</span>
+                  </td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        ` : '<div class="empty-message">Nenhuma máquina com dados no período selecionado.</div>'}
+
+        <div class="footer">
+          <div>TMS ONE - Tool Manager System | Todos os direitos reservados</div>
+          <div style="font-style:italic;">Sistema desenvolvido em conformidade com as normas TISAX</div>
+          <div>Página 1 de 2</div>
+        </div>
+      </div>
+
+      <!-- Página 2: Chamados Pausados -->
+      <div class="page">
+        <div class="header">
+          <div class="header-left">
+            <h1>Chamados Pausados - Motivos</h1>
+            <p>Detalhamento dos chamados pausados e seus motivos</p>
+          </div>
+          <div class="header-right">
+            <div class="brand">TMS ONE</div>
+            <div class="info">Tool Manager System</div>
+            <div class="info">${currentDate}</div>
+          </div>
+        </div>
+
+        <div class="subtitle">Período: ${periodLabel}</div>
+
+        <div class="summary">
+          <div class="summary-item">
+            <span class="label">Total de Pausados</span>
+            <span class="value text-orange">${pausedTickets.length}</span>
+          </div>
+        </div>
+
+        ${pausedTickets.length > 0 ? `
+          <table>
+            <thead>
+              <tr>
+                <th>Máquina</th>
+                <th>Problema</th>
+                <th>Motivo da Pausa</th>
+                <th class="text-center">Data da Pausa</th>
+                <th>Pausado Por</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${pausedTickets.map(t => `
+                <tr>
+                  <td>${t.machine}</td>
+                  <td>${t.problem}</td>
+                  <td>${t.pauseReason || 'Não informado'}</td>
+                  <td class="text-center">${t.pausedAt}</td>
+                  <td>${t.pausedBy}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        ` : '<div class="empty-message">Nenhum chamado pausado no período selecionado.</div>'}
+
+        <div class="footer">
+          <div>TMS ONE - Tool Manager System | Todos os direitos reservados</div>
+          <div style="font-style:italic;">Sistema desenvolvido em conformidade com as normas TISAX</div>
+          <div>Página 2 de 2</div>
+        </div>
+      </div>
+
+      <script>window.onload = function() { setTimeout(function() { window.print(); }, 300); }</script>
+    </body>
+    </html>
+  `
+
+  printWindow.document.write(html)
+  printWindow.document.close()
+}
+
 function generatePDF(
   title: string,
   subtitle: string,
@@ -690,26 +912,87 @@ export function ReportsView() {
         )
         break
 
-      case 'audit':
-        generatePDF(
-          'Log de Auditoria',
-          `Período: ${dateLabel}`,
-          filteredLogs.slice(0, 100).map(log => ({
-            data: format(log.timestamp, 'dd/MM/yyyy HH:mm', { locale: ptBR }),
-            usuario: log.userName,
-            acao: log.action.replace(/_/g, ' ').toUpperCase(),
-            entidade: log.entityName,
-            detalhes: log.details.substring(0, 80) + (log.details.length > 80 ? '...' : ''),
-          })),
-          [
-            { key: 'data', label: 'Data/Hora' },
-            { key: 'usuario', label: 'Usuario' },
-            { key: 'acao', label: 'Acao' },
-            { key: 'entidade', label: 'Entidade' },
-            { key: 'detalhes', label: 'Detalhes' },
-          ],
-          [{ label: 'Total de Registros', value: String(filteredLogs.length) }]
+      case 'metrics':
+        // Definir período baseado no filtro de métricas
+        const now = new Date()
+        let periodStart: Date
+        let periodLabel: string
+        
+        switch (metricsPeriod) {
+          case 'week':
+            periodStart = subDays(now, 7)
+            periodLabel = 'Última Semana (7 dias)'
+            break
+          case 'year':
+            periodStart = subDays(now, 365)
+            periodLabel = 'Último Ano (365 dias)'
+            break
+          case 'month':
+          default:
+            periodStart = subDays(now, 30)
+            periodLabel = 'Último Mês (30 dias)'
+        }
+        
+        // Filtrar máquinas pela busca
+        const filteredMachinesForPDF = machines.filter(m => 
+          metricsSearchMachine === '' || 
+          m.name.toLowerCase().includes(metricsSearchMachine.toLowerCase())
         )
+        
+        // Calcular métricas para PDF
+        const metricsForPDF = filteredMachinesForPDF.map(machine => {
+          const shiftId = localMachineShifts[machine.id] || machine.shiftId
+          const shift = shifts.find(s => s.id === shiftId)
+          
+          const machineTickets = tickets.filter(t => 
+            t.machineId === machine.id && 
+            (t.status === 'completed' || t.status === 'unresolved') &&
+            new Date(t.createdAt) >= periodStart &&
+            new Date(t.createdAt) <= now
+          )
+          
+          const totalFailures = machineTickets.length
+          const totalRepairTime = machineTickets.reduce((sum, t) => sum + t.downtime, 0)
+          
+          const periodDays = metricsPeriod === 'week' ? 7 : metricsPeriod === 'year' ? 365 : 30
+          const hoursPerDay = shift?.hoursPerDay || 8
+          const daysPerWeek = shift?.daysPerWeek || 5
+          const weeksInPeriod = periodDays / 7
+          const expectedHours = hoursPerDay * daysPerWeek * weeksInPeriod
+          
+          const totalDowntimeHours = totalRepairTime / 3600
+          const operatingHours = Math.max(0, expectedHours - totalDowntimeHours)
+          const mtbf = totalFailures > 0 ? operatingHours / totalFailures : 0
+          const mttr = totalFailures > 0 ? totalDowntimeHours / totalFailures : 0
+          const availability = mtbf > 0 ? (mtbf / (mtbf + mttr)) * 100 : (totalFailures === 0 ? 100 : 0)
+          
+          return {
+            machineName: machine.name,
+            shiftName: shift?.name || 'Não definido',
+            totalFailures,
+            mtbf,
+            mttr,
+            availability,
+          }
+        }).sort((a, b) => b.totalFailures - a.totalFailures)
+        
+        // Buscar chamados pausados com motivo
+        const pausedTicketsForPDF = tickets
+          .filter(t => t.status === 'paused')
+          .map(t => {
+            const machine = getMachineById(t.machineId)
+            const problem = getProblemById(t.problemId)
+            const lastPauseAction = [...t.actions].reverse().find(a => a.type === 'pause')
+            return {
+              machine: machine?.name || '-',
+              problem: t.customProblemName || problem?.name || '-',
+              pauseReason: lastPauseAction?.reason || 'Não informado',
+              pausedAt: lastPauseAction ? format(new Date(lastPauseAction.timestamp), 'dd/MM/yyyy HH:mm', { locale: ptBR }) : '-',
+              pausedBy: lastPauseAction?.operatorName || '-',
+            }
+          })
+        
+        generateMetricsPDF(metricsForPDF, pausedTicketsForPDF, periodLabel)
         break
     }
   }
