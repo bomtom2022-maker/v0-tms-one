@@ -409,6 +409,9 @@ export function ReportsView() {
       // Se filtro é "rejected", mostrar apenas os cancelled
       if (filters.resolved === 'rejected') {
         if (t.status !== 'cancelled') return false
+      } else if (filters.resolved === 'paused') {
+        // Se filtro é "paused", mostrar apenas os pausados
+        if (t.status !== 'paused') return false
       } else {
         // Para outros filtros, excluir open e cancelled
         if (t.status === 'open' || t.status === 'cancelled') return false
@@ -435,7 +438,7 @@ export function ReportsView() {
       if (filters.partId !== 'all') {
         if (!t.usedParts.some(up => up.partId === filters.partId)) return false
       }
-      if (filters.resolved !== 'all' && filters.resolved !== 'rejected') {
+      if (filters.resolved !== 'all' && filters.resolved !== 'rejected' && filters.resolved !== 'paused') {
         if (filters.resolved === 'yes' && !t.resolved) return false
         if (filters.resolved === 'no' && t.resolved !== false) return false
       }
@@ -775,6 +778,7 @@ export function ReportsView() {
                   <SelectItem value="all">Todos os Status</SelectItem>
                   <SelectItem value="yes">Resolvidos</SelectItem>
                   <SelectItem value="no">Não Resolvidos</SelectItem>
+                  <SelectItem value="paused">Pausados</SelectItem>
                   <SelectItem value="rejected">Rejeitados</SelectItem>
                 </SelectContent>
               </Select>
@@ -953,6 +957,10 @@ export function ReportsView() {
                         )
                       }
                       
+                      const lastPauseAction = ticket.status === 'paused' 
+                        ? [...ticket.actions].reverse().find(a => a.type === 'pause')
+                        : null
+                      
                       return (
                         <tr key={ticket.id} className="hover:bg-muted/50">
                           <td className="p-2 sm:p-3 whitespace-nowrap text-[10px] sm:text-xs">
@@ -961,14 +969,21 @@ export function ReportsView() {
                           <td className="p-2 sm:p-3 text-[10px] sm:text-xs max-w-[100px] truncate">{machine?.name || '-'}</td>
                           <td className="p-2 sm:p-3 text-[10px] sm:text-xs hidden sm:table-cell max-w-[120px] truncate">{ticket.customProblemName || problem?.name || '-'}</td>
                           <td className="p-2 sm:p-3 text-center">
-                            <Badge variant="outline" className={cn(
-                              "text-[9px] sm:text-xs px-1 sm:px-2",
-                              ticket.resolved ? "bg-green-50 text-green-600 border-green-200"
-                                : ticket.status === 'in-progress' || ticket.status === 'paused' ? "bg-orange-50 text-orange-600 border-orange-200"
-                                : "bg-red-50 text-red-600 border-red-200"
-                            )}>
-                              {ticket.resolved ? 'Resolvido' : ticket.status === 'in-progress' ? 'Em andamento' : ticket.status === 'paused' ? 'Pausado' : 'Pendente'}
-                            </Badge>
+                            <div className="flex flex-col items-center gap-1">
+                              <Badge variant="outline" className={cn(
+                                "text-[9px] sm:text-xs px-1 sm:px-2",
+                                ticket.resolved ? "bg-green-50 text-green-600 border-green-200"
+                                  : ticket.status === 'in-progress' || ticket.status === 'paused' ? "bg-orange-50 text-orange-600 border-orange-200"
+                                  : "bg-red-50 text-red-600 border-red-200"
+                              )}>
+                                {ticket.resolved ? 'Resolvido' : ticket.status === 'in-progress' ? 'Em andamento' : ticket.status === 'paused' ? 'Pausado' : 'Pendente'}
+                              </Badge>
+                              {lastPauseAction?.reason && (
+                                <span className="text-[9px] text-yellow-700 dark:text-yellow-300 max-w-[120px] truncate" title={lastPauseAction.reason}>
+                                  Motivo: {lastPauseAction.reason}
+                                </span>
+                              )}
+                            </div>
                           </td>
                           <td className="p-2 sm:p-3 text-right font-mono text-[10px] sm:text-xs text-red-600 font-semibold">
                             {formatDurationLong(stoppedSecs).full}
@@ -985,7 +1000,9 @@ export function ReportsView() {
                   <div className="p-8 text-center text-muted-foreground">
                     {filters.resolved === 'rejected' 
                       ? 'Nenhum chamado rejeitado encontrado para os filtros selecionados.'
-                      : 'Nenhuma manutenção encontrada para os filtros selecionados.'}
+                      : filters.resolved === 'paused'
+                        ? 'Nenhum chamado pausado encontrado para os filtros selecionados.'
+                        : 'Nenhuma manutenção encontrada para os filtros selecionados.'}
                   </div>
                 )}
                 {filteredTickets.length > 50 && (

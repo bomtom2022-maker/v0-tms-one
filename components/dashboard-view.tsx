@@ -545,6 +545,16 @@ export function DashboardView({ onSelectTicket }: DashboardViewProps) {
                             </span>
                           )}
                         </div>
+                        {/* Motivo da pausa - exibido quando ticket está pausado */}
+                        {ticket.status === 'paused' && (() => {
+                          const lastPauseAction = [...ticket.actions].reverse().find(a => a.type === 'pause')
+                          return lastPauseAction?.reason ? (
+                            <div className="mt-2 p-2 rounded bg-yellow-50 border border-yellow-200 dark:bg-yellow-950 dark:border-yellow-800">
+                              <p className="text-[10px] font-medium text-yellow-700 dark:text-yellow-300">Motivo da pausa:</p>
+                              <p className="text-xs text-yellow-800 dark:text-yellow-200">{lastPauseAction.reason}</p>
+                            </div>
+                          ) : null
+                        })()}
                       </div>
                       
                       {/* Botao de gerenciar - apenas para manutentores */}
