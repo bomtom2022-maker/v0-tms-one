@@ -3,7 +3,7 @@ export type Priority = 'high' | 'medium' | 'low'
 export type MachineStatus = 'critical' | 'attention' | 'ok'
 
 // Tipos de Usuario
-export type UserRole = 'manutentor' | 'lider'
+export type UserRole = 'manutentor' | 'lider' | 'viewer'
 
 // Tipos de Log de Auditoria
 export type AuditLogAction = 

@@ -46,28 +46,34 @@ interface SidebarProps {
   onViewChange: (view: View) => void
 }
 
-// roles: 'all' = manutentor+admin, 'lider' = líder, 'admin' = apenas admin
+// roles: 'all' = manutentor+admin, 'lider' = líder, 'viewer' = visualizador, 'admin' = apenas admin
 const allMenuItems = [
-  { id: 'dashboard' as const,  label: 'Dashboard',           icon: LayoutDashboard, roles: ['all', 'lider'] },
+  { id: 'dashboard' as const,  label: 'Dashboard',           icon: LayoutDashboard, roles: ['all', 'lider', 'viewer'] },
   { id: 'new-ticket' as const, label: 'Novo Chamado',         icon: Plus,            roles: ['all', 'lider'] },
   { id: 'scheduled' as const,  label: 'Manutenções Futuras',  icon: CalendarClock,   roles: ['all'] },
   { id: 'machines' as const,   label: 'Máquinas',             icon: Cog,             roles: ['all'] },
   { id: 'problems' as const,   label: 'Problemas',            icon: Wrench,          roles: ['all'] },
   { id: 'parts' as const,      label: 'Peças',                icon: Package,         roles: ['all'] },
-  { id: 'reports' as const,    label: 'Relatórios',           icon: BarChart3,       roles: ['all'] },
+  { id: 'reports' as const,    label: 'Relatórios',           icon: BarChart3,       roles: ['all', 'viewer'] },
   { id: 'users' as const,      label: 'Usuários',             icon: Users,           roles: ['admin'] },
 ]
 
 export function Sidebar({ currentView, onViewChange }: SidebarProps) {
   const [mobileOpen, setMobileOpen] = useState(false)
   const [showInstallButton, setShowInstallButton] = useState(true)
-  const { currentUser, logout, isManutentor, isLider, isAdmin } = useAuth()
+  const { currentUser, logout, isManutentor, isLider, isViewer, isAdmin } = useAuth()
 
-  // Filtrar menus por role
+  // Filtrar menus por role - ordem de prioridade importa
   const menuItems = allMenuItems.filter(item => {
-    if (item.roles.includes('admin')) return isAdmin
+    // Admin vê tudo que tem 'all' ou 'admin'
+    if (isAdmin) return item.roles.includes('all') || item.roles.includes('admin')
+    // Viewer só vê itens marcados com 'viewer'
+    if (isViewer) return item.roles.includes('viewer')
+    // Líder só vê itens marcados com 'lider'
     if (isLider) return item.roles.includes('lider')
-    return item.roles.includes('all') // manutentor / admin
+    // Manutentor vê itens marcados com 'all'
+    if (isManutentor) return item.roles.includes('all')
+    return false
   })
 
   const handleNavigation = (view: View) => {
@@ -104,7 +110,9 @@ export function Sidebar({ currentView, onViewChange }: SidebarProps) {
     ? { label: 'Administrador', icon: Shield, color: 'bg-purple-600', textColor: 'text-purple-600' }
     : isManutentor
       ? { label: 'Manutentor', icon: Shield, color: 'bg-blue-500', textColor: 'text-blue-600' }
-      : { label: 'Líder', icon: User, color: 'bg-amber-500', textColor: 'text-amber-600' }
+      : isViewer
+        ? { label: 'Visualizador', icon: User, color: 'bg-slate-500', textColor: 'text-slate-600' }
+        : { label: 'Líder', icon: User, color: 'bg-amber-500', textColor: 'text-amber-600' }
 
   return (
     <>
@@ -245,7 +253,7 @@ export function Sidebar({ currentView, onViewChange }: SidebarProps) {
                   {roleConfig.label}
                 </Badge>
                 <span className="text-xs text-muted-foreground">
-                  {isAdmin ? 'Acesso total + usuários' : isManutentor ? 'Acesso total' : 'Apenas chamados'}
+                  {isAdmin ? 'Acesso total + usuários' : isManutentor ? 'Acesso total' : isViewer ? 'Somente visualização' : 'Apenas chamados'}
                 </span>
               </DropdownMenuItem>
               <DropdownMenuSeparator />

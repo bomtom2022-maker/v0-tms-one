@@ -26,10 +26,17 @@ const ROLE_CONFIG = {
   },
   lider: {
     label: 'Líder',
-    description: 'Apenas criar e visualizar chamados',
+    description: 'Criar e visualizar chamados',
     color: 'bg-amber-500',
     textColor: 'text-amber-600',
     bgLight: 'bg-amber-50',
+  },
+  viewer: {
+    label: 'Visualizador',
+    description: 'Apenas visualizar e gerar relatórios',
+    color: 'bg-slate-500',
+    textColor: 'text-slate-600',
+    bgLight: 'bg-slate-50',
   },
 } as const
 
@@ -235,6 +242,15 @@ export function UsersView() {
                         </div>
                       </div>
                     </SelectItem>
+                    <SelectItem value="viewer">
+                      <div className="flex items-center gap-2">
+                        <Eye className="w-4 h-4 text-slate-500" />
+                        <div>
+                          <span className="font-medium">Visualizador</span>
+                          <span className="text-muted-foreground ml-2 text-xs">- Somente visualização</span>
+                        </div>
+                      </div>
+                    </SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -253,7 +269,7 @@ export function UsersView() {
       </div>
 
       {/* Cards de resumo */}
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-4">
         <Card>
           <CardHeader className="pb-2">
             <CardDescription>Total de Usuários</CardDescription>
@@ -273,6 +289,14 @@ export function UsersView() {
             <CardDescription>Líderes</CardDescription>
             <CardTitle className="text-3xl text-amber-600">
               {users.filter(u => u.role === 'lider').length}
+            </CardTitle>
+          </CardHeader>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardDescription>Visualizadores</CardDescription>
+            <CardTitle className="text-3xl text-slate-600">
+              {users.filter(u => u.role === 'viewer').length}
             </CardTitle>
           </CardHeader>
         </Card>

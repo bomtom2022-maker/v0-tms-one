@@ -582,7 +582,7 @@ function generateMachineDetailPDF(
 
 export function ReportsView() {
   const { tickets, machines, parts, auditLogs, reloadAuditLogs, getMachineById, getProblemById, getPartById } = useData()
-  const { users } = useAuth()
+  const { users, isAdmin } = useAuth()
 
   // Carregar audit logs apenas quando a tela de relatórios é aberta
   useEffect(() => {
@@ -1587,7 +1587,8 @@ export function ReportsView() {
                     ))}
                   </div>
                   
-                  {/* Vincular máquinas aos turnos */}
+                  {/* Vincular máquinas aos turnos - apenas admin */}
+                  {isAdmin && (
                   <div className="border-t pt-4">
                     <p className="text-sm font-medium mb-3">Vincular Máquinas aos Turnos</p>
                     <div className="space-y-2 max-h-[300px] overflow-y-auto">
@@ -1625,6 +1626,7 @@ export function ReportsView() {
                       ))}
                     </div>
                   </div>
+                  )}
                 </div>
               )}
             </CardContent>

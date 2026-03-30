@@ -14,7 +14,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Campos obrigatorios: name, email, password, role' }, { status: 400 })
     }
 
-    const validRoles = ['admin', 'manutentor', 'lider']
+    const validRoles = ['admin', 'manutentor', 'lider', 'viewer']
     if (!validRoles.includes(role)) {
       return NextResponse.json({ error: 'Role invalida' }, { status: 400 })
     }
