@@ -28,6 +28,7 @@ interface AuthContextType {
   isAuthenticated: boolean
   isManutentor: boolean
   isLider: boolean
+  isViewer: boolean
   isAdmin: boolean
   canManageUsers: boolean
   canAccessAll: boolean
@@ -157,6 +158,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const isAuthenticated = session?.isAuthenticated ?? false
   const isAdmin = session?.user.isAdmin === true
   const isLider = session?.user.role === 'lider'
+  const isViewer = session?.user.role === 'viewer'
   const isManutentor = session?.user.role === 'manutentor' || isAdmin
   // Apenas manutentores e admin têm acesso completo ao sistema
   const canAccessAll = isManutentor
@@ -177,6 +179,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isAuthenticated,
       isManutentor,
       isLider,
+      isViewer,
       isAdmin,
       canManageUsers,
       canAccessAll,
