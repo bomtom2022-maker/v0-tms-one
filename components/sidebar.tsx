@@ -63,12 +63,17 @@ export function Sidebar({ currentView, onViewChange }: SidebarProps) {
   const [showInstallButton, setShowInstallButton] = useState(true)
   const { currentUser, logout, isManutentor, isLider, isViewer, isAdmin } = useAuth()
 
-  // Filtrar menus por role
+  // Filtrar menus por role - ordem de prioridade importa
   const menuItems = allMenuItems.filter(item => {
-    if (item.roles.includes('admin')) return isAdmin
+    // Admin vê tudo que tem 'all' ou 'admin'
+    if (isAdmin) return item.roles.includes('all') || item.roles.includes('admin')
+    // Viewer só vê itens marcados com 'viewer'
     if (isViewer) return item.roles.includes('viewer')
+    // Líder só vê itens marcados com 'lider'
     if (isLider) return item.roles.includes('lider')
-    return item.roles.includes('all') // manutentor / admin
+    // Manutentor vê itens marcados com 'all'
+    if (isManutentor) return item.roles.includes('all')
+    return false
   })
 
   const handleNavigation = (view: View) => {
@@ -248,7 +253,7 @@ export function Sidebar({ currentView, onViewChange }: SidebarProps) {
                   {roleConfig.label}
                 </Badge>
                 <span className="text-xs text-muted-foreground">
-                  {isAdmin ? 'Acesso total + usuários' : isManutentor ? 'Acesso total' : 'Apenas chamados'}
+                  {isAdmin ? 'Acesso total + usuários' : isManutentor ? 'Acesso total' : isViewer ? 'Somente visualização' : 'Apenas chamados'}
                 </span>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
