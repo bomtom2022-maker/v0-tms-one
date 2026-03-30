@@ -21,7 +21,7 @@ import { InstallPrompt } from '@/components/install-prompt'
 type View = 'dashboard' | 'new-ticket' | 'problems' | 'machines' | 'maintenance' | 'parts' | 'reports' | 'scheduled' | 'users'
 
 function TMSApp() {
-  const { isAuthenticated, isManutentor, isLider, canAccessAll, canManageUsers } = useAuth()
+  const { isAuthenticated, isManutentor, isLider, isViewer, canAccessAll, canManageUsers } = useAuth()
   const { setNotificationCallback, isLoading, reloadData } = useData()
   const { notify } = useNotification()
   const [currentView, setCurrentView] = useState<View>('dashboard')
@@ -42,6 +42,13 @@ function TMSApp() {
       setCurrentView('dashboard')
     }
   }, [isLider, currentView])
+
+  // Viewer: se mudar de view e nao for permitida, volta ao dashboard
+  useEffect(() => {
+    if (isViewer && currentView !== 'dashboard' && currentView !== 'reports') {
+      setCurrentView('dashboard')
+    }
+  }, [isViewer, currentView])
 
   const handleSelectTicket = useCallback((ticketId: string) => {
     // Apenas manutentores podem abrir a tela de manutencao
@@ -71,11 +78,16 @@ function TMSApp() {
       if (view === 'dashboard' || view === 'new-ticket') setCurrentView(view)
       return
     }
+    // Viewer: apenas dashboard e reports
+    if (isViewer) {
+      if (view === 'dashboard' || view === 'reports') setCurrentView(view)
+      return
+    }
     // Manutentor: tudo exceto usuarios (só admin)
     if (view === 'users' && !canManageUsers) return
     if (!canAccessAll) return
     setCurrentView(view)
-  }, [isLider, canAccessAll, canManageUsers])
+  }, [isLider, isViewer, canAccessAll, canManageUsers])
 
   // Se nao estiver autenticado, mostrar tela de login
   if (!isAuthenticated) {
@@ -99,6 +111,12 @@ function TMSApp() {
     if (isLider) {
       if (currentView === 'new-ticket') return <NewTicketView onSuccess={handleNewTicketSuccess} />
       return <DashboardView onSelectTicket={handleSelectTicket} />
+    }
+
+    // Viewer: apenas dashboard e reports (somente visualização)
+    if (isViewer) {
+      if (currentView === 'reports') return <ReportsView />
+      return <DashboardView onSelectTicket={() => {}} />
     }
 
     // Usuarios nao autenticados ou sem role: apenas dashboard read-only
