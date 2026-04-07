@@ -635,6 +635,7 @@ export function ReportsView() {
   // Estados para seções colapsáveis
   const [showShiftsSection, setShowShiftsSection] = useState(false)
   const [showConfigSection, setShowConfigSection] = useState(false)
+  const [showAvailabilitySection, setShowAvailabilitySection] = useState(false)
   
   // Inicializar shifts locais das máquinas
   useEffect(() => {
@@ -704,6 +705,21 @@ export function ReportsView() {
       setSavingHours(false)
     }
   }
+
+  // Máquinas com pior disponibilidade (ordenadas da menor para maior)
+  const worstAvailability = useMemo(() => {
+    return viewMetrics
+      .filter(m => m.disponibilidade < 100)
+      .sort((a, b) => a.disponibilidade - b.disponibilidade)
+      .slice(0, 5)
+  }, [viewMetrics])
+
+  // Disponibilidade média geral
+  const avgAvailability = useMemo(() => {
+    if (viewMetrics.length === 0) return 100
+    const sum = viewMetrics.reduce((acc, m) => acc + m.disponibilidade, 0)
+    return sum / viewMetrics.length
+  }, [viewMetrics])
 
   const handleDatePreset = (preset: DatePreset) => {
     const today = new Date()
@@ -1803,6 +1819,79 @@ export function ReportsView() {
               Solicite ao administrador para configurar.
             </div>
           )}
+
+          {/* Card de Disponibilidade das Máquinas - Colapsável */}
+          <Card>
+            <CardHeader 
+              className="pb-2 cursor-pointer hover:bg-muted/50 transition-colors rounded-t-lg"
+              onClick={() => setShowAvailabilitySection(!showAvailabilitySection)}
+            >
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>Disponibilidade das Máquinas</CardTitle>
+                  <CardDescription>
+                    Máquinas com menor disponibilidade no mês {monthlyHours > 0 && `(${monthlyHours}h configuradas)`}
+                  </CardDescription>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="text-right">
+                    <p className="text-[10px] text-muted-foreground">Média Geral</p>
+                    <p className={cn(
+                      "text-xl font-bold",
+                      avgAvailability >= 95 ? "text-green-600" :
+                      avgAvailability >= 85 ? "text-yellow-600" :
+                      "text-red-600"
+                    )}>
+                      {loadingMetrics ? '...' : `${avgAvailability.toFixed(1)}%`}
+                    </p>
+                  </div>
+                  <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                    {showAvailabilitySection ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                  </Button>
+                </div>
+              </div>
+            </CardHeader>
+            {showAvailabilitySection && (
+            <CardContent className="pt-0">
+              {loadingMetrics ? (
+                <p className="text-xs text-muted-foreground text-center py-4">Carregando métricas...</p>
+              ) : monthlyHours === 0 ? (
+                <div className="text-xs text-amber-600 bg-amber-50 p-3 rounded text-center">
+                  <p className="font-medium">Horas de operação não configuradas</p>
+                  <p className="text-amber-500 mt-1">
+                    {isAdmin 
+                      ? 'Expanda "Configurações Globais" acima para definir.'
+                      : 'Solicite ao administrador para configurar.'}
+                  </p>
+                </div>
+              ) : worstAvailability.length === 0 ? (
+                <p className="text-xs text-green-600 text-center py-2">Todas as máquinas com 100% de disponibilidade!</p>
+              ) : (
+                <div className="space-y-2">
+                  <p className="text-[10px] text-muted-foreground font-medium">Máquinas com menor disponibilidade:</p>
+                  <div className="grid gap-1.5">
+                    {worstAvailability.map(m => (
+                      <div key={m.machine_id} className="flex items-center justify-between p-2 bg-muted/50 rounded text-xs">
+                        <span className="font-medium">{m.machine_name}</span>
+                        <div className="flex items-center gap-3">
+                          <span className="text-muted-foreground">{m.total_falhas} falhas</span>
+                          <span className={cn(
+                            "font-bold",
+                            m.disponibilidade >= 95 ? "text-green-600" :
+                            m.disponibilidade >= 85 ? "text-yellow-600" :
+                            "text-red-600"
+                          )}>
+                            {m.disponibilidade.toFixed(1)}%
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </CardContent>
+            )}
+          </Card>
 
           {/* Tabela de Métricas por Máquina */}
           <Card>

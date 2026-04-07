@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -40,26 +40,10 @@ interface DashboardViewProps {
   onSelectTicket: (ticketId: string) => void
 }
 
-interface ViewMetric {
-  machine_id: string
-  machine_name: string
-  total_falhas: number
-  downtime_horas: number
-  uptime_horas: number
-  mtbf: number
-  mttr: number
-  disponibilidade: number
-}
-
 export function DashboardView({ onSelectTicket }: DashboardViewProps) {
   const { tickets, machines, problems, getMachineById, getProblemById, rejectTicket } = useData()
-  const { isManutentor, isLider, currentUser, isAdmin } = useAuth()
+  const { isManutentor, isLider, currentUser } = useAuth()
   const { notify } = useNotification()
-  
-  // Estados para métricas da View
-  const [viewMetrics, setViewMetrics] = useState<ViewMetric[]>([])
-  const [monthlyHours, setMonthlyHours] = useState<number>(0)
-  const [loadingMetrics, setLoadingMetrics] = useState(false)
   
   const [searchTerm, setSearchTerm] = useState('')
   const [filterMachine, setFilterMachine] = useState<string>('all')
@@ -120,41 +104,6 @@ export function DashboardView({ onSelectTicket }: DashboardViewProps) {
   const totalActive = tickets.filter(t =>
     t.status !== 'completed' && t.status !== 'cancelled'
   ).length
-
-  // Carregar métricas da View v_metricas_reais
-  useEffect(() => {
-    const loadMetrics = async () => {
-      setLoadingMetrics(true)
-      try {
-        const res = await fetch('/api/metrics')
-        if (res.ok) {
-          const data = await res.json()
-          setViewMetrics(data.metrics || [])
-          setMonthlyHours(data.monthlyHours || 0)
-        }
-      } catch (err) {
-        console.error('Erro ao carregar métricas:', err)
-      } finally {
-        setLoadingMetrics(false)
-      }
-    }
-    loadMetrics()
-  }, [])
-
-  // Máquinas com pior disponibilidade (ordenadas da menor para maior)
-  const worstAvailability = useMemo(() => {
-    return viewMetrics
-      .filter(m => m.disponibilidade < 100)
-      .sort((a, b) => a.disponibilidade - b.disponibilidade)
-      .slice(0, 5)
-  }, [viewMetrics])
-
-  // Disponibilidade média geral
-  const avgAvailability = useMemo(() => {
-    if (viewMetrics.length === 0) return 100
-    const sum = viewMetrics.reduce((acc, m) => acc + m.disponibilidade, 0)
-    return sum / viewMetrics.length
-  }, [viewMetrics])
 
   // Handler para rejeitar chamado (apenas manutentores)
   const handleRejectTicket = async () => {
@@ -459,69 +408,6 @@ export function DashboardView({ onSelectTicket }: DashboardViewProps) {
           </CardContent>
         </Card>
       </div>
-
-      {/* Card de Disponibilidade - Dados da View v_metricas_reais */}
-      <Card>
-        <CardHeader className="p-3 sm:p-4 pb-2">
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className="text-sm sm:text-base">Disponibilidade das Máquinas</CardTitle>
-              <p className="text-[10px] sm:text-xs text-muted-foreground mt-0.5">
-                Dados do mês atual {monthlyHours > 0 && `(${monthlyHours}h configuradas)`}
-              </p>
-            </div>
-            <div className="text-right">
-              <p className="text-[10px] sm:text-xs text-muted-foreground">Média Geral</p>
-              <p className={cn(
-                "text-xl sm:text-2xl font-bold",
-                avgAvailability >= 95 ? "text-green-600" :
-                avgAvailability >= 85 ? "text-yellow-600" :
-                "text-red-600"
-              )}>
-                {loadingMetrics ? '...' : `${avgAvailability.toFixed(1)}%`}
-              </p>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent className="p-3 sm:p-4 pt-0">
-          {loadingMetrics ? (
-            <p className="text-xs text-muted-foreground text-center py-4">Carregando métricas...</p>
-          ) : monthlyHours === 0 ? (
-            <div className="text-xs text-amber-600 bg-amber-50 p-3 rounded text-center space-y-2">
-              <p className="font-medium">Horas de operação não configuradas</p>
-              <p className="text-amber-500">
-                {isAdmin 
-                  ? 'Configure no card "Configurações Globais" acima.'
-                  : 'Solicite ao administrador para configurar as horas de operação mensais.'}
-              </p>
-            </div>
-          ) : worstAvailability.length === 0 ? (
-            <p className="text-xs text-green-600 text-center py-2">Todas as máquinas com 100% de disponibilidade!</p>
-          ) : (
-            <div className="space-y-2">
-              <p className="text-[10px] text-muted-foreground font-medium">Máquinas com menor disponibilidade:</p>
-              <div className="grid gap-1.5">
-                {worstAvailability.map(m => (
-                  <div key={m.machine_id} className="flex items-center justify-between p-2 bg-muted/50 rounded text-xs">
-                    <span className="font-medium">{m.machine_name}</span>
-                    <div className="flex items-center gap-3">
-                      <span className="text-muted-foreground">{m.total_falhas} falhas</span>
-                      <span className={cn(
-                        "font-bold",
-                        m.disponibilidade >= 95 ? "text-green-600" :
-                        m.disponibilidade >= 85 ? "text-yellow-600" :
-                        "text-red-600"
-                      )}>
-                        {m.disponibilidade.toFixed(1)}%
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
 
       {/* Lista de Chamados Em Aberto */}
       {showOpen && (
