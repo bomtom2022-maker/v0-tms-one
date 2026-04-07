@@ -614,9 +614,9 @@ export function ReportsView() {
     return { from: startOfMonth(now), to: endOfMonth(now) }
   })
   const [metricsCalendarOpen, setMetricsCalendarOpen] = useState(false)
-  const [monthlyHours, setMonthlyHours] = useState<number>(470)
+  const [monthlyHours, setMonthlyHours] = useState<number>(0)
   const [showHoursConfig, setShowHoursConfig] = useState(false)
-  const [tempMonthlyHours, setTempMonthlyHours] = useState<string>('470')
+  const [tempMonthlyHours, setTempMonthlyHours] = useState<string>('')
   
   // Inicializar shifts locais das máquinas
   useEffect(() => {
@@ -645,13 +645,13 @@ export function ReportsView() {
       fetch('/api/company-config')
         .then(res => res.json())
         .then(data => {
-          const hours = parseInt(data.config_value) || 470
+          const hours = parseInt(data.config_value) || 0
           setMonthlyHours(hours)
-          setTempMonthlyHours(String(hours))
+          setTempMonthlyHours(hours > 0 ? String(hours) : '')
         })
         .catch(() => {
-          setMonthlyHours(470)
-          setTempMonthlyHours('470')
+          setMonthlyHours(0)
+          setTempMonthlyHours('')
         })
     }
   }, [activeTab])
@@ -1740,15 +1740,15 @@ export function ReportsView() {
                   {isAdmin && (
                     <Popover open={showHoursConfig} onOpenChange={setShowHoursConfig}>
                       <PopoverTrigger asChild>
-                        <Button variant="outline" size="sm" className="h-8 text-xs gap-1.5">
+                        <Button variant={monthlyHours === 0 ? "destructive" : "outline"} size="sm" className="h-8 text-xs gap-1.5">
                           <Settings className="w-3.5 h-3.5" />
-                          {monthlyHours}h/mês
+                          {monthlyHours > 0 ? `${monthlyHours}h/mês` : 'Configurar horas'}
                         </Button>
                       </PopoverTrigger>
-                      <PopoverContent className="w-64 p-3" align="end">
+                      <PopoverContent className="w-72 p-3" align="end">
                         <div className="space-y-2">
                           <p className="text-sm font-medium">Horas de Operação Mensal</p>
-                          <p className="text-xs text-muted-foreground">Total de horas que a empresa opera neste mês (para todas as máquinas).</p>
+                          <p className="text-xs text-muted-foreground">Total de horas que a empresa opera neste mês. Este valor será dividido pelo total de máquinas para calcular MTBF/MTTR.</p>
                           <div className="flex gap-2">
                             <Input
                               type="number"
@@ -1764,6 +1764,12 @@ export function ReportsView() {
                     </Popover>
                   )}
                 </div>
+                {/* Aviso quando horas não configuradas */}
+                {monthlyHours === 0 && (
+                  <div className="mt-2 p-2 rounded bg-amber-50 border border-amber-200 text-amber-800 text-xs">
+                    <strong>Atenção:</strong> As horas de operação mensal não estão configuradas. {isAdmin ? 'Clique no botão ao lado para definir.' : 'Solicite ao administrador para configurar.'}
+                  </div>
+                )}
               </div>
             </CardHeader>
             <CardContent className="p-0">

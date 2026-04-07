@@ -4,13 +4,12 @@ CREATE TABLE IF NOT EXISTS company_config (
   config_key VARCHAR(100) UNIQUE NOT NULL,
   config_value TEXT NOT NULL,
   description TEXT,
-  updated_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_by UUID REFERENCES users(id)
+  updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Inserir configuração padrão de horas mensais
+-- Inserir configuração inicial (admin deve definir o valor correto)
 INSERT INTO company_config (config_key, config_value, description)
-VALUES ('monthly_operation_hours', '470', 'Total de horas de operação da empresa no mês')
+VALUES ('monthly_operation_hours', '0', 'Total de horas de operação da empresa no mês - configurar pelo admin')
 ON CONFLICT (config_key) DO NOTHING;
 
 -- Criar índice para busca rápida
