@@ -50,7 +50,7 @@ import { ptBR } from 'date-fns/locale'
 import { cn } from '@/lib/utils'
 import type { DateRange } from 'react-day-picker'
 
-type ReportType = 'general' | 'machines' | 'users' | 'parts' | 'metrics'
+type ReportType = 'general' | 'machines' | 'users' | 'parts' | 'cancelled' | 'metrics'
 type DatePreset = 'today' | 'week' | 'month' | 'custom'
 
 interface FilterState {
@@ -797,44 +797,74 @@ export function ReportsView() {
     })
   }, [tickets, filters, users])
 
+  // Tickets válidos para métricas: apenas completed + resolved (exclui cancelados/rejeitados)
+  const validTicketsForMetrics = useMemo(() => {
+    return filteredTickets.filter(t => t.status === 'completed' && t.resolved === true)
+  }, [filteredTickets])
+  
+  // Tickets cancelados/rejeitados (para aba separada)
+  const cancelledTickets = useMemo(() => {
+    return tickets.filter(t => {
+      if (t.status !== 'cancelled') return false
+      // Aplicar filtros de data
+      const refDate = t.cancelledAt ? new Date(t.cancelledAt) : new Date(t.createdAt)
+      if (filters.dateRange?.from && refDate < filters.dateRange.from) return false
+      if (filters.dateRange?.to) {
+        const toEnd = new Date(filters.dateRange.to)
+        toEnd.setHours(23, 59, 59, 999)
+        if (refDate > toEnd) return false
+      }
+      // Aplicar filtro de máquina
+      if (filters.machineId !== 'all' && t.machineId !== filters.machineId) return false
+      return true
+    })
+  }, [tickets, filters])
+
   const stats = useMemo(() => {
-    // Downtime total: soma da coluna downtime de todos os tickets (tempo real de máquina parada)
-    const totalStoppedTime = filteredTickets.reduce((sum, t) => sum + t.downtime, 0)
-    // Tempo operando: soma dos time_segments (tempo real dos manutentores trabalhando)
-    const totalOperatingTime = filteredTickets.reduce((sum, t) => {
+    // IMPORTANTE: Usar apenas tickets válidos (completed + resolved) para métricas
+    // Downtime total: soma da coluna downtime apenas de tickets válidos
+    const totalStoppedTime = validTicketsForMetrics.reduce((sum, t) => sum + t.downtime, 0)
+    // Tempo operando: soma dos time_segments apenas de tickets válidos
+    const totalOperatingTime = validTicketsForMetrics.reduce((sum, t) => {
       const segmentsTime = t.timeSegments?.reduce((s, seg) => s + seg.duration, 0) || 0
       return sum + segmentsTime
     }, 0)
-    const totalCost = filteredTickets.reduce((sum, t) => sum + t.totalCost, 0)
-    const resolved = filteredTickets.filter(t => t.resolved).length
-    const notResolved = filteredTickets.filter(t => !t.resolved).length
-    const uniqueMachines = new Set(filteredTickets.map(t => t.machineId)).size
+    const totalCost = validTicketsForMetrics.reduce((sum, t) => sum + t.totalCost, 0)
+    const resolved = validTicketsForMetrics.length
+    const notResolved = filteredTickets.filter(t => t.status === 'unresolved').length
+    const uniqueMachines = new Set(validTicketsForMetrics.map(t => t.machineId)).size
     
     // Downtime da View (em horas) - soma de todas as máquinas
     const viewDowntimeHoras = viewMetrics.reduce((sum, m) => sum + m.downtime_horas, 0)
     
+    // Contagem de cancelados para exibição
+    const cancelledCount = cancelledTickets.length
+    
     return { 
       total: filteredTickets.length, 
+      validTotal: validTicketsForMetrics.length,
       totalStoppedTime, 
       totalOperatingTime, 
       totalCost, 
       resolved, 
       notResolved, 
       uniqueMachines,
-      viewDowntimeHoras // downtime da View em horas
+      viewDowntimeHoras,
+      cancelledCount
     }
-  }, [filteredTickets, viewMetrics])
+  }, [filteredTickets, validTicketsForMetrics, cancelledTickets, viewMetrics])
 
   const machineData = useMemo(() => {
-    const data = new Map<string, { stoppedTime: number; operatingTime: number; totalCost: number; ticketCount: number; tickets: typeof filteredTickets }>()
-    filteredTickets.forEach(ticket => {
-      const start = new Date(ticket.createdAt).getTime()
-      const end = ticket.completedAt ? new Date(ticket.completedAt).getTime() : Date.now()
-      const stoppedTime = Math.floor((end - start) / 1000)
+    // Usar apenas tickets válidos (completed + resolved) para métricas de máquinas
+    const data = new Map<string, { stoppedTime: number; operatingTime: number; totalCost: number; ticketCount: number; tickets: typeof validTicketsForMetrics }>()
+    validTicketsForMetrics.forEach(ticket => {
+      // stoppedTime = downtime real do ticket (não tempo de abertura até fechamento)
+      const stoppedTime = ticket.downtime
       const current = data.get(ticket.machineId) || { stoppedTime: 0, operatingTime: 0, totalCost: 0, ticketCount: 0, tickets: [] }
+      const segmentsTime = ticket.timeSegments?.reduce((s, seg) => s + seg.duration, 0) || 0
       data.set(ticket.machineId, {
         stoppedTime: current.stoppedTime + stoppedTime,
-        operatingTime: current.operatingTime + ticket.downtime,
+        operatingTime: current.operatingTime + segmentsTime,
         totalCost: current.totalCost + ticket.totalCost,
         ticketCount: current.ticketCount + 1,
         tickets: [...current.tickets, ticket],
@@ -846,11 +876,12 @@ export function ReportsView() {
         return { machineId, machineName: machine?.name || 'Desconhecida', sector: machine?.sector || '', ...d }
       })
       .sort((a, b) => b.stoppedTime - a.stoppedTime)
-  }, [filteredTickets, getMachineById])
-
+  }, [validTicketsForMetrics, getMachineById])
+  
   const userData = useMemo(() => {
+    // Usar apenas tickets válidos para métricas de usuários
     const data = new Map<string, { ticketCount: number; operatingTime: number; totalCost: number; resolvedCount: number }>()
-    filteredTickets.forEach(ticket => {
+    validTicketsForMetrics.forEach(ticket => {
       const operatorTimes = new Map<string, number>()
       if (ticket.timeSegments && ticket.timeSegments.length > 0) {
         ticket.timeSegments.forEach(seg => {
@@ -876,7 +907,7 @@ export function ReportsView() {
       })
     })
     return Array.from(data.entries()).map(([userName, d]) => ({ userName, ...d })).sort((a, b) => b.operatingTime - a.operatingTime)
-  }, [filteredTickets])
+  }, [validTicketsForMetrics])
 
   const partsData = useMemo(() => {
     const data = new Map<string, { quantity: number; totalValue: number }>()
@@ -1303,7 +1334,7 @@ export function ReportsView() {
 
       {/* Abas */}
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as ReportType)}>
-<TabsList className="grid w-full h-auto gap-1 p-1" style={{ gridTemplateColumns: 'repeat(5,minmax(0,1fr))' }}>
+<TabsList className="grid w-full h-auto gap-1 p-1" style={{ gridTemplateColumns: 'repeat(6,minmax(0,1fr))' }}>
   <TabsTrigger value="general" className="text-[10px] sm:text-xs px-1 sm:px-2 py-2">
   <FileText className="w-3 h-3 sm:w-4 sm:h-4 mr-0.5 sm:mr-1" />
   <span>Geral</span>
@@ -1322,6 +1353,14 @@ export function ReportsView() {
   <Package className="w-3 h-3 sm:w-4 sm:h-4 mr-0.5 sm:mr-1" />
   <span className="hidden sm:inline">Peças</span>
   <span className="sm:hidden">Pec.</span>
+  </TabsTrigger>
+  <TabsTrigger value="cancelled" className="text-[10px] sm:text-xs px-1 sm:px-2 py-2">
+  <X className="w-3 h-3 sm:w-4 sm:h-4 mr-0.5 sm:mr-1" />
+  <span className="hidden sm:inline">Cancelados</span>
+  <span className="sm:hidden">Canc.</span>
+  {stats.cancelledCount > 0 && (
+    <span className="ml-1 px-1.5 py-0.5 text-[8px] bg-red-100 text-red-600 rounded-full">{stats.cancelledCount}</span>
+  )}
   </TabsTrigger>
   <TabsTrigger value="metrics" className="text-[10px] sm:text-xs px-1 sm:px-2 py-2">
   <BarChart3 className="w-3 h-3 sm:w-4 sm:h-4 mr-0.5 sm:mr-1" />
@@ -1596,12 +1635,79 @@ export function ReportsView() {
                   <div className="p-8 text-center text-muted-foreground">Nenhuma peça utilizada no período selecionado.</div>
                 )}
               </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
+  </CardContent>
+  </Card>
+  </TabsContent>
 
-        {/* Tab MTBF/MTTR */}
-        <TabsContent value="metrics" className="mt-4 space-y-4">
+  {/* Tab Cancelados/Rejeitados */}
+  <TabsContent value="cancelled" className="mt-4">
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <X className="w-5 h-5 text-red-500" />
+          Chamados Cancelados/Rejeitados
+        </CardTitle>
+        <CardDescription>
+          {cancelledTickets.length} chamados cancelados ou rejeitados no período. 
+          <span className="text-amber-600 font-medium ml-1">Estes chamados NÃO afetam os cálculos de MTBF, MTTR e Disponibilidade.</span>
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="p-0">
+        {cancelledTickets.length === 0 ? (
+          <div className="p-8 text-center text-muted-foreground">
+            <X className="w-12 h-12 mx-auto mb-3 opacity-20" />
+            <p>Nenhum chamado cancelado no período selecionado.</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs sm:text-sm">
+              <thead className="bg-muted">
+                <tr>
+                  <th className="p-2 sm:p-3 text-left font-medium text-[10px] sm:text-xs">Data</th>
+                  <th className="p-2 sm:p-3 text-left font-medium text-[10px] sm:text-xs">Máquina</th>
+                  <th className="p-2 sm:p-3 text-left font-medium text-[10px] sm:text-xs hidden sm:table-cell">Problema</th>
+                  <th className="p-2 sm:p-3 text-left font-medium text-[10px] sm:text-xs">Cancelado por</th>
+                  <th className="p-2 sm:p-3 text-left font-medium text-[10px] sm:text-xs hidden md:table-cell">Motivo</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {cancelledTickets.map(ticket => {
+                  const machine = getMachineById(ticket.machineId)
+                  const problem = getProblemById(ticket.problemId)
+                  const cancelDate = ticket.cancelledAt ? new Date(ticket.cancelledAt) : new Date(ticket.createdAt)
+                  return (
+                    <tr key={ticket.id} className="hover:bg-muted/50">
+                      <td className="p-2 sm:p-3">
+                        <div className="text-[10px] sm:text-xs">
+                          {cancelDate.toLocaleDateString('pt-BR')}
+                        </div>
+                        <div className="text-[9px] sm:text-[10px] text-muted-foreground">
+                          {cancelDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                        </div>
+                      </td>
+                      <td className="p-2 sm:p-3 font-medium">{machine?.name || 'N/A'}</td>
+                      <td className="p-2 sm:p-3 hidden sm:table-cell text-muted-foreground">{problem?.name || 'N/A'}</td>
+                      <td className="p-2 sm:p-3">
+                        <span className="text-red-600">{ticket.cancelledByName || 'Sistema'}</span>
+                      </td>
+                      <td className="p-2 sm:p-3 hidden md:table-cell">
+                        <span className="text-muted-foreground text-[10px] sm:text-xs">
+                          {ticket.cancellationReason || 'Não informado'}
+                        </span>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  </TabsContent>
+  
+  {/* Tab MTBF/MTTR */}
+  <TabsContent value="metrics" className="mt-4 space-y-4">
           {/* Botão PDF e checkbox incluir pausas */}
           <div className="flex items-center justify-between flex-wrap gap-3">
             <div className="flex items-center gap-3">
