@@ -287,6 +287,18 @@ export function formatDurationLong(seconds: number): { days: number; hhmm: strin
   return { days, hhmm, full }
 }
 
+// Formata duração em horas (sem conversão para dias)
+// Retorna objeto com horas totais e formato HH:MM:SS
+export function formatDurationHours(seconds: number): { totalHours: number; hhmm: string; display: string } {
+  const totalHours = seconds / 3600
+  const hours = Math.floor(seconds / 3600)
+  const minutes = Math.floor((seconds % 3600) / 60)
+  const secs = Math.floor(seconds % 60)
+  const hhmm = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
+  const display = `${totalHours.toFixed(1)}h`
+  return { totalHours, hhmm, display }
+}
+
 export function formatCurrency(value: number): string {
   return new Intl.NumberFormat('pt-BR', {
     style: 'currency',

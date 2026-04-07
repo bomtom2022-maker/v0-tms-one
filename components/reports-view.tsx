@@ -23,7 +23,7 @@ import {
 import { Calendar } from '@/components/ui/calendar'
 import { useData } from '@/lib/data-context'
 import { useAuth } from '@/lib/auth-context'
-import { formatDuration, formatDurationLong, formatCurrency, PRIORITY_CONFIG, type AuditLog, type Shift, type MachineMetrics } from '@/lib/types'
+import { formatDuration, formatDurationLong, formatDurationHours, formatCurrency, PRIORITY_CONFIG, type AuditLog, type Shift, type MachineMetrics } from '@/lib/types'
 import { fetchShifts, updateMachineShift } from '@/lib/supabase-data'
 import {
   FileText,
@@ -636,6 +636,7 @@ export function ReportsView() {
   const [showShiftsSection, setShowShiftsSection] = useState(false)
   const [showConfigSection, setShowConfigSection] = useState(false)
   const [showAvailabilitySection, setShowAvailabilitySection] = useState(false)
+  const [showSummaryCards, setShowSummaryCards] = useState(false)
   
   // Inicializar shifts locais das máquinas
   useEffect(() => {
@@ -797,18 +798,32 @@ export function ReportsView() {
   }, [tickets, filters, users])
 
   const stats = useMemo(() => {
-    const totalStoppedTime = filteredTickets.reduce((sum, t) => {
-      const start = new Date(t.createdAt).getTime()
-      const end = t.completedAt ? new Date(t.completedAt).getTime() : Date.now()
-      return sum + Math.floor((end - start) / 1000)
+    // Downtime total: soma da coluna downtime de todos os tickets (tempo real de máquina parada)
+    const totalStoppedTime = filteredTickets.reduce((sum, t) => sum + t.downtime, 0)
+    // Tempo operando: soma dos time_segments (tempo real dos manutentores trabalhando)
+    const totalOperatingTime = filteredTickets.reduce((sum, t) => {
+      const segmentsTime = t.timeSegments?.reduce((s, seg) => s + seg.duration, 0) || 0
+      return sum + segmentsTime
     }, 0)
-    const totalOperatingTime = filteredTickets.reduce((sum, t) => sum + t.downtime, 0)
     const totalCost = filteredTickets.reduce((sum, t) => sum + t.totalCost, 0)
     const resolved = filteredTickets.filter(t => t.resolved).length
     const notResolved = filteredTickets.filter(t => !t.resolved).length
     const uniqueMachines = new Set(filteredTickets.map(t => t.machineId)).size
-    return { total: filteredTickets.length, totalStoppedTime, totalOperatingTime, totalCost, resolved, notResolved, uniqueMachines }
-  }, [filteredTickets])
+    
+    // Downtime da View (em horas) - soma de todas as máquinas
+    const viewDowntimeHoras = viewMetrics.reduce((sum, m) => sum + m.downtime_horas, 0)
+    
+    return { 
+      total: filteredTickets.length, 
+      totalStoppedTime, 
+      totalOperatingTime, 
+      totalCost, 
+      resolved, 
+      notResolved, 
+      uniqueMachines,
+      viewDowntimeHoras // downtime da View em horas
+    }
+  }, [filteredTickets, viewMetrics])
 
   const machineData = useMemo(() => {
     const data = new Map<string, { stoppedTime: number; operatingTime: number; totalCost: number; ticketCount: number; tickets: typeof filteredTickets }>()
@@ -1197,86 +1212,94 @@ export function ReportsView() {
         </CardContent>
       </Card>
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-primary">
-                <Wrench className="w-4 h-4 text-primary-foreground" />
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground">Total Manutenções</p>
-                <p className="text-xl font-bold">{stats.total}</p>
+      {/* Summary Cards - Colapsável */}
+      <Card>
+        <CardHeader 
+          className="pb-2 cursor-pointer hover:bg-muted/50 transition-colors rounded-t-lg"
+          onClick={() => setShowSummaryCards(!showSummaryCards)}
+        >
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>Resumo do Período</CardTitle>
+              <CardDescription>
+                {stats.total} manutenções | {formatDurationHours(stats.totalStoppedTime).display} parado | {stats.uniqueMachines} máquinas
+              </CardDescription>
+            </div>
+            <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+              {showSummaryCards ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+            </Button>
+          </div>
+        </CardHeader>
+        {showSummaryCards && (
+        <CardContent className="pt-0">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="p-3 rounded-lg bg-muted/50">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-primary">
+                  <Wrench className="w-4 h-4 text-primary-foreground" />
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Total Manutenções</p>
+                  <p className="text-xl font-bold">{stats.total}</p>
+                </div>
               </div>
             </div>
-          </CardContent>
-        </Card>
 
-        <Card className="border-red-200">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-red-500">
-                <Clock className="w-4 h-4 text-white" />
-              </div>
-              <div className="min-w-0">
-                <p className="text-xs font-medium text-red-600">Máquina Parada</p>
-                {(() => {
-                  const d = formatDurationLong(stats.totalStoppedTime)
-                  return d.days > 0 ? (
-                    <>
-                      <p className="text-xl font-bold text-red-600 leading-tight">{d.days}d</p>
-                      <p className="text-sm font-mono text-red-500">{d.hhmm}</p>
-                    </>
-                  ) : (
-                    <p className="text-xl font-bold text-red-600 font-mono">{d.hhmm}</p>
-                  )
-                })()}
-                <p className="text-[10px] text-muted-foreground">abertura → resolução</p>
+            <div className="p-3 rounded-lg bg-red-50 border border-red-200">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-red-500">
+                  <Clock className="w-4 h-4 text-white" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-xs font-medium text-red-600">Máquina Parada</p>
+                  {(() => {
+                    const d = formatDurationHours(stats.totalStoppedTime)
+                    return (
+                      <>
+                        <p className="text-xl font-bold text-red-600 leading-tight">{d.display}</p>
+                        <p className="text-xs font-mono text-red-500">{d.hhmm}</p>
+                      </>
+                    )
+                  })()}
+                </div>
               </div>
             </div>
-          </CardContent>
-        </Card>
 
-        <Card className="border-orange-200">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-orange-500">
-                <TrendingUp className="w-4 h-4 text-white" />
-              </div>
-              <div className="min-w-0">
-                <p className="text-xs font-medium text-orange-600">Tempo Operando</p>
-                {(() => {
-                  const d = formatDurationLong(stats.totalOperatingTime)
-                  return d.days > 0 ? (
-                    <>
-                      <p className="text-xl font-bold text-orange-600 leading-tight">{d.days}d</p>
-                      <p className="text-sm font-mono text-orange-500">{d.hhmm}</p>
-                    </>
-                  ) : (
-                    <p className="text-xl font-bold text-orange-600 font-mono">{d.hhmm}</p>
-                  )
-                })()}
-                <p className="text-[10px] text-muted-foreground">manutentor trabalhando</p>
+            <div className="p-3 rounded-lg bg-orange-50 border border-orange-200">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-orange-500">
+                  <TrendingUp className="w-4 h-4 text-white" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-xs font-medium text-orange-600">Tempo Operando</p>
+                  {(() => {
+                    const d = formatDurationHours(stats.totalOperatingTime)
+                    return (
+                      <>
+                        <p className="text-xl font-bold text-orange-600 leading-tight">{d.display}</p>
+                        <p className="text-xs font-mono text-orange-500">{d.hhmm}</p>
+                      </>
+                    )
+                  })()}
+                </div>
               </div>
             </div>
-          </CardContent>
-        </Card>
 
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-blue-500">
-                <Settings className="w-4 h-4 text-white" />
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground">Máquinas Afetadas</p>
-                <p className="text-xl font-bold">{stats.uniqueMachines}</p>
+            <div className="p-3 rounded-lg bg-muted/50">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-blue-500">
+                  <Settings className="w-4 h-4 text-white" />
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Máquinas Afetadas</p>
+                  <p className="text-xl font-bold">{stats.uniqueMachines}</p>
+                </div>
               </div>
             </div>
-          </CardContent>
-        </Card>
-      </div>
+          </div>
+        </CardContent>
+        )}
+      </Card>
 
       {/* Abas */}
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as ReportType)}>
@@ -1455,26 +1478,26 @@ export function ReportsView() {
                       <div className="text-right">
                         <p className="text-[10px] text-red-600 font-medium uppercase tracking-wide">Máquina Parada</p>
                         {(() => {
-                          const d = formatDurationLong(m.stoppedTime)
-                          return d.days > 0 ? (
-                            <><p className="font-bold text-red-600 font-mono leading-tight">{d.days}d</p><p className="text-xs text-red-500 font-mono">{d.hhmm}</p></>
-                          ) : (
-                            <p className="font-bold text-red-600 font-mono">{d.hhmm}</p>
+                          const d = formatDurationHours(m.stoppedTime)
+                          return (
+                            <>
+                              <p className="font-bold text-red-600 font-mono leading-tight">{d.display}</p>
+                              <p className="text-xs text-red-500 font-mono">{d.hhmm}</p>
+                            </>
                           )
                         })()}
-                        <p className="text-[10px] text-muted-foreground">abertura → resolução</p>
                       </div>
                       <div className="text-right hidden sm:block">
                         <p className="text-[10px] text-orange-600 font-medium uppercase tracking-wide">Operando</p>
                         {(() => {
-                          const d = formatDurationLong(m.operatingTime)
-                          return d.days > 0 ? (
-                            <><p className="font-medium text-orange-600 font-mono leading-tight">{d.days}d</p><p className="text-xs text-orange-500 font-mono">{d.hhmm}</p></>
-                          ) : (
-                            <p className="font-medium text-orange-600 font-mono">{d.hhmm}</p>
+                          const d = formatDurationHours(m.operatingTime)
+                          return (
+                            <>
+                              <p className="font-medium text-orange-600 font-mono leading-tight">{d.display}</p>
+                              <p className="text-xs text-orange-500 font-mono">{d.hhmm}</p>
+                            </>
                           )
                         })()}
-                        <p className="text-[10px] text-muted-foreground">trabalhando</p>
                       </div>
                     </div>
                   </div>
@@ -1515,11 +1538,12 @@ export function ReportsView() {
                       <div className="text-right hidden sm:block">
                         <p className="text-[10px] text-orange-600 font-medium uppercase tracking-wide">Tempo Operando</p>
                         {(() => {
-                          const d = formatDurationLong(u.operatingTime)
-                          return d.days > 0 ? (
-                            <><p className="font-medium text-orange-600 font-mono leading-tight">{d.days}d</p><p className="text-xs text-orange-500 font-mono">{d.hhmm}</p></>
-                          ) : (
-                            <p className="font-medium text-orange-600 font-mono">{d.hhmm}</p>
+                          const d = formatDurationHours(u.operatingTime)
+                          return (
+                            <>
+                              <p className="font-medium text-orange-600 font-mono leading-tight">{d.display}</p>
+                              <p className="text-xs text-orange-500 font-mono">{d.hhmm}</p>
+                            </>
                           )
                         })()}
                         <p className="text-[10px] text-muted-foreground">trabalhando</p>
