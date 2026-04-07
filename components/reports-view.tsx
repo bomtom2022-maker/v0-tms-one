@@ -40,6 +40,8 @@ import {
   Printer,
   Loader2,
   Save,
+  ChevronDown,
+  ChevronUp,
   BarChart3,
   AlertTriangle,
 } from 'lucide-react'
@@ -629,6 +631,10 @@ export function ReportsView() {
   const [metricsError, setMetricsError] = useState<string | null>(null)
   const [tempMonthlyHours, setTempMonthlyHours] = useState<string>('')
   const [savingHours, setSavingHours] = useState(false)
+  
+  // Estados para seções colapsáveis
+  const [showShiftsSection, setShowShiftsSection] = useState(false)
+  const [showConfigSection, setShowConfigSection] = useState(false)
   
   // Inicializar shifts locais das máquinas
   useEffect(() => {
@@ -1617,14 +1623,25 @@ export function ReportsView() {
             </CardContent>
           </Card>
 
-          {/* Configuração de Turnos */}
+          {/* Configuração de Turnos - Colapsável */}
           <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base">Turnos de Operação</CardTitle>
-              <CardDescription>
-                Configure o regime de trabalho de cada máquina para cálculos precisos
-              </CardDescription>
+            <CardHeader 
+              className="pb-2 cursor-pointer hover:bg-muted/50 transition-colors rounded-t-lg"
+              onClick={() => setShowShiftsSection(!showShiftsSection)}
+            >
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-base">Turnos de Operação</CardTitle>
+                  <CardDescription>
+                    Configure o regime de trabalho de cada máquina para cálculos precisos
+                  </CardDescription>
+                </div>
+                <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                  {showShiftsSection ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                </Button>
+              </div>
             </CardHeader>
+            {showShiftsSection && (
             <CardContent>
               {loadingShifts ? (
                 <div className="p-4 text-center text-muted-foreground">Carregando turnos...</div>
@@ -1698,20 +1715,33 @@ export function ReportsView() {
                 </div>
               )}
             </CardContent>
+            )}
           </Card>
 
-          {/* Card de Configurações Globais - Apenas Admin */}
+          {/* Card de Configurações Globais - Apenas Admin - Colapsável */}
           {isAdmin && (
             <Card className="border-blue-200 bg-blue-50/30">
-              <CardHeader className="pb-2">
-                <div className="flex items-center gap-2">
-                  <Settings className="w-4 h-4 text-blue-600" />
-                  <CardTitle className="text-blue-900">Configurações Globais</CardTitle>
+              <CardHeader 
+                className="pb-2 cursor-pointer hover:bg-blue-100/50 transition-colors rounded-t-lg"
+                onClick={() => setShowConfigSection(!showConfigSection)}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Settings className="w-4 h-4 text-blue-600" />
+                    <div>
+                      <CardTitle className="text-blue-900">Configurações Globais</CardTitle>
+                      <CardDescription className="text-blue-700/70">
+                        Configurações que afetam os cálculos de todo o sistema
+                        {monthlyHours > 0 && <span className="ml-2 text-green-600">({monthlyHours}h/mês)</span>}
+                      </CardDescription>
+                    </div>
+                  </div>
+                  <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                    {showConfigSection ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                  </Button>
                 </div>
-                <CardDescription className="text-blue-700/70">
-                  Configurações que afetam os cálculos de todo o sistema
-                </CardDescription>
               </CardHeader>
+              {showConfigSection && (
               <CardContent className="pt-0">
                 <div className="space-y-3">
                   <div>
@@ -1762,6 +1792,7 @@ export function ReportsView() {
                   </div>
                 </div>
               </CardContent>
+              )}
             </Card>
           )}
 
