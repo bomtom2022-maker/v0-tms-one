@@ -6,7 +6,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Label } from '@/components/ui/label'
-import { Input } from '@/components/ui/input'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   Select,
@@ -606,17 +605,10 @@ export function ReportsView() {
   const [shifts, setShifts] = useState<Shift[]>([])
   const [loadingShifts, setLoadingShifts] = useState(false)
   const [shiftsError, setShiftsError] = useState<string | null>(null)
+  const [metricsPeriod, setMetricsPeriod] = useState<'week' | 'month' | 'year'>('month')
   const [metricsSearchMachine, setMetricsSearchMachine] = useState('')
   const [localMachineShifts, setLocalMachineShifts] = useState<Record<string, string | null>>({})
   const [metricsIncludePaused, setMetricsIncludePaused] = useState(false)
-  const [metricsDateRange, setMetricsDateRange] = useState<DateRange | undefined>(() => {
-    const now = new Date()
-    return { from: startOfMonth(now), to: endOfMonth(now) }
-  })
-  const [metricsCalendarOpen, setMetricsCalendarOpen] = useState(false)
-  const [monthlyHours, setMonthlyHours] = useState<number>(0)
-  const [showHoursConfig, setShowHoursConfig] = useState(false)
-  const [tempMonthlyHours, setTempMonthlyHours] = useState<string>('')
   
   // Inicializar shifts locais das máquinas
   useEffect(() => {
@@ -638,47 +630,6 @@ export function ReportsView() {
         .finally(() => setLoadingShifts(false))
     }
   }, [activeTab])
-  
-  // Carregar configuração de horas mensais da empresa
-  useEffect(() => {
-    if (activeTab === 'metrics') {
-      fetch('/api/company-config')
-        .then(res => res.json())
-        .then(data => {
-          const hours = parseInt(data.config_value) || 0
-          setMonthlyHours(hours)
-          setTempMonthlyHours(hours > 0 ? String(hours) : '')
-        })
-        .catch(() => {
-          setMonthlyHours(0)
-          setTempMonthlyHours('')
-        })
-    }
-  }, [activeTab])
-  
-  // Salvar configuração de horas mensais
-  const saveMonthlyHours = async () => {
-    const hours = parseInt(tempMonthlyHours)
-    if (isNaN(hours) || hours <= 0) {
-      alert('Por favor, insira um número válido de horas.')
-      return
-    }
-    try {
-      const res = await fetch('/api/company-config', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ hours })
-      })
-      if (res.ok) {
-        setMonthlyHours(hours)
-        setShowHoursConfig(false)
-      } else {
-        alert('Erro ao salvar configuração.')
-      }
-    } catch {
-      alert('Erro ao salvar configuração.')
-    }
-  }
 
   const handleDatePreset = (preset: DatePreset) => {
     const today = new Date()
@@ -756,32 +707,17 @@ export function ReportsView() {
   }, [tickets, filters, users])
 
   const stats = useMemo(() => {
-    // Excluir tickets cancelados/rejeitados do cálculo
-    const validTickets = filteredTickets.filter(t => t.status !== 'cancelled')
-    const rejectedCount = filteredTickets.filter(t => t.status === 'cancelled').length
-    
-    // Calcular tempo parado em segundos (para exibir em horas)
-    const totalStoppedTime = validTickets.reduce((sum, t) => {
+    const totalStoppedTime = filteredTickets.reduce((sum, t) => {
       const start = new Date(t.createdAt).getTime()
       const end = t.completedAt ? new Date(t.completedAt).getTime() : Date.now()
       return sum + Math.floor((end - start) / 1000)
     }, 0)
-    // Tempo de atuação dos manutentores (downtime real em segundos)
-    const totalMaintenanceTime = validTickets.reduce((sum, t) => sum + t.downtime, 0)
-    const totalCost = validTickets.reduce((sum, t) => sum + t.totalCost, 0)
-    const resolved = validTickets.filter(t => t.resolved).length
-    const notResolved = validTickets.filter(t => !t.resolved).length
-    const uniqueMachines = new Set(validTickets.map(t => t.machineId)).size
-    return { 
-      total: validTickets.length, 
-      rejectedCount,
-      totalStoppedTime, 
-      totalMaintenanceTime, 
-      totalCost, 
-      resolved, 
-      notResolved, 
-      uniqueMachines 
-    }
+    const totalOperatingTime = filteredTickets.reduce((sum, t) => sum + t.downtime, 0)
+    const totalCost = filteredTickets.reduce((sum, t) => sum + t.totalCost, 0)
+    const resolved = filteredTickets.filter(t => t.resolved).length
+    const notResolved = filteredTickets.filter(t => !t.resolved).length
+    const uniqueMachines = new Set(filteredTickets.map(t => t.machineId)).size
+    return { total: filteredTickets.length, totalStoppedTime, totalOperatingTime, totalCost, resolved, notResolved, uniqueMachines }
   }, [filteredTickets])
 
   const machineData = useMemo(() => {
@@ -956,7 +892,7 @@ export function ReportsView() {
           [
             { label: 'Total de Manutentores', value: String(userData.length) },
             { label: 'Total de Chamados', value: String(stats.total) },
-            { label: 'Atuação Manutentores', value: formatDurationLong(stats.totalMaintenanceTime).full, color: '#ea580c' },
+            { label: 'Tempo Total Operando', value: formatDurationLong(stats.totalOperatingTime).full, color: '#ea580c' },
             { label: 'Tempo Total Maq. Parada', value: formatDurationLong(stats.totalStoppedTime).full, color: '#dc2626' },
           ]
         )
@@ -981,14 +917,26 @@ export function ReportsView() {
         )
         break
 
-      case 'metrics': {
-        // Usar período do calendário com fallback seguro
+      case 'metrics':
+        // Definir período baseado no filtro de métricas
         const now = new Date()
-        const periodStart = metricsDateRange?.from instanceof Date ? metricsDateRange.from : startOfMonth(now)
-        const periodEnd = metricsDateRange?.to instanceof Date ? metricsDateRange.to : endOfMonth(now)
-        const periodLabel = metricsDateRange?.from && metricsDateRange?.to
-          ? `${format(periodStart, 'dd/MM/yyyy', { locale: ptBR })} a ${format(periodEnd, 'dd/MM/yyyy', { locale: ptBR })}`
-          : 'Mês atual'
+        let periodStart: Date
+        let periodLabel: string
+        
+        switch (metricsPeriod) {
+          case 'week':
+            periodStart = subDays(now, 7)
+            periodLabel = 'Última Semana (7 dias)'
+            break
+          case 'year':
+            periodStart = subDays(now, 365)
+            periodLabel = 'Último Ano (365 dias)'
+            break
+          case 'month':
+          default:
+            periodStart = subDays(now, 30)
+            periodLabel = 'Último Mês (30 dias)'
+        }
         
         // Filtrar máquinas pela busca
         const filteredMachinesForPDF = machines.filter(m => 
@@ -996,60 +944,32 @@ export function ReportsView() {
           m.name.toLowerCase().includes(metricsSearchMachine.toLowerCase())
         )
         
-        // Calcular dias do período
-        const diffTime = Math.abs(periodEnd.getTime() - periodStart.getTime())
-        const periodDaysCalc = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) || 1
-        
         // Calcular métricas para PDF
-        // Usar comparação de strings ISO para evitar problemas de timezone
-        const periodStartStr = periodStart.toISOString().slice(0, 10)
-        const periodEndStr = periodEnd.toISOString().slice(0, 10)
-        
         const metricsForPDF = filteredMachinesForPDF.map(machine => {
           const shiftId = localMachineShifts[machine.id] || machine.shiftId
           const shift = shifts.find(s => s.id === shiftId)
           
-          const machineTickets = tickets.filter(t => {
-            const ticketDateStr = t.createdAt.slice(0, 10)
-            return t.machineId === machine.id && 
-              (t.status === 'completed' || t.status === 'unresolved') &&
-              ticketDateStr >= periodStartStr &&
-              ticketDateStr <= periodEndStr
-          })
+          const machineTickets = tickets.filter(t => 
+            t.machineId === machine.id && 
+            (t.status === 'completed' || t.status === 'unresolved') &&
+            new Date(t.createdAt) >= periodStart &&
+            new Date(t.createdAt) <= now
+          )
           
           const totalFailures = machineTickets.length
+          const totalRepairTime = machineTickets.reduce((sum, t) => sum + t.downtime, 0)
           
-          // DOWNTIME = Tempo total que a máquina ficou parada (createdAt até completedAt)
-          const totalDowntimeSeconds = machineTickets.reduce((sum, t) => {
-            const start = new Date(t.createdAt).getTime()
-            const end = t.completedAt ? new Date(t.completedAt).getTime() : Date.now()
-            return sum + Math.floor((end - start) / 1000)
-          }, 0)
-          const totalDowntimeHours = totalDowntimeSeconds / 3600
+          const periodDays = metricsPeriod === 'week' ? 7 : metricsPeriod === 'year' ? 365 : 30
+          const hoursPerDay = shift?.hoursPerDay || 8
+          const daysPerWeek = shift?.daysPerWeek || 5
+          const weeksInPeriod = periodDays / 7
+          const expectedHours = hoursPerDay * daysPerWeek * weeksInPeriod
           
-          // TEMPO TOTAL DISPONÍVEL
-          let totalAvailableHours: number
-          if (monthlyHours > 0) {
-            const hoursPerMachine = monthlyHours / machines.length
-            const daysInMonth = 30
-            totalAvailableHours = (hoursPerMachine / daysInMonth) * periodDaysCalc
-          } else {
-            totalAvailableHours = periodDaysCalc * 24
-          }
-          
-          // UPTIME = Tempo Total Disponível - Downtime
-          const uptimeHours = Math.max(0, totalAvailableHours - totalDowntimeHours)
-          
-          // MTBF = Uptime / Número de Falhas
-          const mtbf = totalFailures > 0 ? uptimeHours / totalFailures : 0
-          
-          // MTTR = Downtime / Número de Falhas
+          const totalDowntimeHours = totalRepairTime / 3600
+          const operatingHours = Math.max(0, expectedHours - totalDowntimeHours)
+          const mtbf = totalFailures > 0 ? operatingHours / totalFailures : 0
           const mttr = totalFailures > 0 ? totalDowntimeHours / totalFailures : 0
-          
-          // Disponibilidade = (Uptime / Tempo Total Disponível) × 100
-          const availability = totalAvailableHours > 0 
-            ? (uptimeHours / totalAvailableHours) * 100 
-            : (totalFailures === 0 ? 100 : 0)
+          const availability = mtbf > 0 ? (mtbf / (mtbf + mttr)) * 100 : (totalFailures === 0 ? 100 : 0)
           
           return {
             machineName: machine.name,
@@ -1079,7 +999,6 @@ export function ReportsView() {
         
         generateMetricsPDF(metricsForPDF, pausedTicketsForPDF, periodLabel, metricsIncludePaused)
         break
-      }
     }
   }
 
@@ -1199,9 +1118,6 @@ export function ReportsView() {
               <div>
                 <p className="text-xs text-muted-foreground">Total Manutenções</p>
                 <p className="text-xl font-bold">{stats.total}</p>
-                {stats.rejectedCount > 0 && (
-                  <p className="text-[9px] text-muted-foreground">* {stats.rejectedCount} rejeitado(s) na aba Rejeitados</p>
-                )}
               </div>
             </div>
           </CardContent>
@@ -1216,13 +1132,17 @@ export function ReportsView() {
               <div className="min-w-0">
                 <p className="text-xs font-medium text-red-600">Máquina Parada</p>
                 {(() => {
-                  const totalHours = Math.floor(stats.totalStoppedTime / 3600)
-                  const mins = Math.floor((stats.totalStoppedTime % 3600) / 60)
-                  return (
-                    <p className="text-xl font-bold text-red-600 font-mono">{totalHours}h{mins.toString().padStart(2, '0')}m</p>
+                  const d = formatDurationLong(stats.totalStoppedTime)
+                  return d.days > 0 ? (
+                    <>
+                      <p className="text-xl font-bold text-red-600 leading-tight">{d.days}d</p>
+                      <p className="text-sm font-mono text-red-500">{d.hhmm}</p>
+                    </>
+                  ) : (
+                    <p className="text-xl font-bold text-red-600 font-mono">{d.hhmm}</p>
                   )
                 })()}
-                <p className="text-[10px] text-muted-foreground">abertura → resolução (mês atual)</p>
+                <p className="text-[10px] text-muted-foreground">abertura → resolução</p>
               </div>
             </div>
           </CardContent>
@@ -1235,15 +1155,19 @@ export function ReportsView() {
                 <TrendingUp className="w-4 h-4 text-white" />
               </div>
               <div className="min-w-0">
-                <p className="text-xs font-medium text-orange-600">Atuação Manutentor</p>
+                <p className="text-xs font-medium text-orange-600">Tempo Operando</p>
                 {(() => {
-                  const totalHours = Math.floor(stats.totalMaintenanceTime / 3600)
-                  const mins = Math.floor((stats.totalMaintenanceTime % 3600) / 60)
-                  return (
-                    <p className="text-xl font-bold text-orange-600 font-mono">{totalHours}h{mins.toString().padStart(2, '0')}m</p>
+                  const d = formatDurationLong(stats.totalOperatingTime)
+                  return d.days > 0 ? (
+                    <>
+                      <p className="text-xl font-bold text-orange-600 leading-tight">{d.days}d</p>
+                      <p className="text-sm font-mono text-orange-500">{d.hhmm}</p>
+                    </>
+                  ) : (
+                    <p className="text-xl font-bold text-orange-600 font-mono">{d.hhmm}</p>
                   )
                 })()}
-                <p className="text-[10px] text-muted-foreground">tempo de trabalho dos manutentores</p>
+                <p className="text-[10px] text-muted-foreground">manutentor trabalhando</p>
               </div>
             </div>
           </CardContent>
@@ -1718,43 +1642,18 @@ export function ReportsView() {
                     Análise de MTBF, MTTR e Disponibilidade
                   </CardDescription>
                 </div>
-                <div className="flex flex-wrap gap-2 items-center">
-                  {/* Calendário de período */}
-                  <Popover open={metricsCalendarOpen} onOpenChange={setMetricsCalendarOpen}>
-                    <PopoverTrigger asChild>
-                      <Button variant="outline" size="sm" className="h-8 text-xs gap-1.5 min-w-[200px] justify-start">
-                        <CalendarIcon className="w-3.5 h-3.5" />
-                        {metricsDateRange?.from ? (
-                          metricsDateRange.to ? (
-                            <>
-                              {format(metricsDateRange.from, 'dd/MM/yy', { locale: ptBR })} - {format(metricsDateRange.to, 'dd/MM/yy', { locale: ptBR })}
-                            </>
-                          ) : (
-                            format(metricsDateRange.from, 'dd/MM/yyyy', { locale: ptBR })
-                          )
-                        ) : (
-                          'Selecionar período'
-                        )}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="end">
-                      <div className="p-2 border-b flex flex-wrap gap-1">
-                        <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => { setMetricsDateRange({ from: subDays(new Date(), 7), to: new Date() }); setMetricsCalendarOpen(false) }}>7 dias</Button>
-                        <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => { setMetricsDateRange({ from: subDays(new Date(), 30), to: new Date() }); setMetricsCalendarOpen(false) }}>30 dias</Button>
-                        <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => { setMetricsDateRange({ from: startOfMonth(new Date()), to: endOfMonth(new Date()) }); setMetricsCalendarOpen(false) }}>Este mês</Button>
-                        <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => { const prev = subDays(startOfMonth(new Date()), 1); setMetricsDateRange({ from: startOfMonth(prev), to: endOfMonth(prev) }); setMetricsCalendarOpen(false) }}>Mês anterior</Button>
-                      </div>
-                      <Calendar
-                        initialFocus
-                        mode="range"
-                        defaultMonth={metricsDateRange?.from}
-                        selected={metricsDateRange}
-                        onSelect={(range) => { setMetricsDateRange(range); if (range?.from && range?.to) setMetricsCalendarOpen(false) }}
-                        numberOfMonths={2}
-                        locale={ptBR}
-                      />
-                    </PopoverContent>
-                  </Popover>
+                <div className="flex flex-wrap gap-2">
+                  {/* Filtro de período */}
+                  <Select value={metricsPeriod} onValueChange={(v) => setMetricsPeriod(v as 'week' | 'month' | 'year')}>
+                    <SelectTrigger className="w-[130px] h-8 text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="week">Última Semana</SelectItem>
+                      <SelectItem value="month">Último Mês</SelectItem>
+                      <SelectItem value="year">Último Ano</SelectItem>
+                    </SelectContent>
+                  </Select>
                   {/* Busca por máquina */}
                   <input
                     type="text"
@@ -1763,40 +1662,7 @@ export function ReportsView() {
                     value={metricsSearchMachine}
                     onChange={(e) => setMetricsSearchMachine(e.target.value)}
                   />
-                  {/* Config horas mensais - apenas admin */}
-                  {isAdmin && (
-                    <Popover open={showHoursConfig} onOpenChange={setShowHoursConfig}>
-                      <PopoverTrigger asChild>
-                        <Button variant={monthlyHours === 0 ? "destructive" : "outline"} size="sm" className="h-8 text-xs gap-1.5">
-                          <Settings className="w-3.5 h-3.5" />
-                          {monthlyHours > 0 ? `${monthlyHours}h/mês` : 'Configurar horas'}
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-72 p-3" align="end">
-                        <div className="space-y-2">
-                          <p className="text-sm font-medium">Horas de Operação Mensal</p>
-                          <p className="text-xs text-muted-foreground">Total de horas que a empresa opera neste mês. Este valor será dividido pelo total de máquinas para calcular MTBF/MTTR.</p>
-                          <div className="flex gap-2">
-                            <Input
-                              type="number"
-                              value={tempMonthlyHours}
-                              onChange={(e) => setTempMonthlyHours(e.target.value)}
-                              className="h-8 text-sm"
-                              min={1}
-                            />
-                            <Button size="sm" className="h-8" onClick={saveMonthlyHours}>Salvar</Button>
-                          </div>
-                        </div>
-                      </PopoverContent>
-                    </Popover>
-                  )}
                 </div>
-                {/* Aviso quando horas não configuradas */}
-                {monthlyHours === 0 && (
-                  <div className="mt-2 p-2 rounded bg-amber-50 border border-amber-200 text-amber-800 text-xs">
-                    <strong>Atenção:</strong> As horas de operação mensal não estão configuradas. {isAdmin ? 'Clique no botão ao lado para definir.' : 'Solicite ao administrador para configurar.'}
-                  </div>
-                )}
               </div>
             </CardHeader>
             <CardContent className="p-0">
@@ -1814,18 +1680,25 @@ export function ReportsView() {
                   </thead>
                   <tbody className="divide-y">
                     {(() => {
-                      // Definir período baseado no filtro com verificação segura
+                      // Definir período baseado no filtro
                       const now = new Date()
-                      const periodStartRaw = metricsDateRange?.from instanceof Date ? metricsDateRange.from : startOfMonth(now)
-                      const periodEndRaw = metricsDateRange?.to instanceof Date ? metricsDateRange.to : endOfMonth(now)
-                      const periodStart = new Date(periodStartRaw.getFullYear(), periodStartRaw.getMonth(), periodStartRaw.getDate(), 0, 0, 0, 0)
-                      const periodEnd = new Date(periodEndRaw.getFullYear(), periodEndRaw.getMonth(), periodEndRaw.getDate(), 23, 59, 59, 999)
-                      const diffTime = Math.abs(periodEnd.getTime() - periodStart.getTime())
-                      const periodDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) || 1
+                      let periodStart: Date
+                      let periodDays: number
                       
-                      // Strings para comparação de datas (evita problemas de timezone)
-                      const periodStartStr = periodStart.toISOString().slice(0, 10)
-                      const periodEndStr = periodEnd.toISOString().slice(0, 10)
+                      switch (metricsPeriod) {
+                        case 'week':
+                          periodStart = subDays(now, 7)
+                          periodDays = 7
+                          break
+                        case 'year':
+                          periodStart = subDays(now, 365)
+                          periodDays = 365
+                          break
+                        case 'month':
+                        default:
+                          periodStart = subDays(now, 30)
+                          periodDays = 30
+                      }
                       
                       // Filtrar máquinas pela busca
                       const filteredMachines = machines.filter(m => 
@@ -1840,61 +1713,45 @@ export function ReportsView() {
                         const shift = shifts.find(s => s.id === shiftId)
                         
                         // Filtrar tickets da máquina no período selecionado
-                        const machineTickets = tickets.filter(t => {
-                          const ticketDateStr = t.createdAt.slice(0, 10) // YYYY-MM-DD
-                          const matchesMachine = t.machineId === machine.id
-                          const matchesStatus = t.status === 'completed' || t.status === 'unresolved'
-                          const matchesDate = ticketDateStr >= periodStartStr && ticketDateStr <= periodEndStr
-                          return matchesMachine && matchesStatus && matchesDate
-                        })
+                        const machineTickets = tickets.filter(t => 
+                          t.machineId === machine.id && 
+                          (t.status === 'completed' || t.status === 'unresolved') &&
+                          new Date(t.createdAt) >= periodStart &&
+                          new Date(t.createdAt) <= now
+                        )
                         
                         const totalFailures = machineTickets.length
+                        const totalRepairTime = machineTickets.reduce((sum, t) => sum + t.downtime, 0)
                         
-                        // DOWNTIME = Tempo total que a máquina ficou parada (createdAt até completedAt)
-                        // Este é o tempo real de inatividade da máquina
-                        const totalDowntimeSeconds = machineTickets.reduce((sum, t) => {
-                          const start = new Date(t.createdAt).getTime()
-                          const end = t.completedAt ? new Date(t.completedAt).getTime() : Date.now()
-                          return sum + Math.floor((end - start) / 1000)
-                        }, 0)
-                        const totalDowntimeHours = totalDowntimeSeconds / 3600
+                        // Horas esperadas baseado no turno (ou 8h/dia, 5 dias como padrão)
+                        const hoursPerDay = shift?.hoursPerDay || 8
+                        const daysPerWeek = shift?.daysPerWeek || 5
+                        const weeksInPeriod = periodDays / 7
+                        const expectedHours = hoursPerDay * daysPerWeek * weeksInPeriod
                         
-                        // TEMPO TOTAL DISPONÍVEL baseado nas horas mensais da empresa
-                        // Se monthlyHours = 0 (não configurado), usa 24h * dias do período
-                        let totalAvailableHours: number
-                        if (monthlyHours > 0) {
-                          // Proporção das horas mensais para o período e máquina
-                          const hoursPerMachine = monthlyHours / machines.length
-                          const daysInMonth = 30
-                          totalAvailableHours = (hoursPerMachine / daysInMonth) * periodDays
-                        } else {
-                          // Fallback: considera operação contínua (24h/dia)
-                          totalAvailableHours = periodDays * 24
-                        }
+                        // Tempo parado em horas
+                        const totalDowntimeHours = totalRepairTime / 3600
                         
-                        // UPTIME = Tempo Total Disponível - Downtime
-                        const uptimeHours = Math.max(0, totalAvailableHours - totalDowntimeHours)
+                        // MTBF = (Tempo Operação - Tempo Parado) / Falhas
+                        // Se não houver falhas, MTBF é infinito (mostramos como "-")
+                        const operatingHours = Math.max(0, expectedHours - totalDowntimeHours)
+                        const mtbf = totalFailures > 0 ? operatingHours / totalFailures : 0
                         
-                        // MTBF = Uptime / Número de Falhas
-                        const mtbf = totalFailures > 0 ? uptimeHours / totalFailures : 0
-                        
-                        // MTTR = Downtime / Número de Falhas
+                        // MTTR = Tempo Total Reparo / Falhas
                         const mttr = totalFailures > 0 ? totalDowntimeHours / totalFailures : 0
                         
-                        // Disponibilidade = (Uptime / Tempo Total Disponível) × 100
-                        const availability = totalAvailableHours > 0 
-                          ? (uptimeHours / totalAvailableHours) * 100 
-                          : (totalFailures === 0 ? 100 : 0)
+                        // Disponibilidade = (MTBF / (MTBF + MTTR)) * 100
+                        const availability = mtbf > 0 ? (mtbf / (mtbf + mttr)) * 100 : (totalFailures === 0 ? 100 : 0)
                         
                         return {
                           machineId: machine.id,
                           machineName: machine.name,
                           shiftName: shift?.name || 'Não definido',
                           periodDays,
-                          expectedHours: totalAvailableHours,
+                          expectedHours,
                           totalFailures,
-                          totalRepairTime: totalDowntimeSeconds,
-                          totalDowntime: totalDowntimeSeconds,
+                          totalRepairTime,
+                          totalDowntime: totalRepairTime,
                           mtbf,
                           mttr,
                           availability,
@@ -1969,23 +1826,10 @@ export function ReportsView() {
                   <span>Disponibilidade menor que 85%</span>
                 </div>
               </div>
-              <div className="text-xs text-muted-foreground border-t pt-3 space-y-2">
-                <p className="font-medium">Período selecionado: {
-                  metricsDateRange?.from && metricsDateRange?.to 
-                    ? `${format(metricsDateRange.from, 'dd/MM/yyyy', { locale: ptBR })} a ${format(metricsDateRange.to, 'dd/MM/yyyy', { locale: ptBR })}`
-                    : 'Selecione um período'
-                }</p>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 bg-muted/50 p-2 rounded text-[11px]">
-                  <div><strong>Downtime:</strong> Tempo total parado (abertura → resolução)</div>
-                  <div><strong>Uptime:</strong> Tempo Disponível - Downtime</div>
-                  <div><strong>MTBF:</strong> Uptime / Número de Falhas</div>
-                  <div><strong>MTTR:</strong> Downtime / Número de Falhas</div>
-                  <div className="md:col-span-2"><strong>Disponibilidade:</strong> (Uptime / Tempo Disponível) × 100</div>
-                </div>
-                <p>Horas de operação mensal: <strong>{monthlyHours > 0 ? `${monthlyHours}h` : 'Não configurado'}</strong> 
-                  {monthlyHours > 0 && machines.length > 0 && ` ÷ ${machines.length} máquinas = ${(monthlyHours / machines.length).toFixed(1)}h/máquina`}
-                  {monthlyHours === 0 && ' (usando 24h/dia como fallback)'}
-                </p>
+              <div className="text-xs text-muted-foreground border-t pt-3">
+                <p className="font-medium mb-1">Período selecionado: {metricsPeriod === 'week' ? 'Última Semana (7 dias)' : metricsPeriod === 'month' ? 'Último Mês (30 dias)' : 'Último Ano (365 dias)'}</p>
+                <p>Os cálculos consideram apenas chamados finalizados (resolvidos ou não resolvidos) dentro do período.</p>
+                <p>Máquinas sem turno definido usam valores padrão: 8h/dia, 5 dias/semana.</p>
               </div>
             </CardContent>
           </Card>
