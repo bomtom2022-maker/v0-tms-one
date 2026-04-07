@@ -22,7 +22,7 @@ import { useData } from '@/lib/data-context'
 import { useAuth } from '@/lib/auth-context'
 import { useNotification } from '@/lib/notification-context'
 import { PRIORITY_CONFIG, type Priority } from '@/lib/types'
-import { Clock, Search, Filter, Play, Pause, ArrowRight, AlertCircle, Wrench, CheckCircle2, User, CalendarIcon, XCircle, Settings } from 'lucide-react'
+import { Clock, Search, Filter, Play, Pause, ArrowRight, AlertCircle, Wrench, CheckCircle2, User, CalendarIcon, XCircle, Settings, Loader2, Save } from 'lucide-react'
 import {
   Dialog,
   DialogContent,
@@ -61,8 +61,7 @@ export function DashboardView({ onSelectTicket }: DashboardViewProps) {
   const [monthlyHours, setMonthlyHours] = useState<number>(0)
   const [loadingMetrics, setLoadingMetrics] = useState(false)
   
-  // Estados para edição de horas mensais
-  const [showHoursEditor, setShowHoursEditor] = useState(false)
+  // Estados para edição de horas mensais (admin)
   const [tempHours, setTempHours] = useState('')
   const [savingHours, setSavingHours] = useState(false)
   
@@ -165,10 +164,9 @@ export function DashboardView({ onSelectTicket }: DashboardViewProps) {
       })
       if (!res.ok) throw new Error('Erro ao salvar')
       
-      // Recarregar métricas para atualizar todos os cálculos
+      // Recarregar métricas para atualizar todos os cálculos instantaneamente
       await loadMetrics()
-      setShowHoursEditor(false)
-      notify('Sucesso', `Horas mensais atualizadas para ${hours}h`, 'success')
+      notify('Sucesso', `Capacidade mensal atualizada para ${hours}h. Métricas recalculadas!`, 'success')
     } catch (err) {
       notify('Erro', 'Não foi possível salvar as horas mensais', 'error')
     } finally {
@@ -495,6 +493,71 @@ export function DashboardView({ onSelectTicket }: DashboardViewProps) {
         </Card>
       </div>
 
+      {/* Card de Configurações Globais - Apenas Admin */}
+      {isAdmin && (
+        <Card className="border-blue-200 bg-blue-50/30">
+          <CardHeader className="p-3 sm:p-4 pb-2">
+            <div className="flex items-center gap-2">
+              <Settings className="w-4 h-4 text-blue-600" />
+              <CardTitle className="text-sm sm:text-base text-blue-900">Configurações Globais</CardTitle>
+            </div>
+            <p className="text-[10px] sm:text-xs text-blue-700/70 mt-0.5">
+              Configurações que afetam os cálculos de todo o sistema
+            </p>
+          </CardHeader>
+          <CardContent className="p-3 sm:p-4 pt-0">
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs font-medium text-foreground block mb-1.5">
+                  Capacidade Mensal da Fábrica (Horas)
+                </label>
+                <p className="text-[10px] text-muted-foreground mb-2">
+                  Total de horas que a empresa opera por mês. Este valor é o denominador para calcular MTBF, MTTR e Disponibilidade.
+                </p>
+                <div className="flex gap-2">
+                  <Input
+                    type="number"
+                    value={tempHours}
+                    onChange={(e) => setTempHours(e.target.value)}
+                    className="h-9 text-sm flex-1 bg-background"
+                    placeholder="Ex: 720 (24h x 30 dias) ou 474 (8h x 5 dias x 4 semanas)"
+                    min={0}
+                  />
+                  <Button 
+                    size="sm" 
+                    className="h-9 gap-2 min-w-[140px]" 
+                    onClick={saveMonthlyHours}
+                    disabled={savingHours}
+                  >
+                    {savingHours ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Aplicando...
+                      </>
+                    ) : (
+                      <>
+                        <Save className="w-4 h-4" />
+                        Aplicar às Métricas
+                      </>
+                    )}
+                  </Button>
+                </div>
+                {monthlyHours > 0 && (
+                  <p className="text-[10px] text-green-600 mt-1.5">
+                    Valor atual: <strong>{monthlyHours}h/mês</strong>
+                  </p>
+                )}
+                {monthlyHours === 0 && (
+                  <p className="text-[10px] text-amber-600 mt-1.5">
+                    Nenhum valor configurado. Configure para ativar os cálculos de disponibilidade.
+                  </p>
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Card de Disponibilidade - Dados da View v_metricas_reais */}
       <Card>
         <CardHeader className="p-3 sm:p-4 pb-2">
@@ -505,71 +568,18 @@ export function DashboardView({ onSelectTicket }: DashboardViewProps) {
                 Dados do mês atual {monthlyHours > 0 && `(${monthlyHours}h configuradas)`}
               </p>
             </div>
-            <div className="flex items-center gap-3">
-              {/* Botão de configuração - apenas admin */}
-              {isAdmin && (
-                <Button 
-                  variant={monthlyHours === 0 ? "destructive" : "outline"} 
-                  size="sm" 
-                  className="h-8 text-xs gap-1.5"
-                  onClick={() => setShowHoursEditor(!showHoursEditor)}
-                >
-                  <Settings className="w-3.5 h-3.5" />
-                  {monthlyHours > 0 ? 'Editar' : 'Configurar'}
-                </Button>
-              )}
-              <div className="text-right">
-                <p className="text-[10px] sm:text-xs text-muted-foreground">Média Geral</p>
-                <p className={cn(
-                  "text-xl sm:text-2xl font-bold",
-                  avgAvailability >= 95 ? "text-green-600" :
-                  avgAvailability >= 85 ? "text-yellow-600" :
-                  "text-red-600"
-                )}>
-                  {loadingMetrics ? '...' : `${avgAvailability.toFixed(1)}%`}
-                </p>
-              </div>
+            <div className="text-right">
+              <p className="text-[10px] sm:text-xs text-muted-foreground">Média Geral</p>
+              <p className={cn(
+                "text-xl sm:text-2xl font-bold",
+                avgAvailability >= 95 ? "text-green-600" :
+                avgAvailability >= 85 ? "text-yellow-600" :
+                "text-red-600"
+              )}>
+                {loadingMetrics ? '...' : `${avgAvailability.toFixed(1)}%`}
+              </p>
             </div>
           </div>
-          
-          {/* Editor de horas mensais - admin only */}
-          {showHoursEditor && isAdmin && (
-            <div className="mt-3 p-3 bg-muted/50 rounded-lg border">
-              <p className="text-xs font-medium mb-2">Horas de Operação do Mês</p>
-              <p className="text-[10px] text-muted-foreground mb-2">
-                Total de horas que a empresa opera por mês. Este valor afeta todos os cálculos de MTBF, MTTR e Disponibilidade.
-              </p>
-              <div className="flex gap-2">
-                <Input
-                  type="number"
-                  value={tempHours}
-                  onChange={(e) => setTempHours(e.target.value)}
-                  className="h-8 text-sm flex-1"
-                  placeholder="Ex: 720 (24h x 30 dias)"
-                  min={0}
-                />
-                <Button 
-                  size="sm" 
-                  className="h-8" 
-                  onClick={saveMonthlyHours}
-                  disabled={savingHours}
-                >
-                  {savingHours ? 'Salvando...' : 'Salvar'}
-                </Button>
-                <Button 
-                  size="sm" 
-                  variant="ghost"
-                  className="h-8" 
-                  onClick={() => {
-                    setShowHoursEditor(false)
-                    setTempHours(String(monthlyHours))
-                  }}
-                >
-                  Cancelar
-                </Button>
-              </div>
-            </div>
-          )}
         </CardHeader>
         <CardContent className="p-3 sm:p-4 pt-0">
           {loadingMetrics ? (
@@ -579,7 +589,7 @@ export function DashboardView({ onSelectTicket }: DashboardViewProps) {
               <p className="font-medium">Horas de operação não configuradas</p>
               <p className="text-amber-500">
                 {isAdmin 
-                  ? 'Clique em "Configurar" acima para definir as horas mensais.'
+                  ? 'Configure no card "Configurações Globais" acima.'
                   : 'Solicite ao administrador para configurar as horas de operação mensais.'}
               </p>
             </div>
