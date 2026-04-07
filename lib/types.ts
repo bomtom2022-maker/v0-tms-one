@@ -155,6 +155,18 @@ export interface Shift {
   updatedAt: Date
 }
 
+// Dados retornados pela View v_metricas_reais do Supabase
+export interface ViewMetricasReais {
+  machine_id: string
+  machine_name: string
+  total_falhas: number
+  downtime_horas: number
+  uptime_horas: number
+  mtbf: number
+  mttr: number
+  disponibilidade: number
+}
+
 // Estatísticas MTBF/MTTR por máquina
 export interface MachineMetrics {
   machineId: string
