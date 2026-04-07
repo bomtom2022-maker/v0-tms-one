@@ -982,11 +982,12 @@ export function ReportsView() {
         break
 
       case 'metrics': {
-        // Usar período do calendário
-        const periodStart = metricsDateRange?.from || startOfMonth(new Date())
-        const periodEnd = metricsDateRange?.to || endOfMonth(new Date())
+        // Usar período do calendário com fallback seguro
+        const now = new Date()
+        const periodStart = metricsDateRange?.from instanceof Date ? metricsDateRange.from : startOfMonth(now)
+        const periodEnd = metricsDateRange?.to instanceof Date ? metricsDateRange.to : endOfMonth(now)
         const periodLabel = metricsDateRange?.from && metricsDateRange?.to
-          ? `${format(metricsDateRange.from, 'dd/MM/yyyy', { locale: ptBR })} a ${format(metricsDateRange.to, 'dd/MM/yyyy', { locale: ptBR })}`
+          ? `${format(periodStart, 'dd/MM/yyyy', { locale: ptBR })} a ${format(periodEnd, 'dd/MM/yyyy', { locale: ptBR })}`
           : 'Mês atual'
         
         // Filtrar máquinas pela busca
@@ -995,7 +996,7 @@ export function ReportsView() {
           m.name.toLowerCase().includes(metricsSearchMachine.toLowerCase())
         )
         
-        // Calcular dias do período para custom
+        // Calcular dias do período
         const diffTime = Math.abs(periodEnd.getTime() - periodStart.getTime())
         const periodDaysCalc = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) || 1
         
@@ -1813,25 +1814,18 @@ export function ReportsView() {
                   </thead>
                   <tbody className="divide-y">
                     {(() => {
-                      // Definir período baseado no filtro
-                      // Usar período do calendário - garantir que o periodEnd inclua o dia inteiro
-                      const periodStartRaw = metricsDateRange?.from || startOfMonth(new Date())
-                      const periodEndRaw = metricsDateRange?.to || endOfMonth(new Date())
+                      // Definir período baseado no filtro com verificação segura
+                      const now = new Date()
+                      const periodStartRaw = metricsDateRange?.from instanceof Date ? metricsDateRange.from : startOfMonth(now)
+                      const periodEndRaw = metricsDateRange?.to instanceof Date ? metricsDateRange.to : endOfMonth(now)
                       const periodStart = new Date(periodStartRaw.getFullYear(), periodStartRaw.getMonth(), periodStartRaw.getDate(), 0, 0, 0, 0)
                       const periodEnd = new Date(periodEndRaw.getFullYear(), periodEndRaw.getMonth(), periodEndRaw.getDate(), 23, 59, 59, 999)
                       const diffTime = Math.abs(periodEnd.getTime() - periodStart.getTime())
                       const periodDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) || 1
                       
-                      console.log('[v0] Período:', { 
-                        start: periodStart.toISOString(), 
-                        end: periodEnd.toISOString(),
-                        days: periodDays,
-                        totalTickets: tickets.length,
-                        ticketStatuses: tickets.reduce((acc, t) => {
-                          acc[t.status] = (acc[t.status] || 0) + 1
-                          return acc
-                        }, {} as Record<string, number>)
-                      })
+                      // Strings para comparação de datas (evita problemas de timezone)
+                      const periodStartStr = periodStart.toISOString().slice(0, 10)
+                      const periodEndStr = periodEnd.toISOString().slice(0, 10)
                       
                       // Filtrar máquinas pela busca
                       const filteredMachines = machines.filter(m => 
@@ -1846,10 +1840,6 @@ export function ReportsView() {
                         const shift = shifts.find(s => s.id === shiftId)
                         
                         // Filtrar tickets da máquina no período selecionado
-                        // Usa comparação de strings ISO para evitar problemas de timezone
-                        const periodStartStr = periodStart.toISOString().slice(0, 10) // YYYY-MM-DD
-                        const periodEndStr = periodEnd.toISOString().slice(0, 10) // YYYY-MM-DD
-                        
                         const machineTickets = tickets.filter(t => {
                           const ticketDateStr = t.createdAt.slice(0, 10) // YYYY-MM-DD
                           const matchesMachine = t.machineId === machine.id
