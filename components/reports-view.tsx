@@ -1808,11 +1808,24 @@ export function ReportsView() {
                   <tbody className="divide-y">
                     {(() => {
                       // Definir período baseado no filtro
-                      // Usar período do calendário
-                      const periodStart = metricsDateRange?.from || startOfMonth(new Date())
-                      const periodEnd = metricsDateRange?.to || endOfMonth(new Date())
+                      // Usar período do calendário - garantir que o periodEnd inclua o dia inteiro
+                      const periodStartRaw = metricsDateRange?.from || startOfMonth(new Date())
+                      const periodEndRaw = metricsDateRange?.to || endOfMonth(new Date())
+                      const periodStart = new Date(periodStartRaw.getFullYear(), periodStartRaw.getMonth(), periodStartRaw.getDate(), 0, 0, 0, 0)
+                      const periodEnd = new Date(periodEndRaw.getFullYear(), periodEndRaw.getMonth(), periodEndRaw.getDate(), 23, 59, 59, 999)
                       const diffTime = Math.abs(periodEnd.getTime() - periodStart.getTime())
                       const periodDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) || 1
+                      
+                      console.log('[v0] Período:', { 
+                        start: periodStart.toISOString(), 
+                        end: periodEnd.toISOString(),
+                        days: periodDays,
+                        totalTickets: tickets.length,
+                        ticketStatuses: tickets.reduce((acc, t) => {
+                          acc[t.status] = (acc[t.status] || 0) + 1
+                          return acc
+                        }, {} as Record<string, number>)
+                      })
                       
                       // Filtrar máquinas pela busca
                       const filteredMachines = machines.filter(m => 
@@ -1827,12 +1840,29 @@ export function ReportsView() {
                         const shift = shifts.find(s => s.id === shiftId)
                         
                         // Filtrar tickets da máquina no período selecionado
-                        const machineTickets = tickets.filter(t => 
-                          t.machineId === machine.id && 
-                          (t.status === 'completed' || t.status === 'unresolved') &&
-                          new Date(t.createdAt) >= periodStart &&
-                          new Date(t.createdAt) <= periodEnd
-                        )
+                        const machineTickets = tickets.filter(t => {
+                          const ticketDate = new Date(t.createdAt)
+                          const matchesMachine = t.machineId === machine.id
+                          const matchesStatus = t.status === 'completed' || t.status === 'unresolved'
+                          const matchesDateStart = ticketDate >= periodStart
+                          const matchesDateEnd = ticketDate <= periodEnd
+                          return matchesMachine && matchesStatus && matchesDateStart && matchesDateEnd
+                        })
+                        
+                        // Debug: mostrar apenas para a primeira máquina filtrada
+                        if (machine.name === 'VTFR-29') {
+                          const allMachineTickets = tickets.filter(t => t.machineId === machine.id)
+                          console.log('[v0] VTFR-29 debug:', {
+                            totalTicketsMachine: allMachineTickets.length,
+                            ticketsInPeriod: machineTickets.length,
+                            statuses: allMachineTickets.map(t => t.status),
+                            dates: allMachineTickets.map(t => ({ 
+                              created: t.createdAt, 
+                              status: t.status,
+                              inRange: new Date(t.createdAt) >= periodStart && new Date(t.createdAt) <= periodEnd
+                            }))
+                          })
+                        }
                         
                         const totalFailures = machineTickets.length
                         
