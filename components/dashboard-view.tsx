@@ -22,7 +22,7 @@ import { useData } from '@/lib/data-context'
 import { useAuth } from '@/lib/auth-context'
 import { useNotification } from '@/lib/notification-context'
 import { PRIORITY_CONFIG, type Priority } from '@/lib/types'
-import { Clock, Search, Filter, Play, Pause, ArrowRight, AlertCircle, Wrench, CheckCircle2, User, CalendarIcon, XCircle } from 'lucide-react'
+import { Clock, Search, Filter, Play, Pause, ArrowRight, AlertCircle, Wrench, CheckCircle2, User, CalendarIcon, XCircle, Settings } from 'lucide-react'
 import {
   Dialog,
   DialogContent,
@@ -53,13 +53,18 @@ interface ViewMetric {
 
 export function DashboardView({ onSelectTicket }: DashboardViewProps) {
   const { tickets, machines, problems, getMachineById, getProblemById, rejectTicket } = useData()
-  const { isManutentor, isLider, currentUser } = useAuth()
+  const { isManutentor, isLider, currentUser, isAdmin } = useAuth()
   const { notify } = useNotification()
   
   // Estados para métricas da View
   const [viewMetrics, setViewMetrics] = useState<ViewMetric[]>([])
   const [monthlyHours, setMonthlyHours] = useState<number>(0)
   const [loadingMetrics, setLoadingMetrics] = useState(false)
+  
+  // Estados para edição de horas mensais
+  const [showHoursEditor, setShowHoursEditor] = useState(false)
+  const [tempHours, setTempHours] = useState('')
+  const [savingHours, setSavingHours] = useState(false)
   
   const [searchTerm, setSearchTerm] = useState('')
   const [filterMachine, setFilterMachine] = useState<string>('all')
@@ -121,25 +126,55 @@ export function DashboardView({ onSelectTicket }: DashboardViewProps) {
     t.status !== 'completed' && t.status !== 'cancelled'
   ).length
 
-  // Carregar métricas da View v_metricas_reais
-  useEffect(() => {
-    const loadMetrics = async () => {
-      setLoadingMetrics(true)
-      try {
-        const res = await fetch('/api/metrics')
-        if (res.ok) {
-          const data = await res.json()
-          setViewMetrics(data.metrics || [])
-          setMonthlyHours(data.monthlyHours || 0)
-        }
-      } catch (err) {
-        console.error('Erro ao carregar métricas:', err)
-      } finally {
-        setLoadingMetrics(false)
+  // Função para carregar métricas da View v_metricas_reais
+  const loadMetrics = async () => {
+    setLoadingMetrics(true)
+    try {
+      const res = await fetch('/api/metrics')
+      if (res.ok) {
+        const data = await res.json()
+        setViewMetrics(data.metrics || [])
+        setMonthlyHours(data.monthlyHours || 0)
+        setTempHours(String(data.monthlyHours || ''))
       }
+    } catch (err) {
+      console.error('Erro ao carregar métricas:', err)
+    } finally {
+      setLoadingMetrics(false)
     }
+  }
+  
+  // Carregar métricas ao montar o componente
+  useEffect(() => {
     loadMetrics()
   }, [])
+  
+  // Função para salvar horas mensais e recarregar métricas
+  const saveMonthlyHours = async () => {
+    const hours = parseFloat(tempHours)
+    if (isNaN(hours) || hours < 0) {
+      notify('Erro', 'Digite um valor válido de horas (número positivo)', 'error')
+      return
+    }
+    setSavingHours(true)
+    try {
+      const res = await fetch('/api/metrics', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ monthlyHours: hours })
+      })
+      if (!res.ok) throw new Error('Erro ao salvar')
+      
+      // Recarregar métricas para atualizar todos os cálculos
+      await loadMetrics()
+      setShowHoursEditor(false)
+      notify('Sucesso', `Horas mensais atualizadas para ${hours}h`, 'success')
+    } catch (err) {
+      notify('Erro', 'Não foi possível salvar as horas mensais', 'error')
+    } finally {
+      setSavingHours(false)
+    }
+  }
 
   // Máquinas com pior disponibilidade (ordenadas da menor para maior)
   const worstAvailability = useMemo(() => {
@@ -470,26 +505,84 @@ export function DashboardView({ onSelectTicket }: DashboardViewProps) {
                 Dados do mês atual {monthlyHours > 0 && `(${monthlyHours}h configuradas)`}
               </p>
             </div>
-            <div className="text-right">
-              <p className="text-[10px] sm:text-xs text-muted-foreground">Média Geral</p>
-              <p className={cn(
-                "text-xl sm:text-2xl font-bold",
-                avgAvailability >= 95 ? "text-green-600" :
-                avgAvailability >= 85 ? "text-yellow-600" :
-                "text-red-600"
-              )}>
-                {loadingMetrics ? '...' : `${avgAvailability.toFixed(1)}%`}
-              </p>
+            <div className="flex items-center gap-3">
+              {/* Botão de configuração - apenas admin */}
+              {isAdmin && (
+                <Button 
+                  variant={monthlyHours === 0 ? "destructive" : "outline"} 
+                  size="sm" 
+                  className="h-8 text-xs gap-1.5"
+                  onClick={() => setShowHoursEditor(!showHoursEditor)}
+                >
+                  <Settings className="w-3.5 h-3.5" />
+                  {monthlyHours > 0 ? 'Editar' : 'Configurar'}
+                </Button>
+              )}
+              <div className="text-right">
+                <p className="text-[10px] sm:text-xs text-muted-foreground">Média Geral</p>
+                <p className={cn(
+                  "text-xl sm:text-2xl font-bold",
+                  avgAvailability >= 95 ? "text-green-600" :
+                  avgAvailability >= 85 ? "text-yellow-600" :
+                  "text-red-600"
+                )}>
+                  {loadingMetrics ? '...' : `${avgAvailability.toFixed(1)}%`}
+                </p>
+              </div>
             </div>
           </div>
+          
+          {/* Editor de horas mensais - admin only */}
+          {showHoursEditor && isAdmin && (
+            <div className="mt-3 p-3 bg-muted/50 rounded-lg border">
+              <p className="text-xs font-medium mb-2">Horas de Operação do Mês</p>
+              <p className="text-[10px] text-muted-foreground mb-2">
+                Total de horas que a empresa opera por mês. Este valor afeta todos os cálculos de MTBF, MTTR e Disponibilidade.
+              </p>
+              <div className="flex gap-2">
+                <Input
+                  type="number"
+                  value={tempHours}
+                  onChange={(e) => setTempHours(e.target.value)}
+                  className="h-8 text-sm flex-1"
+                  placeholder="Ex: 720 (24h x 30 dias)"
+                  min={0}
+                />
+                <Button 
+                  size="sm" 
+                  className="h-8" 
+                  onClick={saveMonthlyHours}
+                  disabled={savingHours}
+                >
+                  {savingHours ? 'Salvando...' : 'Salvar'}
+                </Button>
+                <Button 
+                  size="sm" 
+                  variant="ghost"
+                  className="h-8" 
+                  onClick={() => {
+                    setShowHoursEditor(false)
+                    setTempHours(String(monthlyHours))
+                  }}
+                >
+                  Cancelar
+                </Button>
+              </div>
+            </div>
+          )}
         </CardHeader>
         <CardContent className="p-3 sm:p-4 pt-0">
           {loadingMetrics ? (
             <p className="text-xs text-muted-foreground text-center py-4">Carregando métricas...</p>
           ) : monthlyHours === 0 ? (
-            <p className="text-xs text-amber-600 bg-amber-50 p-2 rounded text-center">
-              Configure as horas mensais em Relatórios → MTBF/MTTR para ver métricas reais.
-            </p>
+            <div className="text-xs text-amber-600 bg-amber-50 p-3 rounded text-center space-y-2">
+              <p className="font-medium">Horas de operação não configuradas</p>
+              <p className="text-amber-500">
+                {isAdmin 
+                  ? 'Clique em "Configurar" acima para definir as horas mensais.'
+                  : 'Solicite ao administrador para configurar as horas de operação mensais.'}
+              </p>
+            </div>
           ) : worstAvailability.length === 0 ? (
             <p className="text-xs text-green-600 text-center py-2">Todas as máquinas com 100% de disponibilidade!</p>
           ) : (
