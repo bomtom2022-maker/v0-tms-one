@@ -1000,16 +1000,21 @@ export function ReportsView() {
         const periodDaysCalc = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) || 1
         
         // Calcular métricas para PDF
+        // Usar comparação de strings ISO para evitar problemas de timezone
+        const periodStartStr = periodStart.toISOString().slice(0, 10)
+        const periodEndStr = periodEnd.toISOString().slice(0, 10)
+        
         const metricsForPDF = filteredMachinesForPDF.map(machine => {
           const shiftId = localMachineShifts[machine.id] || machine.shiftId
           const shift = shifts.find(s => s.id === shiftId)
           
-          const machineTickets = tickets.filter(t => 
-            t.machineId === machine.id && 
-            (t.status === 'completed' || t.status === 'unresolved') &&
-            new Date(t.createdAt) >= periodStart &&
-            new Date(t.createdAt) <= periodEnd
-          )
+          const machineTickets = tickets.filter(t => {
+            const ticketDateStr = t.createdAt.slice(0, 10)
+            return t.machineId === machine.id && 
+              (t.status === 'completed' || t.status === 'unresolved') &&
+              ticketDateStr >= periodStartStr &&
+              ticketDateStr <= periodEndStr
+          })
           
           const totalFailures = machineTickets.length
           
@@ -1840,29 +1845,17 @@ export function ReportsView() {
                         const shift = shifts.find(s => s.id === shiftId)
                         
                         // Filtrar tickets da máquina no período selecionado
+                        // Usa comparação de strings ISO para evitar problemas de timezone
+                        const periodStartStr = periodStart.toISOString().slice(0, 10) // YYYY-MM-DD
+                        const periodEndStr = periodEnd.toISOString().slice(0, 10) // YYYY-MM-DD
+                        
                         const machineTickets = tickets.filter(t => {
-                          const ticketDate = new Date(t.createdAt)
+                          const ticketDateStr = t.createdAt.slice(0, 10) // YYYY-MM-DD
                           const matchesMachine = t.machineId === machine.id
                           const matchesStatus = t.status === 'completed' || t.status === 'unresolved'
-                          const matchesDateStart = ticketDate >= periodStart
-                          const matchesDateEnd = ticketDate <= periodEnd
-                          return matchesMachine && matchesStatus && matchesDateStart && matchesDateEnd
+                          const matchesDate = ticketDateStr >= periodStartStr && ticketDateStr <= periodEndStr
+                          return matchesMachine && matchesStatus && matchesDate
                         })
-                        
-                        // Debug: mostrar apenas para a primeira máquina filtrada
-                        if (machine.name === 'VTFR-29') {
-                          const allMachineTickets = tickets.filter(t => t.machineId === machine.id)
-                          console.log('[v0] VTFR-29 debug:', {
-                            totalTicketsMachine: allMachineTickets.length,
-                            ticketsInPeriod: machineTickets.length,
-                            statuses: allMachineTickets.map(t => t.status),
-                            dates: allMachineTickets.map(t => ({ 
-                              created: t.createdAt, 
-                              status: t.status,
-                              inRange: new Date(t.createdAt) >= periodStart && new Date(t.createdAt) <= periodEnd
-                            }))
-                          })
-                        }
                         
                         const totalFailures = machineTickets.length
                         
