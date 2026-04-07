@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Label } from '@/components/ui/label'
+import { Input } from '@/components/ui/input'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   Select,
@@ -605,7 +606,6 @@ export function ReportsView() {
   const [shifts, setShifts] = useState<Shift[]>([])
   const [loadingShifts, setLoadingShifts] = useState(false)
   const [shiftsError, setShiftsError] = useState<string | null>(null)
-  const [metricsPeriod, setMetricsPeriod] = useState<'week' | 'month' | 'year' | 'custom'>('month')
   const [metricsSearchMachine, setMetricsSearchMachine] = useState('')
   const [localMachineShifts, setLocalMachineShifts] = useState<Record<string, string | null>>({})
   const [metricsIncludePaused, setMetricsIncludePaused] = useState(false)
@@ -956,7 +956,7 @@ export function ReportsView() {
           [
             { label: 'Total de Manutentores', value: String(userData.length) },
             { label: 'Total de Chamados', value: String(stats.total) },
-            { label: 'Tempo Total Operando', value: formatDurationLong(stats.totalOperatingTime).full, color: '#ea580c' },
+            { label: 'Atuação Manutentores', value: formatDurationLong(stats.totalMaintenanceTime).full, color: '#ea580c' },
             { label: 'Tempo Total Maq. Parada', value: formatDurationLong(stats.totalStoppedTime).full, color: '#dc2626' },
           ]
         )
@@ -982,36 +982,12 @@ export function ReportsView() {
         break
 
       case 'metrics':
-        // Definir período baseado no filtro de métricas
-        const now = new Date()
-        let periodStart: Date
-        let periodEnd: Date = now
-        let periodLabel: string
-        
-        switch (metricsPeriod) {
-          case 'week':
-            periodStart = subDays(now, 7)
-            periodLabel = 'Última Semana (7 dias)'
-            break
-          case 'year':
-            periodStart = subDays(now, 365)
-            periodLabel = 'Último Ano (365 dias)'
-            break
-          case 'custom':
-            if (metricsStartDate && metricsEndDate) {
-              periodStart = new Date(metricsStartDate + 'T00:00:00')
-              periodEnd = new Date(metricsEndDate + 'T23:59:59')
-              periodLabel = `${format(periodStart, 'dd/MM/yyyy', { locale: ptBR })} a ${format(periodEnd, 'dd/MM/yyyy', { locale: ptBR })}`
-            } else {
-              periodStart = subDays(now, 30)
-              periodLabel = 'Último Mês (30 dias)'
-            }
-            break
-          case 'month':
-          default:
-            periodStart = subDays(now, 30)
-            periodLabel = 'Último Mês (30 dias)'
-        }
+        // Usar período do calendário
+        const periodStart = metricsDateRange?.from || startOfMonth(new Date())
+        const periodEnd = metricsDateRange?.to || endOfMonth(new Date())
+        const periodLabel = metricsDateRange?.from && metricsDateRange?.to
+          ? `${format(metricsDateRange.from, 'dd/MM/yyyy', { locale: ptBR })} a ${format(metricsDateRange.to, 'dd/MM/yyyy', { locale: ptBR })}`
+          : 'Mês atual'
         
         // Filtrar máquinas pela busca
         const filteredMachinesForPDF = machines.filter(m => 
@@ -1038,11 +1014,10 @@ export function ReportsView() {
           const totalFailures = machineTickets.length
           const totalRepairTime = machineTickets.reduce((sum, t) => sum + t.downtime, 0)
           
-          const periodDays = metricsPeriod === 'custom' ? periodDaysCalc : (metricsPeriod === 'week' ? 7 : metricsPeriod === 'year' ? 365 : 30)
-          const hoursPerDay = shift?.hoursPerDay || 8
-          const daysPerWeek = shift?.daysPerWeek || 5
-          const weeksInPeriod = periodDays / 7
-          const expectedHours = hoursPerDay * daysPerWeek * weeksInPeriod
+          // Usar horas mensais configuradas
+          const daysInMonth = 30
+          const hoursPerMachine = monthlyHours / machines.length
+          const expectedHours = (hoursPerMachine / daysInMonth) * periodDaysCalc
           
           const totalDowntimeHours = totalRepairTime / 3600
           const operatingHours = Math.max(0, expectedHours - totalDowntimeHours)
@@ -1197,6 +1172,9 @@ export function ReportsView() {
               <div>
                 <p className="text-xs text-muted-foreground">Total Manutenções</p>
                 <p className="text-xl font-bold">{stats.total}</p>
+                {stats.rejectedCount > 0 && (
+                  <p className="text-[9px] text-muted-foreground">* {stats.rejectedCount} rejeitado(s) na aba Rejeitados</p>
+                )}
               </div>
             </div>
           </CardContent>
@@ -1211,17 +1189,13 @@ export function ReportsView() {
               <div className="min-w-0">
                 <p className="text-xs font-medium text-red-600">Máquina Parada</p>
                 {(() => {
-                  const d = formatDurationLong(stats.totalStoppedTime)
-                  return d.days > 0 ? (
-                    <>
-                      <p className="text-xl font-bold text-red-600 leading-tight">{d.days}d</p>
-                      <p className="text-sm font-mono text-red-500">{d.hhmm}</p>
-                    </>
-                  ) : (
-                    <p className="text-xl font-bold text-red-600 font-mono">{d.hhmm}</p>
+                  const totalHours = Math.floor(stats.totalStoppedTime / 3600)
+                  const mins = Math.floor((stats.totalStoppedTime % 3600) / 60)
+                  return (
+                    <p className="text-xl font-bold text-red-600 font-mono">{totalHours}h{mins.toString().padStart(2, '0')}m</p>
                   )
                 })()}
-                <p className="text-[10px] text-muted-foreground">abertura → resolução</p>
+                <p className="text-[10px] text-muted-foreground">abertura → resolução (mês atual)</p>
               </div>
             </div>
           </CardContent>
@@ -1234,19 +1208,15 @@ export function ReportsView() {
                 <TrendingUp className="w-4 h-4 text-white" />
               </div>
               <div className="min-w-0">
-                <p className="text-xs font-medium text-orange-600">Tempo Operando</p>
+                <p className="text-xs font-medium text-orange-600">Atuação Manutentor</p>
                 {(() => {
-                  const d = formatDurationLong(stats.totalOperatingTime)
-                  return d.days > 0 ? (
-                    <>
-                      <p className="text-xl font-bold text-orange-600 leading-tight">{d.days}d</p>
-                      <p className="text-sm font-mono text-orange-500">{d.hhmm}</p>
-                    </>
-                  ) : (
-                    <p className="text-xl font-bold text-orange-600 font-mono">{d.hhmm}</p>
+                  const totalHours = Math.floor(stats.totalMaintenanceTime / 3600)
+                  const mins = Math.floor((stats.totalMaintenanceTime % 3600) / 60)
+                  return (
+                    <p className="text-xl font-bold text-orange-600 font-mono">{totalHours}h{mins.toString().padStart(2, '0')}m</p>
                   )
                 })()}
-                <p className="text-[10px] text-muted-foreground">manutentor trabalhando</p>
+                <p className="text-[10px] text-muted-foreground">tempo de trabalho dos manutentores</p>
               </div>
             </div>
           </CardContent>
@@ -1722,38 +1692,42 @@ export function ReportsView() {
                   </CardDescription>
                 </div>
                 <div className="flex flex-wrap gap-2 items-center">
-                  {/* Filtro de período */}
-                  <Select value={metricsPeriod} onValueChange={(v) => setMetricsPeriod(v as 'week' | 'month' | 'year' | 'custom')}>
-                    <SelectTrigger className="w-[140px] h-8 text-xs">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="week">Última Semana</SelectItem>
-                      <SelectItem value="month">Último Mês</SelectItem>
-                      <SelectItem value="year">Último Ano</SelectItem>
-                      <SelectItem value="custom">Personalizado</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  {/* Campos de data personalizados */}
-                  {metricsPeriod === 'custom' && (
-                    <div className="flex items-center gap-1">
-                      <input
-                        type="date"
-                        value={metricsStartDate}
-                        onChange={(e) => setMetricsStartDate(e.target.value)}
-                        className="h-8 px-2 text-xs border rounded-md bg-background"
-                        title="Data inicial"
+                  {/* Calendário de período */}
+                  <Popover open={metricsCalendarOpen} onOpenChange={setMetricsCalendarOpen}>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" size="sm" className="h-8 text-xs gap-1.5 min-w-[200px] justify-start">
+                        <CalendarIcon className="w-3.5 h-3.5" />
+                        {metricsDateRange?.from ? (
+                          metricsDateRange.to ? (
+                            <>
+                              {format(metricsDateRange.from, 'dd/MM/yy', { locale: ptBR })} - {format(metricsDateRange.to, 'dd/MM/yy', { locale: ptBR })}
+                            </>
+                          ) : (
+                            format(metricsDateRange.from, 'dd/MM/yyyy', { locale: ptBR })
+                          )
+                        ) : (
+                          'Selecionar período'
+                        )}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="end">
+                      <div className="p-2 border-b flex flex-wrap gap-1">
+                        <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => { setMetricsDateRange({ from: subDays(new Date(), 7), to: new Date() }); setMetricsCalendarOpen(false) }}>7 dias</Button>
+                        <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => { setMetricsDateRange({ from: subDays(new Date(), 30), to: new Date() }); setMetricsCalendarOpen(false) }}>30 dias</Button>
+                        <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => { setMetricsDateRange({ from: startOfMonth(new Date()), to: endOfMonth(new Date()) }); setMetricsCalendarOpen(false) }}>Este mês</Button>
+                        <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => { const prev = subDays(startOfMonth(new Date()), 1); setMetricsDateRange({ from: startOfMonth(prev), to: endOfMonth(prev) }); setMetricsCalendarOpen(false) }}>Mês anterior</Button>
+                      </div>
+                      <Calendar
+                        initialFocus
+                        mode="range"
+                        defaultMonth={metricsDateRange?.from}
+                        selected={metricsDateRange}
+                        onSelect={(range) => { setMetricsDateRange(range); if (range?.from && range?.to) setMetricsCalendarOpen(false) }}
+                        numberOfMonths={2}
+                        locale={ptBR}
                       />
-                      <span className="text-xs text-muted-foreground">a</span>
-                      <input
-                        type="date"
-                        value={metricsEndDate}
-                        onChange={(e) => setMetricsEndDate(e.target.value)}
-                        className="h-8 px-2 text-xs border rounded-md bg-background"
-                        title="Data final"
-                      />
-                    </div>
-                  )}
+                    </PopoverContent>
+                  </Popover>
                   {/* Busca por máquina */}
                   <input
                     type="text"
@@ -1762,6 +1736,33 @@ export function ReportsView() {
                     value={metricsSearchMachine}
                     onChange={(e) => setMetricsSearchMachine(e.target.value)}
                   />
+                  {/* Config horas mensais - apenas admin */}
+                  {isAdmin && (
+                    <Popover open={showHoursConfig} onOpenChange={setShowHoursConfig}>
+                      <PopoverTrigger asChild>
+                        <Button variant="outline" size="sm" className="h-8 text-xs gap-1.5">
+                          <Settings className="w-3.5 h-3.5" />
+                          {monthlyHours}h/mês
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-64 p-3" align="end">
+                        <div className="space-y-2">
+                          <p className="text-sm font-medium">Horas de Operação Mensal</p>
+                          <p className="text-xs text-muted-foreground">Total de horas que a empresa opera neste mês (para todas as máquinas).</p>
+                          <div className="flex gap-2">
+                            <Input
+                              type="number"
+                              value={tempMonthlyHours}
+                              onChange={(e) => setTempMonthlyHours(e.target.value)}
+                              className="h-8 text-sm"
+                              min={1}
+                            />
+                            <Button size="sm" className="h-8" onClick={saveMonthlyHours}>Salvar</Button>
+                          </div>
+                        </div>
+                      </PopoverContent>
+                    </Popover>
+                  )}
                 </div>
               </div>
             </CardHeader>
@@ -1781,36 +1782,11 @@ export function ReportsView() {
                   <tbody className="divide-y">
                     {(() => {
                       // Definir período baseado no filtro
-                      const now = new Date()
-                      let periodStart: Date
-                      let periodEnd: Date = now
-                      let periodDays: number
-                      
-                      switch (metricsPeriod) {
-                        case 'week':
-                          periodStart = subDays(now, 7)
-                          periodDays = 7
-                          break
-                        case 'year':
-                          periodStart = subDays(now, 365)
-                          periodDays = 365
-                          break
-                        case 'custom':
-                          if (metricsStartDate && metricsEndDate) {
-                            periodStart = new Date(metricsStartDate + 'T00:00:00')
-                            periodEnd = new Date(metricsEndDate + 'T23:59:59')
-                            const diffTime = Math.abs(periodEnd.getTime() - periodStart.getTime())
-                            periodDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) || 1
-                          } else {
-                            periodStart = subDays(now, 30)
-                            periodDays = 30
-                          }
-                          break
-                        case 'month':
-                        default:
-                          periodStart = subDays(now, 30)
-                          periodDays = 30
-                      }
+                      // Usar período do calendário
+                      const periodStart = metricsDateRange?.from || startOfMonth(new Date())
+                      const periodEnd = metricsDateRange?.to || endOfMonth(new Date())
+                      const diffTime = Math.abs(periodEnd.getTime() - periodStart.getTime())
+                      const periodDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) || 1
                       
                       // Filtrar máquinas pela busca
                       const filteredMachines = machines.filter(m => 
@@ -1835,11 +1811,11 @@ export function ReportsView() {
                         const totalFailures = machineTickets.length
                         const totalRepairTime = machineTickets.reduce((sum, t) => sum + t.downtime, 0)
                         
-                        // Horas esperadas baseado no turno (ou 8h/dia, 5 dias como padrão)
-                        const hoursPerDay = shift?.hoursPerDay || 8
-                        const daysPerWeek = shift?.daysPerWeek || 5
-                        const weeksInPeriod = periodDays / 7
-                        const expectedHours = hoursPerDay * daysPerWeek * weeksInPeriod
+                        // Horas esperadas baseado nas horas mensais da empresa / total de máquinas
+                        // Ajustado proporcionalmente ao período selecionado
+                        const daysInMonth = 30
+                        const hoursPerMachine = monthlyHours / machines.length
+                        const expectedHours = (hoursPerMachine / daysInMonth) * periodDays
                         
                         // Tempo parado em horas
                         const totalDowntimeHours = totalRepairTime / 3600
@@ -1940,15 +1916,12 @@ export function ReportsView() {
               </div>
               <div className="text-xs text-muted-foreground border-t pt-3">
                 <p className="font-medium mb-1">Período selecionado: {
-                  metricsPeriod === 'week' ? 'Última Semana (7 dias)' : 
-                  metricsPeriod === 'month' ? 'Último Mês (30 dias)' : 
-                  metricsPeriod === 'year' ? 'Último Ano (365 dias)' :
-                  metricsPeriod === 'custom' && metricsStartDate && metricsEndDate 
-                    ? `${format(new Date(metricsStartDate), 'dd/MM/yyyy', { locale: ptBR })} a ${format(new Date(metricsEndDate), 'dd/MM/yyyy', { locale: ptBR })}`
-                    : 'Selecione as datas'
+                  metricsDateRange?.from && metricsDateRange?.to 
+                    ? `${format(metricsDateRange.from, 'dd/MM/yyyy', { locale: ptBR })} a ${format(metricsDateRange.to, 'dd/MM/yyyy', { locale: ptBR })}`
+                    : 'Selecione um período'
                 }</p>
                 <p>Os cálculos consideram apenas chamados finalizados (resolvidos ou não resolvidos) dentro do período.</p>
-                <p>Máquinas sem turno definido usam valores padrão: 8h/dia, 5 dias/semana.</p>
+                <p>Horas de operação mensal configuradas: <strong>{monthlyHours}h</strong> divididas por {machines.length} máquinas = {(monthlyHours / machines.length).toFixed(1)}h/máquina.</p>
               </div>
             </CardContent>
           </Card>
