@@ -1012,18 +1012,38 @@ export function ReportsView() {
           )
           
           const totalFailures = machineTickets.length
-          const totalRepairTime = machineTickets.reduce((sum, t) => sum + t.downtime, 0)
           
-          // Usar horas mensais configuradas
-          const daysInMonth = 30
-          const hoursPerMachine = monthlyHours / machines.length
-          const expectedHours = (hoursPerMachine / daysInMonth) * periodDaysCalc
+          // DOWNTIME = Tempo total que a máquina ficou parada (createdAt até completedAt)
+          const totalDowntimeSeconds = machineTickets.reduce((sum, t) => {
+            const start = new Date(t.createdAt).getTime()
+            const end = t.completedAt ? new Date(t.completedAt).getTime() : Date.now()
+            return sum + Math.floor((end - start) / 1000)
+          }, 0)
+          const totalDowntimeHours = totalDowntimeSeconds / 3600
           
-          const totalDowntimeHours = totalRepairTime / 3600
-          const operatingHours = Math.max(0, expectedHours - totalDowntimeHours)
-          const mtbf = totalFailures > 0 ? operatingHours / totalFailures : 0
+          // TEMPO TOTAL DISPONÍVEL
+          let totalAvailableHours: number
+          if (monthlyHours > 0) {
+            const hoursPerMachine = monthlyHours / machines.length
+            const daysInMonth = 30
+            totalAvailableHours = (hoursPerMachine / daysInMonth) * periodDaysCalc
+          } else {
+            totalAvailableHours = periodDaysCalc * 24
+          }
+          
+          // UPTIME = Tempo Total Disponível - Downtime
+          const uptimeHours = Math.max(0, totalAvailableHours - totalDowntimeHours)
+          
+          // MTBF = Uptime / Número de Falhas
+          const mtbf = totalFailures > 0 ? uptimeHours / totalFailures : 0
+          
+          // MTTR = Downtime / Número de Falhas
           const mttr = totalFailures > 0 ? totalDowntimeHours / totalFailures : 0
-          const availability = mtbf > 0 ? (mtbf / (mtbf + mttr)) * 100 : (totalFailures === 0 ? 100 : 0)
+          
+          // Disponibilidade = (Uptime / Tempo Total Disponível) × 100
+          const availability = totalAvailableHours > 0 
+            ? (uptimeHours / totalAvailableHours) * 100 
+            : (totalFailures === 0 ? 100 : 0)
           
           return {
             machineName: machine.name,
@@ -1815,37 +1835,52 @@ export function ReportsView() {
                         )
                         
                         const totalFailures = machineTickets.length
-                        const totalRepairTime = machineTickets.reduce((sum, t) => sum + t.downtime, 0)
                         
-                        // Horas esperadas baseado nas horas mensais da empresa / total de máquinas
-                        // Ajustado proporcionalmente ao período selecionado
-                        const daysInMonth = 30
-                        const hoursPerMachine = monthlyHours / machines.length
-                        const expectedHours = (hoursPerMachine / daysInMonth) * periodDays
+                        // DOWNTIME = Tempo total que a máquina ficou parada (createdAt até completedAt)
+                        // Este é o tempo real de inatividade da máquina
+                        const totalDowntimeSeconds = machineTickets.reduce((sum, t) => {
+                          const start = new Date(t.createdAt).getTime()
+                          const end = t.completedAt ? new Date(t.completedAt).getTime() : Date.now()
+                          return sum + Math.floor((end - start) / 1000)
+                        }, 0)
+                        const totalDowntimeHours = totalDowntimeSeconds / 3600
                         
-                        // Tempo parado em horas
-                        const totalDowntimeHours = totalRepairTime / 3600
+                        // TEMPO TOTAL DISPONÍVEL baseado nas horas mensais da empresa
+                        // Se monthlyHours = 0 (não configurado), usa 24h * dias do período
+                        let totalAvailableHours: number
+                        if (monthlyHours > 0) {
+                          // Proporção das horas mensais para o período e máquina
+                          const hoursPerMachine = monthlyHours / machines.length
+                          const daysInMonth = 30
+                          totalAvailableHours = (hoursPerMachine / daysInMonth) * periodDays
+                        } else {
+                          // Fallback: considera operação contínua (24h/dia)
+                          totalAvailableHours = periodDays * 24
+                        }
                         
-                        // MTBF = (Tempo Operação - Tempo Parado) / Falhas
-                        // Se não houver falhas, MTBF é infinito (mostramos como "-")
-                        const operatingHours = Math.max(0, expectedHours - totalDowntimeHours)
-                        const mtbf = totalFailures > 0 ? operatingHours / totalFailures : 0
+                        // UPTIME = Tempo Total Disponível - Downtime
+                        const uptimeHours = Math.max(0, totalAvailableHours - totalDowntimeHours)
                         
-                        // MTTR = Tempo Total Reparo / Falhas
+                        // MTBF = Uptime / Número de Falhas
+                        const mtbf = totalFailures > 0 ? uptimeHours / totalFailures : 0
+                        
+                        // MTTR = Downtime / Número de Falhas
                         const mttr = totalFailures > 0 ? totalDowntimeHours / totalFailures : 0
                         
-                        // Disponibilidade = (MTBF / (MTBF + MTTR)) * 100
-                        const availability = mtbf > 0 ? (mtbf / (mtbf + mttr)) * 100 : (totalFailures === 0 ? 100 : 0)
+                        // Disponibilidade = (Uptime / Tempo Total Disponível) × 100
+                        const availability = totalAvailableHours > 0 
+                          ? (uptimeHours / totalAvailableHours) * 100 
+                          : (totalFailures === 0 ? 100 : 0)
                         
                         return {
                           machineId: machine.id,
                           machineName: machine.name,
                           shiftName: shift?.name || 'Não definido',
                           periodDays,
-                          expectedHours,
+                          expectedHours: totalAvailableHours,
                           totalFailures,
-                          totalRepairTime,
-                          totalDowntime: totalRepairTime,
+                          totalRepairTime: totalDowntimeSeconds,
+                          totalDowntime: totalDowntimeSeconds,
                           mtbf,
                           mttr,
                           availability,
@@ -1920,14 +1955,23 @@ export function ReportsView() {
                   <span>Disponibilidade menor que 85%</span>
                 </div>
               </div>
-              <div className="text-xs text-muted-foreground border-t pt-3">
-                <p className="font-medium mb-1">Período selecionado: {
+              <div className="text-xs text-muted-foreground border-t pt-3 space-y-2">
+                <p className="font-medium">Período selecionado: {
                   metricsDateRange?.from && metricsDateRange?.to 
                     ? `${format(metricsDateRange.from, 'dd/MM/yyyy', { locale: ptBR })} a ${format(metricsDateRange.to, 'dd/MM/yyyy', { locale: ptBR })}`
                     : 'Selecione um período'
                 }</p>
-                <p>Os cálculos consideram apenas chamados finalizados (resolvidos ou não resolvidos) dentro do período.</p>
-                <p>Horas de operação mensal configuradas: <strong>{monthlyHours}h</strong> divididas por {machines.length} máquinas = {(monthlyHours / machines.length).toFixed(1)}h/máquina.</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 bg-muted/50 p-2 rounded text-[11px]">
+                  <div><strong>Downtime:</strong> Tempo total parado (abertura → resolução)</div>
+                  <div><strong>Uptime:</strong> Tempo Disponível - Downtime</div>
+                  <div><strong>MTBF:</strong> Uptime / Número de Falhas</div>
+                  <div><strong>MTTR:</strong> Downtime / Número de Falhas</div>
+                  <div className="md:col-span-2"><strong>Disponibilidade:</strong> (Uptime / Tempo Disponível) × 100</div>
+                </div>
+                <p>Horas de operação mensal: <strong>{monthlyHours > 0 ? `${monthlyHours}h` : 'Não configurado'}</strong> 
+                  {monthlyHours > 0 && machines.length > 0 && ` ÷ ${machines.length} máquinas = ${(monthlyHours / machines.length).toFixed(1)}h/máquina`}
+                  {monthlyHours === 0 && ' (usando 24h/dia como fallback)'}
+                </p>
               </div>
             </CardContent>
           </Card>
