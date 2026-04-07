@@ -46,17 +46,41 @@ export async function PUT(request: Request) {
       return NextResponse.json({ error: 'Horas inválidas' }, { status: 400 })
     }
     
-    // Tentar atualizar
-    const { data, error } = await supabase
+    // Primeiro tenta atualizar o registro existente
+    const { data: existingData, error: selectError } = await supabase
       .from('company_config')
-      .upsert({
-        config_key: 'monthly_operation_hours',
-        config_value: String(hours),
-        description: 'Total de horas de operação da empresa no mês',
-        updated_at: new Date().toISOString()
-      }, { onConflict: 'config_key' })
-      .select()
+      .select('id')
+      .eq('config_key', 'monthly_operation_hours')
       .single()
+    
+    let data, error
+    
+    if (existingData) {
+      // Atualizar registro existente
+      const result = await supabase
+        .from('company_config')
+        .update({
+          config_value: String(hours)
+        })
+        .eq('config_key', 'monthly_operation_hours')
+        .select()
+        .single()
+      data = result.data
+      error = result.error
+    } else {
+      // Inserir novo registro
+      const result = await supabase
+        .from('company_config')
+        .insert({
+          config_key: 'monthly_operation_hours',
+          config_value: String(hours),
+          description: 'Total de horas de operação da empresa no mês'
+        })
+        .select()
+        .single()
+      data = result.data
+      error = result.error
+    }
     
     if (error) throw error
     
