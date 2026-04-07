@@ -606,6 +606,56 @@ export function ReportsView() {
   })
   const [calendarOpen, setCalendarOpen] = useState(false)
   
+  // Estados para cliques sequenciais no calendário de filtros gerais
+  const [tempFilterFrom, setTempFilterFrom] = useState<Date | undefined>(subDays(new Date(), 30))
+  const [tempFilterTo, setTempFilterTo] = useState<Date | undefined>(new Date())
+  const [filterClickCount, setFilterClickCount] = useState(2)
+  const [filterCalendarMonth, setFilterCalendarMonth] = useState<Date>(new Date())
+  
+  // Handler para cliques sequenciais no calendário de filtros
+  const handleFilterDateClick = (date: Date | undefined) => {
+    if (!date) return
+    
+    if (filterClickCount === 0) {
+      setTempFilterFrom(date)
+      setTempFilterTo(undefined)
+      setFilterClickCount(1)
+    } else if (filterClickCount === 1) {
+      if (tempFilterFrom && date < tempFilterFrom) {
+        setTempFilterTo(tempFilterFrom)
+        setTempFilterFrom(date)
+      } else {
+        setTempFilterTo(date)
+      }
+      setFilterClickCount(2)
+    } else {
+      setTempFilterFrom(date)
+      setTempFilterTo(undefined)
+      setFilterClickCount(1)
+    }
+  }
+  
+  // Aplicar seleção de datas do filtro geral
+  const applyFilterDateRange = () => {
+    if (tempFilterFrom && tempFilterTo) {
+      setFilters(prev => ({ ...prev, dateRange: { from: tempFilterFrom, to: tempFilterTo }, datePreset: 'custom' }))
+      setCalendarOpen(false)
+    }
+  }
+  
+  // Sincronizar estados temporários quando popover abre
+  const handleFilterCalendarOpenChange = (open: boolean) => {
+    if (open) {
+      setTempFilterFrom(filters.dateRange?.from)
+      setTempFilterTo(filters.dateRange?.to)
+      setFilterClickCount(filters.dateRange?.from && filters.dateRange?.to ? 2 : 0)
+      if (filters.dateRange?.from) {
+        setFilterCalendarMonth(filters.dateRange.from)
+      }
+    }
+    setCalendarOpen(open)
+  }
+  
   // Estados para MTBF/MTTR
   const [shifts, setShifts] = useState<Shift[]>([])
   const [loadingShifts, setLoadingShifts] = useState(false)
@@ -1251,7 +1301,7 @@ export function ReportsView() {
                 <Button variant={filters.datePreset === 'week' ? 'default' : 'outline'} size="sm" onClick={() => handleDatePreset('week')} className="flex-1 text-xs">7 dias</Button>
                 <Button variant={filters.datePreset === 'month' ? 'default' : 'outline'} size="sm" onClick={() => handleDatePreset('month')} className="flex-1 text-xs">Mês</Button>
               </div>
-              <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
+              <Popover open={calendarOpen} onOpenChange={handleFilterCalendarOpenChange}>
                 <PopoverTrigger asChild>
                   <Button variant="outline" size="sm" className="w-full justify-start text-xs">
                     <CalendarIcon className="w-3 h-3 mr-2" />
@@ -1263,13 +1313,89 @@ export function ReportsView() {
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0" align="start">
+                  {/* Indicador de seleção atual */}
+                  <div className="p-3 border-b flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2">
+                      <div className={cn(
+                        "px-2 py-1 rounded text-xs font-medium border-2",
+                        tempFilterFrom 
+                          ? "bg-primary text-primary-foreground border-primary" 
+                          : "bg-muted text-muted-foreground border-dashed border-muted-foreground/30"
+                      )}>
+                        {tempFilterFrom ? format(tempFilterFrom, "dd/MM/yy", { locale: ptBR }) : "Início"}
+                      </div>
+                      <span className="text-muted-foreground text-xs">até</span>
+                      <div className={cn(
+                        "px-2 py-1 rounded text-xs font-medium border-2",
+                        tempFilterTo 
+                          ? "bg-primary text-primary-foreground border-primary" 
+                          : "bg-muted text-muted-foreground border-dashed border-muted-foreground/30"
+                      )}>
+                        {tempFilterTo ? format(tempFilterTo, "dd/MM/yy", { locale: ptBR }) : "Fim"}
+                      </div>
+                    </div>
+                    {filterClickCount > 0 && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-xs h-6 px-2"
+                        onClick={() => {
+                          setTempFilterFrom(undefined)
+                          setTempFilterTo(undefined)
+                          setFilterClickCount(0)
+                        }}
+                      >
+                        Limpar
+                      </Button>
+                    )}
+                  </div>
+                  
+                  {/* Calendário único com navegação */}
                   <Calendar
-                    mode="range"
-                    selected={filters.dateRange}
-                    onSelect={(range) => setFilters(prev => ({ ...prev, dateRange: range, datePreset: 'custom' }))}
-                    numberOfMonths={2}
+                    mode="single"
+                    month={filterCalendarMonth}
+                    onMonthChange={setFilterCalendarMonth}
+                    selected={undefined}
+                    onSelect={handleFilterDateClick}
                     locale={ptBR}
+                    className="p-3"
+                    modifiers={{
+                      selected: (date) => {
+                        if (tempFilterFrom && date.toDateString() === tempFilterFrom.toDateString()) return true
+                        if (tempFilterTo && date.toDateString() === tempFilterTo.toDateString()) return true
+                        return false
+                      },
+                      range: (date) => {
+                        if (tempFilterFrom && tempFilterTo) {
+                          return date > tempFilterFrom && date < tempFilterTo
+                        }
+                        return false
+                      }
+                    }}
+                    modifiersStyles={{
+                      selected: { 
+                        backgroundColor: 'hsl(var(--primary))', 
+                        color: 'hsl(var(--primary-foreground))',
+                        fontWeight: 'bold'
+                      },
+                      range: { 
+                        backgroundColor: 'hsl(var(--primary) / 0.15)',
+                        borderRadius: 0
+                      }
+                    }}
                   />
+                  
+                  {/* Botão Aplicar */}
+                  <div className="p-3 border-t bg-muted/30">
+                    <Button
+                      className="w-full"
+                      size="sm"
+                      disabled={!tempFilterFrom || !tempFilterTo}
+                      onClick={applyFilterDateRange}
+                    >
+                      Aplicar Período
+                    </Button>
+                  </div>
                 </PopoverContent>
               </Popover>
             </div>
@@ -2101,43 +2227,6 @@ export function ReportsView() {
             </CardContent>
           </Card>
 
-          {/* Explicação dos indicadores */}
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="flex items-center gap-2">
-                <BarChart3 className="w-5 h-5" />
-                Indicadores de Manutenção
-              </CardTitle>
-              <CardDescription>
-                Métricas de confiabilidade e eficiência baseadas nos turnos de operação das máquinas
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                <div className="p-3 rounded-lg bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800">
-                  <p className="font-semibold text-blue-700 dark:text-blue-300">MTBF - Tempo Médio Entre Falhas</p>
-                  <p className="text-blue-600 dark:text-blue-400 mt-1">
-                    Indica quanto tempo, em média, uma máquina opera até apresentar uma falha.
-                    Quanto maior, melhor a confiabilidade.
-                  </p>
-                  <p className="text-xs text-blue-500 dark:text-blue-400 mt-2 font-mono">
-                    MTBF = (Horas de Operação - Horas Paradas) / Número de Falhas
-                  </p>
-                </div>
-                <div className="p-3 rounded-lg bg-orange-50 dark:bg-orange-950 border border-orange-200 dark:border-orange-800">
-                  <p className="font-semibold text-orange-700 dark:text-orange-300">MTTR - Tempo Médio de Reparo</p>
-                  <p className="text-orange-600 dark:text-orange-400 mt-1">
-                    Indica quanto tempo, em média, leva para reparar uma máquina após uma falha.
-                    Quanto menor, mais eficiente a manutenção.
-                  </p>
-                  <p className="text-xs text-orange-500 dark:text-orange-400 mt-2 font-mono">
-                    MTTR = Tempo Total de Reparo / Número de Falhas
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
           {/* Configuração de Turnos - Colapsável */}
           <Card>
             <CardHeader 
@@ -2535,6 +2624,43 @@ export function ReportsView() {
                   <div className="md:col-span-2"><strong>Disponibilidade:</strong> (Uptime / monthly_hours) × 100 (se 0 falhas = 100%)</div>
                 </div>
                 <p>Os dados vêm da View <code className="bg-muted px-1 rounded">v_metricas_reais</code> do Supabase - não são calculados localmente.</p>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Explicação dos indicadores - Movido para o final */}
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="flex items-center gap-2">
+                <BarChart3 className="w-5 h-5" />
+                Indicadores de Manutenção
+              </CardTitle>
+              <CardDescription>
+                Métricas de confiabilidade e eficiência baseadas nos turnos de operação das máquinas
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                <div className="p-3 rounded-lg bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800">
+                  <p className="font-semibold text-blue-700 dark:text-blue-300">MTBF - Tempo Médio Entre Falhas</p>
+                  <p className="text-blue-600 dark:text-blue-400 mt-1">
+                    Indica quanto tempo, em média, uma máquina opera até apresentar uma falha.
+                    Quanto maior, melhor a confiabilidade.
+                  </p>
+                  <p className="text-xs text-blue-500 dark:text-blue-400 mt-2 font-mono">
+                    MTBF = (Horas de Operação - Horas Paradas) / Número de Falhas
+                  </p>
+                </div>
+                <div className="p-3 rounded-lg bg-orange-50 dark:bg-orange-950 border border-orange-200 dark:border-orange-800">
+                  <p className="font-semibold text-orange-700 dark:text-orange-300">MTTR - Tempo Médio de Reparo</p>
+                  <p className="text-orange-600 dark:text-orange-400 mt-1">
+                    Indica quanto tempo, em média, leva para reparar uma máquina após uma falha.
+                    Quanto menor, mais eficiente a manutenção.
+                  </p>
+                  <p className="text-xs text-orange-500 dark:text-orange-400 mt-2 font-mono">
+                    MTTR = Tempo Total de Reparo / Número de Falhas
+                  </p>
+                </div>
               </div>
             </CardContent>
           </Card>
