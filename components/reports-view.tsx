@@ -38,6 +38,8 @@ import {
   Package,
   Settings,
   Printer,
+  Loader2,
+  Save,
   BarChart3,
   AlertTriangle,
 } from 'lucide-react'
@@ -625,8 +627,8 @@ export function ReportsView() {
   const [monthlyHours, setMonthlyHours] = useState<number>(0)
   const [loadingMetrics, setLoadingMetrics] = useState(false)
   const [metricsError, setMetricsError] = useState<string | null>(null)
-  const [showHoursConfig, setShowHoursConfig] = useState(false)
   const [tempMonthlyHours, setTempMonthlyHours] = useState<string>('')
+  const [savingHours, setSavingHours] = useState(false)
   
   // Inicializar shifts locais das máquinas
   useEffect(() => {
@@ -680,6 +682,7 @@ export function ReportsView() {
       alert('Digite um valor válido de horas')
       return
     }
+    setSavingHours(true)
     try {
       const res = await fetch('/api/metrics', {
         method: 'PUT',
@@ -687,12 +690,12 @@ export function ReportsView() {
         body: JSON.stringify({ monthlyHours: hours })
       })
       if (!res.ok) throw new Error('Erro ao salvar')
-      setMonthlyHours(hours)
-      setShowHoursConfig(false)
-      // Recarregar métricas para refletir novo cálculo
-      loadViewMetrics()
+      // Recarregar métricas para refletir novo cálculo instantaneamente
+      await loadViewMetrics()
     } catch (err) {
       alert('Erro ao salvar configuração')
+    } finally {
+      setSavingHours(false)
     }
   }
 
@@ -1697,6 +1700,79 @@ export function ReportsView() {
             </CardContent>
           </Card>
 
+          {/* Card de Configurações Globais - Apenas Admin */}
+          {isAdmin && (
+            <Card className="border-blue-200 bg-blue-50/30">
+              <CardHeader className="pb-2">
+                <div className="flex items-center gap-2">
+                  <Settings className="w-4 h-4 text-blue-600" />
+                  <CardTitle className="text-blue-900">Configurações Globais</CardTitle>
+                </div>
+                <CardDescription className="text-blue-700/70">
+                  Configurações que afetam os cálculos de todo o sistema
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="pt-0">
+                <div className="space-y-3">
+                  <div>
+                    <label className="text-xs font-medium text-foreground block mb-1.5">
+                      Capacidade Mensal da Fábrica (Horas)
+                    </label>
+                    <p className="text-[10px] text-muted-foreground mb-2">
+                      Total de horas que a empresa opera por mês. Este valor é o denominador para calcular MTBF, MTTR e Disponibilidade.
+                    </p>
+                    <div className="flex gap-2">
+                      <Input
+                        type="number"
+                        value={tempMonthlyHours}
+                        onChange={(e) => setTempMonthlyHours(e.target.value)}
+                        className="h-9 text-sm flex-1 bg-background max-w-xs"
+                        placeholder="Ex: 720 (24h x 30 dias)"
+                        min={0}
+                      />
+                      <Button 
+                        size="sm" 
+                        className="h-9 gap-2 min-w-[140px]" 
+                        onClick={saveMonthlyHours}
+                        disabled={savingHours}
+                      >
+                        {savingHours ? (
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            Aplicando...
+                          </>
+                        ) : (
+                          <>
+                            <Save className="w-4 h-4" />
+                            Aplicar às Métricas
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                    {monthlyHours > 0 && (
+                      <p className="text-[10px] text-green-600 mt-1.5">
+                        Valor atual: <strong>{monthlyHours}h/mês</strong>
+                      </p>
+                    )}
+                    {monthlyHours === 0 && (
+                      <p className="text-[10px] text-amber-600 mt-1.5">
+                        Nenhum valor configurado. Configure para ativar os cálculos de disponibilidade.
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Aviso quando horas não configuradas - para não-admins */}
+          {!isAdmin && monthlyHours === 0 && (
+            <div className="p-3 rounded bg-amber-50 border border-amber-200 text-amber-800 text-sm">
+              <strong>Atenção:</strong> As horas de operação mensal não estão configuradas. 
+              Solicite ao administrador para configurar.
+            </div>
+          )}
+
           {/* Tabela de Métricas por Máquina */}
           <Card>
             <CardHeader className="pb-2">
@@ -1716,42 +1792,6 @@ export function ReportsView() {
                     value={metricsSearchMachine}
                     onChange={(e) => setMetricsSearchMachine(e.target.value)}
                   />
-                  {/* Config horas mensais - apenas admin */}
-                  {isAdmin && (
-                    <Popover open={showHoursConfig} onOpenChange={setShowHoursConfig}>
-                      <PopoverTrigger asChild>
-                        <Button 
-                          variant={monthlyHours === 0 ? "destructive" : "outline"} 
-                          size="sm" 
-                          className="h-8 text-xs gap-1.5"
-                        >
-                          <Settings className="w-3.5 h-3.5" />
-                          {monthlyHours > 0 ? `${monthlyHours}h/mês` : 'Configurar horas'}
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-72 p-3" align="end">
-                        <div className="space-y-2">
-                          <p className="text-sm font-medium">Horas de Operação Mensal</p>
-                          <p className="text-xs text-muted-foreground">
-                            Total de horas que a empresa opera por mês. Este valor é usado para calcular MTBF, MTTR e Disponibilidade.
-                          </p>
-                          <div className="flex gap-2">
-                            <Input
-                              type="number"
-                              value={tempMonthlyHours}
-                              onChange={(e) => setTempMonthlyHours(e.target.value)}
-                              className="h-8 text-sm"
-                              placeholder="Ex: 720"
-                              min={0}
-                            />
-                            <Button size="sm" className="h-8" onClick={saveMonthlyHours}>
-                              Salvar
-                            </Button>
-                          </div>
-                        </div>
-                      </PopoverContent>
-                    </Popover>
-                  )}
                   {/* Botão recarregar */}
                   <Button 
                     variant="outline" 
@@ -1764,13 +1804,6 @@ export function ReportsView() {
                   </Button>
                 </div>
               </div>
-              {/* Aviso quando horas não configuradas */}
-              {monthlyHours === 0 && (
-                <div className="mt-2 p-2 rounded bg-amber-50 border border-amber-200 text-amber-800 text-xs">
-                  <strong>Atenção:</strong> As horas de operação mensal não estão configuradas. 
-                  {isAdmin ? ' Clique no botão "Configurar horas" para definir.' : ' Solicite ao administrador para configurar.'}
-                </div>
-              )}
             </CardHeader>
             <CardContent className="p-0">
               <div className="overflow-x-auto">

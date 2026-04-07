@@ -22,7 +22,7 @@ import { useData } from '@/lib/data-context'
 import { useAuth } from '@/lib/auth-context'
 import { useNotification } from '@/lib/notification-context'
 import { PRIORITY_CONFIG, type Priority } from '@/lib/types'
-import { Clock, Search, Filter, Play, Pause, ArrowRight, AlertCircle, Wrench, CheckCircle2, User, CalendarIcon, XCircle, Settings, Loader2, Save } from 'lucide-react'
+import { Clock, Search, Filter, Play, Pause, ArrowRight, AlertCircle, Wrench, CheckCircle2, User, CalendarIcon, XCircle } from 'lucide-react'
 import {
   Dialog,
   DialogContent,
@@ -60,10 +60,6 @@ export function DashboardView({ onSelectTicket }: DashboardViewProps) {
   const [viewMetrics, setViewMetrics] = useState<ViewMetric[]>([])
   const [monthlyHours, setMonthlyHours] = useState<number>(0)
   const [loadingMetrics, setLoadingMetrics] = useState(false)
-  
-  // Estados para edição de horas mensais (admin)
-  const [tempHours, setTempHours] = useState('')
-  const [savingHours, setSavingHours] = useState(false)
   
   const [searchTerm, setSearchTerm] = useState('')
   const [filterMachine, setFilterMachine] = useState<string>('all')
@@ -125,54 +121,25 @@ export function DashboardView({ onSelectTicket }: DashboardViewProps) {
     t.status !== 'completed' && t.status !== 'cancelled'
   ).length
 
-  // Função para carregar métricas da View v_metricas_reais
-  const loadMetrics = async () => {
-    setLoadingMetrics(true)
-    try {
-      const res = await fetch('/api/metrics')
-      if (res.ok) {
-        const data = await res.json()
-        setViewMetrics(data.metrics || [])
-        setMonthlyHours(data.monthlyHours || 0)
-        setTempHours(String(data.monthlyHours || ''))
-      }
-    } catch (err) {
-      console.error('Erro ao carregar métricas:', err)
-    } finally {
-      setLoadingMetrics(false)
-    }
-  }
-  
-  // Carregar métricas ao montar o componente
+  // Carregar métricas da View v_metricas_reais
   useEffect(() => {
+    const loadMetrics = async () => {
+      setLoadingMetrics(true)
+      try {
+        const res = await fetch('/api/metrics')
+        if (res.ok) {
+          const data = await res.json()
+          setViewMetrics(data.metrics || [])
+          setMonthlyHours(data.monthlyHours || 0)
+        }
+      } catch (err) {
+        console.error('Erro ao carregar métricas:', err)
+      } finally {
+        setLoadingMetrics(false)
+      }
+    }
     loadMetrics()
   }, [])
-  
-  // Função para salvar horas mensais e recarregar métricas
-  const saveMonthlyHours = async () => {
-    const hours = parseFloat(tempHours)
-    if (isNaN(hours) || hours < 0) {
-      notify('Erro', 'Digite um valor válido de horas (número positivo)', 'error')
-      return
-    }
-    setSavingHours(true)
-    try {
-      const res = await fetch('/api/metrics', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ monthlyHours: hours })
-      })
-      if (!res.ok) throw new Error('Erro ao salvar')
-      
-      // Recarregar métricas para atualizar todos os cálculos instantaneamente
-      await loadMetrics()
-      notify('Sucesso', `Capacidade mensal atualizada para ${hours}h. Métricas recalculadas!`, 'success')
-    } catch (err) {
-      notify('Erro', 'Não foi possível salvar as horas mensais', 'error')
-    } finally {
-      setSavingHours(false)
-    }
-  }
 
   // Máquinas com pior disponibilidade (ordenadas da menor para maior)
   const worstAvailability = useMemo(() => {
@@ -492,71 +459,6 @@ export function DashboardView({ onSelectTicket }: DashboardViewProps) {
           </CardContent>
         </Card>
       </div>
-
-      {/* Card de Configurações Globais - Apenas Admin */}
-      {isAdmin && (
-        <Card className="border-blue-200 bg-blue-50/30">
-          <CardHeader className="p-3 sm:p-4 pb-2">
-            <div className="flex items-center gap-2">
-              <Settings className="w-4 h-4 text-blue-600" />
-              <CardTitle className="text-sm sm:text-base text-blue-900">Configurações Globais</CardTitle>
-            </div>
-            <p className="text-[10px] sm:text-xs text-blue-700/70 mt-0.5">
-              Configurações que afetam os cálculos de todo o sistema
-            </p>
-          </CardHeader>
-          <CardContent className="p-3 sm:p-4 pt-0">
-            <div className="space-y-3">
-              <div>
-                <label className="text-xs font-medium text-foreground block mb-1.5">
-                  Capacidade Mensal da Fábrica (Horas)
-                </label>
-                <p className="text-[10px] text-muted-foreground mb-2">
-                  Total de horas que a empresa opera por mês. Este valor é o denominador para calcular MTBF, MTTR e Disponibilidade.
-                </p>
-                <div className="flex gap-2">
-                  <Input
-                    type="number"
-                    value={tempHours}
-                    onChange={(e) => setTempHours(e.target.value)}
-                    className="h-9 text-sm flex-1 bg-background"
-                    placeholder="Ex: 720 (24h x 30 dias) ou 474 (8h x 5 dias x 4 semanas)"
-                    min={0}
-                  />
-                  <Button 
-                    size="sm" 
-                    className="h-9 gap-2 min-w-[140px]" 
-                    onClick={saveMonthlyHours}
-                    disabled={savingHours}
-                  >
-                    {savingHours ? (
-                      <>
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                        Aplicando...
-                      </>
-                    ) : (
-                      <>
-                        <Save className="w-4 h-4" />
-                        Aplicar às Métricas
-                      </>
-                    )}
-                  </Button>
-                </div>
-                {monthlyHours > 0 && (
-                  <p className="text-[10px] text-green-600 mt-1.5">
-                    Valor atual: <strong>{monthlyHours}h/mês</strong>
-                  </p>
-                )}
-                {monthlyHours === 0 && (
-                  <p className="text-[10px] text-amber-600 mt-1.5">
-                    Nenhum valor configurado. Configure para ativar os cálculos de disponibilidade.
-                  </p>
-                )}
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
 
       {/* Card de Disponibilidade - Dados da View v_metricas_reais */}
       <Card>
