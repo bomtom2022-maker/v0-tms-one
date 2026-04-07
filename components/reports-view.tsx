@@ -609,8 +609,14 @@ export function ReportsView() {
   const [metricsSearchMachine, setMetricsSearchMachine] = useState('')
   const [localMachineShifts, setLocalMachineShifts] = useState<Record<string, string | null>>({})
   const [metricsIncludePaused, setMetricsIncludePaused] = useState(false)
-  const [metricsStartDate, setMetricsStartDate] = useState<string>('')
-  const [metricsEndDate, setMetricsEndDate] = useState<string>('')
+  const [metricsDateRange, setMetricsDateRange] = useState<DateRange | undefined>(() => {
+    const now = new Date()
+    return { from: startOfMonth(now), to: endOfMonth(now) }
+  })
+  const [metricsCalendarOpen, setMetricsCalendarOpen] = useState(false)
+  const [monthlyHours, setMonthlyHours] = useState<number>(470)
+  const [showHoursConfig, setShowHoursConfig] = useState(false)
+  const [tempMonthlyHours, setTempMonthlyHours] = useState<string>('470')
   
   // Inicializar shifts locais das máquinas
   useEffect(() => {
@@ -632,6 +638,47 @@ export function ReportsView() {
         .finally(() => setLoadingShifts(false))
     }
   }, [activeTab])
+  
+  // Carregar configuração de horas mensais da empresa
+  useEffect(() => {
+    if (activeTab === 'metrics') {
+      fetch('/api/company-config')
+        .then(res => res.json())
+        .then(data => {
+          const hours = parseInt(data.config_value) || 470
+          setMonthlyHours(hours)
+          setTempMonthlyHours(String(hours))
+        })
+        .catch(() => {
+          setMonthlyHours(470)
+          setTempMonthlyHours('470')
+        })
+    }
+  }, [activeTab])
+  
+  // Salvar configuração de horas mensais
+  const saveMonthlyHours = async () => {
+    const hours = parseInt(tempMonthlyHours)
+    if (isNaN(hours) || hours <= 0) {
+      alert('Por favor, insira um número válido de horas.')
+      return
+    }
+    try {
+      const res = await fetch('/api/company-config', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ hours })
+      })
+      if (res.ok) {
+        setMonthlyHours(hours)
+        setShowHoursConfig(false)
+      } else {
+        alert('Erro ao salvar configuração.')
+      }
+    } catch {
+      alert('Erro ao salvar configuração.')
+    }
+  }
 
   const handleDatePreset = (preset: DatePreset) => {
     const today = new Date()
@@ -709,17 +756,32 @@ export function ReportsView() {
   }, [tickets, filters, users])
 
   const stats = useMemo(() => {
-    const totalStoppedTime = filteredTickets.reduce((sum, t) => {
+    // Excluir tickets cancelados/rejeitados do cálculo
+    const validTickets = filteredTickets.filter(t => t.status !== 'cancelled')
+    const rejectedCount = filteredTickets.filter(t => t.status === 'cancelled').length
+    
+    // Calcular tempo parado em segundos (para exibir em horas)
+    const totalStoppedTime = validTickets.reduce((sum, t) => {
       const start = new Date(t.createdAt).getTime()
       const end = t.completedAt ? new Date(t.completedAt).getTime() : Date.now()
       return sum + Math.floor((end - start) / 1000)
     }, 0)
-    const totalOperatingTime = filteredTickets.reduce((sum, t) => sum + t.downtime, 0)
-    const totalCost = filteredTickets.reduce((sum, t) => sum + t.totalCost, 0)
-    const resolved = filteredTickets.filter(t => t.resolved).length
-    const notResolved = filteredTickets.filter(t => !t.resolved).length
-    const uniqueMachines = new Set(filteredTickets.map(t => t.machineId)).size
-    return { total: filteredTickets.length, totalStoppedTime, totalOperatingTime, totalCost, resolved, notResolved, uniqueMachines }
+    // Tempo de atuação dos manutentores (downtime real em segundos)
+    const totalMaintenanceTime = validTickets.reduce((sum, t) => sum + t.downtime, 0)
+    const totalCost = validTickets.reduce((sum, t) => sum + t.totalCost, 0)
+    const resolved = validTickets.filter(t => t.resolved).length
+    const notResolved = validTickets.filter(t => !t.resolved).length
+    const uniqueMachines = new Set(validTickets.map(t => t.machineId)).size
+    return { 
+      total: validTickets.length, 
+      rejectedCount,
+      totalStoppedTime, 
+      totalMaintenanceTime, 
+      totalCost, 
+      resolved, 
+      notResolved, 
+      uniqueMachines 
+    }
   }, [filteredTickets])
 
   const machineData = useMemo(() => {
