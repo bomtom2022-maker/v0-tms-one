@@ -13,12 +13,12 @@ export async function GET() {
       .single()
     
     if (error) {
-      // Se a tabela não existe, retorna valor padrão
+      // Se a tabela não existe ou não encontrou registro, retorna 0 (não configurado)
       if (error.code === 'PGRST116' || error.code === '42P01') {
         return NextResponse.json({ 
           config_key: 'monthly_operation_hours',
-          config_value: '470',
-          description: 'Total de horas de operação da empresa no mês'
+          config_value: '0',
+          description: 'Total de horas de operação da empresa no mês - não configurado'
         })
       }
       throw error
@@ -29,8 +29,8 @@ export async function GET() {
     console.error('Erro ao buscar configuração:', error)
     return NextResponse.json({ 
       config_key: 'monthly_operation_hours',
-      config_value: '470',
-      description: 'Total de horas de operação da empresa no mês'
+      config_value: '0',
+      description: 'Total de horas de operação da empresa no mês - não configurado'
     })
   }
 }
@@ -40,7 +40,7 @@ export async function PUT(request: Request) {
   try {
     const supabase = await createClient()
     const body = await request.json()
-    const { hours, userId } = body
+    const { hours } = body
     
     if (!hours || isNaN(Number(hours))) {
       return NextResponse.json({ error: 'Horas inválidas' }, { status: 400 })
@@ -53,8 +53,7 @@ export async function PUT(request: Request) {
         config_key: 'monthly_operation_hours',
         config_value: String(hours),
         description: 'Total de horas de operação da empresa no mês',
-        updated_at: new Date().toISOString(),
-        updated_by: userId || null
+        updated_at: new Date().toISOString()
       }, { onConflict: 'config_key' })
       .select()
       .single()
