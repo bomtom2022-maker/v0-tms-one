@@ -605,10 +605,12 @@ export function ReportsView() {
   const [shifts, setShifts] = useState<Shift[]>([])
   const [loadingShifts, setLoadingShifts] = useState(false)
   const [shiftsError, setShiftsError] = useState<string | null>(null)
-  const [metricsPeriod, setMetricsPeriod] = useState<'week' | 'month' | 'year'>('month')
+  const [metricsPeriod, setMetricsPeriod] = useState<'week' | 'month' | 'year' | 'custom'>('month')
   const [metricsSearchMachine, setMetricsSearchMachine] = useState('')
   const [localMachineShifts, setLocalMachineShifts] = useState<Record<string, string | null>>({})
   const [metricsIncludePaused, setMetricsIncludePaused] = useState(false)
+  const [metricsStartDate, setMetricsStartDate] = useState<string>('')
+  const [metricsEndDate, setMetricsEndDate] = useState<string>('')
   
   // Inicializar shifts locais das máquinas
   useEffect(() => {
@@ -921,6 +923,7 @@ export function ReportsView() {
         // Definir período baseado no filtro de métricas
         const now = new Date()
         let periodStart: Date
+        let periodEnd: Date = now
         let periodLabel: string
         
         switch (metricsPeriod) {
@@ -931,6 +934,16 @@ export function ReportsView() {
           case 'year':
             periodStart = subDays(now, 365)
             periodLabel = 'Último Ano (365 dias)'
+            break
+          case 'custom':
+            if (metricsStartDate && metricsEndDate) {
+              periodStart = new Date(metricsStartDate + 'T00:00:00')
+              periodEnd = new Date(metricsEndDate + 'T23:59:59')
+              periodLabel = `${format(periodStart, 'dd/MM/yyyy', { locale: ptBR })} a ${format(periodEnd, 'dd/MM/yyyy', { locale: ptBR })}`
+            } else {
+              periodStart = subDays(now, 30)
+              periodLabel = 'Último Mês (30 dias)'
+            }
             break
           case 'month':
           default:
@@ -944,6 +957,10 @@ export function ReportsView() {
           m.name.toLowerCase().includes(metricsSearchMachine.toLowerCase())
         )
         
+        // Calcular dias do período para custom
+        const diffTime = Math.abs(periodEnd.getTime() - periodStart.getTime())
+        const periodDaysCalc = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) || 1
+        
         // Calcular métricas para PDF
         const metricsForPDF = filteredMachinesForPDF.map(machine => {
           const shiftId = localMachineShifts[machine.id] || machine.shiftId
@@ -953,13 +970,13 @@ export function ReportsView() {
             t.machineId === machine.id && 
             (t.status === 'completed' || t.status === 'unresolved') &&
             new Date(t.createdAt) >= periodStart &&
-            new Date(t.createdAt) <= now
+            new Date(t.createdAt) <= periodEnd
           )
           
           const totalFailures = machineTickets.length
           const totalRepairTime = machineTickets.reduce((sum, t) => sum + t.downtime, 0)
           
-          const periodDays = metricsPeriod === 'week' ? 7 : metricsPeriod === 'year' ? 365 : 30
+          const periodDays = metricsPeriod === 'custom' ? periodDaysCalc : (metricsPeriod === 'week' ? 7 : metricsPeriod === 'year' ? 365 : 30)
           const hoursPerDay = shift?.hoursPerDay || 8
           const daysPerWeek = shift?.daysPerWeek || 5
           const weeksInPeriod = periodDays / 7
@@ -1642,18 +1659,39 @@ export function ReportsView() {
                     Análise de MTBF, MTTR e Disponibilidade
                   </CardDescription>
                 </div>
-                <div className="flex flex-wrap gap-2">
+                <div className="flex flex-wrap gap-2 items-center">
                   {/* Filtro de período */}
-                  <Select value={metricsPeriod} onValueChange={(v) => setMetricsPeriod(v as 'week' | 'month' | 'year')}>
-                    <SelectTrigger className="w-[130px] h-8 text-xs">
+                  <Select value={metricsPeriod} onValueChange={(v) => setMetricsPeriod(v as 'week' | 'month' | 'year' | 'custom')}>
+                    <SelectTrigger className="w-[140px] h-8 text-xs">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="week">Última Semana</SelectItem>
                       <SelectItem value="month">Último Mês</SelectItem>
                       <SelectItem value="year">Último Ano</SelectItem>
+                      <SelectItem value="custom">Personalizado</SelectItem>
                     </SelectContent>
                   </Select>
+                  {/* Campos de data personalizados */}
+                  {metricsPeriod === 'custom' && (
+                    <div className="flex items-center gap-1">
+                      <input
+                        type="date"
+                        value={metricsStartDate}
+                        onChange={(e) => setMetricsStartDate(e.target.value)}
+                        className="h-8 px-2 text-xs border rounded-md bg-background"
+                        title="Data inicial"
+                      />
+                      <span className="text-xs text-muted-foreground">a</span>
+                      <input
+                        type="date"
+                        value={metricsEndDate}
+                        onChange={(e) => setMetricsEndDate(e.target.value)}
+                        className="h-8 px-2 text-xs border rounded-md bg-background"
+                        title="Data final"
+                      />
+                    </div>
+                  )}
                   {/* Busca por máquina */}
                   <input
                     type="text"
@@ -1683,6 +1721,7 @@ export function ReportsView() {
                       // Definir período baseado no filtro
                       const now = new Date()
                       let periodStart: Date
+                      let periodEnd: Date = now
                       let periodDays: number
                       
                       switch (metricsPeriod) {
@@ -1693,6 +1732,17 @@ export function ReportsView() {
                         case 'year':
                           periodStart = subDays(now, 365)
                           periodDays = 365
+                          break
+                        case 'custom':
+                          if (metricsStartDate && metricsEndDate) {
+                            periodStart = new Date(metricsStartDate + 'T00:00:00')
+                            periodEnd = new Date(metricsEndDate + 'T23:59:59')
+                            const diffTime = Math.abs(periodEnd.getTime() - periodStart.getTime())
+                            periodDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) || 1
+                          } else {
+                            periodStart = subDays(now, 30)
+                            periodDays = 30
+                          }
                           break
                         case 'month':
                         default:
@@ -1717,7 +1767,7 @@ export function ReportsView() {
                           t.machineId === machine.id && 
                           (t.status === 'completed' || t.status === 'unresolved') &&
                           new Date(t.createdAt) >= periodStart &&
-                          new Date(t.createdAt) <= now
+                          new Date(t.createdAt) <= periodEnd
                         )
                         
                         const totalFailures = machineTickets.length
@@ -1827,7 +1877,14 @@ export function ReportsView() {
                 </div>
               </div>
               <div className="text-xs text-muted-foreground border-t pt-3">
-                <p className="font-medium mb-1">Período selecionado: {metricsPeriod === 'week' ? 'Última Semana (7 dias)' : metricsPeriod === 'month' ? 'Último Mês (30 dias)' : 'Último Ano (365 dias)'}</p>
+                <p className="font-medium mb-1">Período selecionado: {
+                  metricsPeriod === 'week' ? 'Última Semana (7 dias)' : 
+                  metricsPeriod === 'month' ? 'Último Mês (30 dias)' : 
+                  metricsPeriod === 'year' ? 'Último Ano (365 dias)' :
+                  metricsPeriod === 'custom' && metricsStartDate && metricsEndDate 
+                    ? `${format(new Date(metricsStartDate), 'dd/MM/yyyy', { locale: ptBR })} a ${format(new Date(metricsEndDate), 'dd/MM/yyyy', { locale: ptBR })}`
+                    : 'Selecione as datas'
+                }</p>
                 <p>Os cálculos consideram apenas chamados finalizados (resolvidos ou não resolvidos) dentro do período.</p>
                 <p>Máquinas sem turno definido usam valores padrão: 8h/dia, 5 dias/semana.</p>
               </div>
