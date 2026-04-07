@@ -24,7 +24,7 @@ import { Calendar } from '@/components/ui/calendar'
 import { useData } from '@/lib/data-context'
 import { useAuth } from '@/lib/auth-context'
 import { formatDuration, formatDurationLong, formatDurationHours, formatCurrency, PRIORITY_CONFIG, type AuditLog, type Shift, type MachineMetrics } from '@/lib/types'
-import { fetchShifts, updateMachineShift } from '@/lib/supabase-data'
+import { fetchShifts, updateMachineShift, fetchMetricsByPeriod } from '@/lib/supabase-data'
 import {
   FileText,
   Clock,
@@ -45,7 +45,7 @@ import {
   BarChart3,
   AlertTriangle,
 } from 'lucide-react'
-import { format, startOfDay, endOfDay, isWithinInterval, startOfMonth, endOfMonth, subDays } from 'date-fns'
+import { format, startOfDay, endOfDay, isWithinInterval, startOfMonth, endOfMonth, subDays, differenceInDays, getDaysInMonth } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { cn } from '@/lib/utils'
 import type { DateRange } from 'react-day-picker'
@@ -632,6 +632,14 @@ export function ReportsView() {
   const [tempMonthlyHours, setTempMonthlyHours] = useState<string>('')
   const [savingHours, setSavingHours] = useState(false)
   
+  // Estados para filtro de data customizado das métricas
+  const [metricsDateRange, setMetricsDateRange] = useState<DateRange | undefined>({
+    from: startOfMonth(new Date()),
+    to: endOfMonth(new Date())
+  })
+  const [metricsCalendarOpen, setMetricsCalendarOpen] = useState(false)
+  const [proportionalHours, setProportionalHours] = useState<number>(0)
+  
   // Estados para seções colapsáveis
   const [showShiftsSection, setShowShiftsSection] = useState(false)
   const [showConfigSection, setShowConfigSection] = useState(false)
@@ -659,17 +667,28 @@ export function ReportsView() {
     }
   }, [activeTab])
   
-  // Carregar métricas da View v_metricas_reais quando aba metrics é acessada
-  const loadViewMetrics = async () => {
+  // Carregar métricas da View v_metricas_reais ou função RPC por período
+  const loadViewMetrics = async (fromDate?: Date, toDate?: Date) => {
     setLoadingMetrics(true)
     setMetricsError(null)
     try {
-      const res = await fetch('/api/metrics')
-      if (!res.ok) throw new Error('Erro ao carregar métricas')
-      const data = await res.json()
+      const fromStr = fromDate ? format(fromDate, 'yyyy-MM-dd') : undefined
+      const toStr = toDate ? format(toDate, 'yyyy-MM-dd') : undefined
+      
+      const data = await fetchMetricsByPeriod(fromStr, toStr)
       setViewMetrics(data.metrics || [])
       setMonthlyHours(data.monthlyHours || 0)
       setTempMonthlyHours(String(data.monthlyHours || ''))
+      
+      // Calcular horas proporcionais: (HorasMensais / DiasNoMes) * DiasSelecionados
+      if (data.monthlyHours > 0 && fromDate && toDate) {
+        const daysInMonth = getDaysInMonth(new Date())
+        const selectedDays = differenceInDays(toDate, fromDate) + 1
+        const proportional = (data.monthlyHours / daysInMonth) * selectedDays
+        setProportionalHours(Math.round(proportional * 100) / 100)
+      } else {
+        setProportionalHours(data.monthlyHours || 0)
+      }
     } catch (err) {
       setMetricsError(err instanceof Error ? err.message : 'Erro desconhecido')
     } finally {
@@ -677,11 +696,12 @@ export function ReportsView() {
     }
   }
   
+  // Carregar métricas quando aba é acessada ou quando datas mudam
   useEffect(() => {
     if (activeTab === 'metrics') {
-      loadViewMetrics()
+      loadViewMetrics(metricsDateRange?.from, metricsDateRange?.to)
     }
-  }, [activeTab])
+  }, [activeTab, metricsDateRange])
   
   // Função para salvar horas mensais
   const saveMonthlyHours = async () => {
@@ -1826,29 +1846,136 @@ export function ReportsView() {
   
   {/* Tab MTBF/MTTR */}
   <TabsContent value="metrics" className="mt-4 space-y-4">
-          {/* Botão PDF e checkbox incluir pausas */}
-          <div className="flex items-center justify-between flex-wrap gap-3">
-            <div className="flex items-center gap-3">
-              <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  checked={metricsIncludePaused}
-                  onChange={(e) => setMetricsIncludePaused(e.target.checked)}
-                  className="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary"
-                />
-                <span>Incluir chamados pausados no PDF</span>
-              </label>
-            </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => handleGeneratePDF()}
-              className="gap-2"
-            >
-              <Printer className="w-4 h-4" />
-              Gerar PDF
-            </Button>
-          </div>
+          {/* Filtro de Data e Controles */}
+          <Card className="border-primary/20 bg-primary/5">
+            <CardContent className="p-4">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                {/* DateRangePicker */}
+                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+                  <div className="flex items-center gap-2">
+                    <CalendarIcon className="w-4 h-4 text-primary" />
+                    <span className="text-sm font-medium">Período:</span>
+                  </div>
+                  <Popover open={metricsCalendarOpen} onOpenChange={setMetricsCalendarOpen}>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className={cn(
+                          "w-full sm:w-[280px] justify-start text-left font-normal",
+                          !metricsDateRange && "text-muted-foreground"
+                        )}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {metricsDateRange?.from ? (
+                          metricsDateRange.to ? (
+                            <>
+                              {format(metricsDateRange.from, "dd/MM/yyyy", { locale: ptBR })} -{" "}
+                              {format(metricsDateRange.to, "dd/MM/yyyy", { locale: ptBR })}
+                            </>
+                          ) : (
+                            format(metricsDateRange.from, "dd/MM/yyyy", { locale: ptBR })
+                          )
+                        ) : (
+                          <span>Selecionar período</span>
+                        )}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        initialFocus
+                        mode="range"
+                        defaultMonth={metricsDateRange?.from}
+                        selected={metricsDateRange}
+                        onSelect={(range) => {
+                          setMetricsDateRange(range)
+                          if (range?.from && range?.to) {
+                            setMetricsCalendarOpen(false)
+                          }
+                        }}
+                        numberOfMonths={2}
+                        locale={ptBR}
+                      />
+                      <div className="p-3 border-t flex flex-wrap gap-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setMetricsDateRange({
+                              from: startOfMonth(new Date()),
+                              to: endOfMonth(new Date())
+                            })
+                            setMetricsCalendarOpen(false)
+                          }}
+                        >
+                          Mês Atual
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            const lastMonth = new Date()
+                            lastMonth.setMonth(lastMonth.getMonth() - 1)
+                            setMetricsDateRange({
+                              from: startOfMonth(lastMonth),
+                              to: endOfMonth(lastMonth)
+                            })
+                            setMetricsCalendarOpen(false)
+                          }}
+                        >
+                          Mês Anterior
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setMetricsDateRange({
+                              from: subDays(new Date(), 7),
+                              to: new Date()
+                            })
+                            setMetricsCalendarOpen(false)
+                          }}
+                        >
+                          Últimos 7 dias
+                        </Button>
+                      </div>
+                    </PopoverContent>
+                  </Popover>
+                  
+                  {/* Indicador de horas proporcionais */}
+                  {metricsDateRange?.from && metricsDateRange?.to && monthlyHours > 0 && (
+                    <div className="text-xs bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 px-2 py-1 rounded">
+                      <span className="font-medium">Capacidade proporcional:</span>{" "}
+                      {proportionalHours.toFixed(1)}h ({differenceInDays(metricsDateRange.to, metricsDateRange.from) + 1} dias)
+                    </div>
+                  )}
+                </div>
+                
+                {/* Botão PDF e checkbox */}
+                <div className="flex items-center gap-3 flex-wrap">
+                  <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={metricsIncludePaused}
+                      onChange={(e) => setMetricsIncludePaused(e.target.checked)}
+                      className="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary"
+                    />
+                    <span className="hidden sm:inline">Incluir pausados no PDF</span>
+                    <span className="sm:hidden">Pausados</span>
+                  </label>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleGeneratePDF()}
+                    className="gap-2"
+                  >
+                    <Printer className="w-4 h-4" />
+                    <span className="hidden sm:inline">Gerar PDF</span>
+                    <span className="sm:hidden">PDF</span>
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
 
           {/* Explicação dos indicadores */}
           <Card>

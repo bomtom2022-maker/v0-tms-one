@@ -1,13 +1,18 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 
-// GET - Buscar métricas da View v_metricas_reais e configuração de horas mensais
-export async function GET() {
+// GET - Buscar métricas da View v_metricas_reais ou da função RPC fn_metricas_por_periodo
+export async function GET(request: Request) {
   try {
     const supabase = await createClient()
+    const { searchParams } = new URL(request.url)
+    
+    // Parâmetros de data (opcionais)
+    const fromDate = searchParams.get('from')
+    const toDate = searchParams.get('to')
     
     // Buscar configuração de horas mensais
-    const { data: configData, error: configError } = await supabase
+    const { data: configData } = await supabase
       .from('company_config')
       .select('config_value')
       .eq('config_key', 'monthly_operation_hours')
@@ -16,10 +21,26 @@ export async function GET() {
     // Se não existir, usar 0 (não configurado)
     const monthlyHours = configData ? parseFloat(configData.config_value) : 0
     
-    // Buscar métricas da View
-    const { data: metricsData, error: metricsError } = await supabase
-      .from('v_metricas_reais')
-      .select('*')
+    let metricsData = null
+    let metricsError = null
+    
+    // Se há datas customizadas, usar a função RPC
+    if (fromDate && toDate) {
+      const { data, error } = await supabase
+        .rpc('fn_metricas_por_periodo', {
+          from_date: fromDate,
+          to_date: toDate
+        })
+      metricsData = data
+      metricsError = error
+    } else {
+      // Sem datas, usar a View padrão (mês atual)
+      const { data, error } = await supabase
+        .from('v_metricas_reais')
+        .select('*')
+      metricsData = data
+      metricsError = error
+    }
     
     if (metricsError) {
       console.error('Erro ao buscar métricas:', metricsError)
@@ -31,7 +52,8 @@ export async function GET() {
     
     return NextResponse.json({
       monthlyHours,
-      metrics: metricsData || []
+      metrics: metricsData || [],
+      period: fromDate && toDate ? { from: fromDate, to: toDate } : null
     })
   } catch (error) {
     console.error('Erro na API de métricas:', error)
