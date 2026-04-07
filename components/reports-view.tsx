@@ -1706,6 +1706,124 @@ export function ReportsView() {
     </Card>
   </TabsContent>
   
+  {/* Tab Cancelados/Rejeitados */}
+  <TabsContent value="cancelled" className="mt-4">
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <X className="w-5 h-5 text-red-500" />
+          Chamados Cancelados/Rejeitados
+        </CardTitle>
+        <CardDescription>
+          {cancelledTickets.length} chamados cancelados ou rejeitados no período. 
+          <span className="text-amber-600 font-medium ml-1">Estes chamados NÃO afetam os cálculos de MTBF, MTTR e Disponibilidade.</span>
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="p-0">
+        {cancelledTickets.length === 0 ? (
+          <div className="p-8 text-center text-muted-foreground">
+            <X className="w-12 h-12 mx-auto mb-3 opacity-20" />
+            <p>Nenhum chamado cancelado no período selecionado.</p>
+          </div>
+        ) : (
+          <>
+            {/* Mobile: Lista de Cards */}
+            <div className="md:hidden p-3 space-y-3">
+              {cancelledTickets.map(ticket => {
+                const machine = getMachineById(ticket.machineId)
+                const problem = getProblemById(ticket.problemId)
+                const cancelDate = ticket.cancelledAt ? new Date(ticket.cancelledAt) : new Date(ticket.createdAt)
+                return (
+                  <div key={ticket.id} className="border rounded-lg p-4 bg-card shadow-sm">
+                    {/* Cabeçalho: Data e Máquina */}
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-muted-foreground">
+                          {cancelDate.toLocaleDateString('pt-BR')}
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          {cancelDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                      </div>
+                      <span className="font-semibold text-sm">{machine?.name || 'N/A'}</span>
+                    </div>
+                    
+                    {/* Badge do Problema */}
+                    <div className="mb-3">
+                      <Badge variant="secondary" className="text-xs">
+                        {problem?.name || ticket.customProblemName || 'N/A'}
+                      </Badge>
+                    </div>
+                    
+                    {/* Quem cancelou */}
+                    <div className="flex items-center gap-2 mb-3 text-sm">
+                      <span className="text-muted-foreground">Cancelado por:</span>
+                      <span className="text-red-600 font-medium">{ticket.cancelledByName || 'Sistema'}</span>
+                    </div>
+                    
+                    {/* Motivo do Cancelamento - Destaque Principal */}
+                    <div className="bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900 rounded-md p-3">
+                      <p className="text-xs font-semibold text-red-700 dark:text-red-400 mb-1">
+                        Motivo do Cancelamento
+                      </p>
+                      <p className="text-sm text-red-900 dark:text-red-200">
+                        {ticket.cancellationReason || 'Não informado'}
+                      </p>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+
+            {/* Desktop: Tabela */}
+            <div className="hidden md:block overflow-x-auto">
+              <table className="w-full text-xs sm:text-sm">
+                <thead className="bg-muted">
+                  <tr>
+                    <th className="p-2 sm:p-3 text-left font-medium text-[10px] sm:text-xs">Data</th>
+                    <th className="p-2 sm:p-3 text-left font-medium text-[10px] sm:text-xs">Máquina</th>
+                    <th className="p-2 sm:p-3 text-left font-medium text-[10px] sm:text-xs">Problema</th>
+                    <th className="p-2 sm:p-3 text-left font-medium text-[10px] sm:text-xs">Cancelado por</th>
+                    <th className="p-2 sm:p-3 text-left font-medium text-[10px] sm:text-xs">Motivo</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {cancelledTickets.map(ticket => {
+                    const machine = getMachineById(ticket.machineId)
+                    const problem = getProblemById(ticket.problemId)
+                    const cancelDate = ticket.cancelledAt ? new Date(ticket.cancelledAt) : new Date(ticket.createdAt)
+                    return (
+                      <tr key={ticket.id} className="hover:bg-muted/50">
+                        <td className="p-2 sm:p-3">
+                          <div className="text-[10px] sm:text-xs">
+                            {cancelDate.toLocaleDateString('pt-BR')}
+                          </div>
+                          <div className="text-[9px] sm:text-[10px] text-muted-foreground">
+                            {cancelDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                          </div>
+                        </td>
+                        <td className="p-2 sm:p-3 font-medium">{machine?.name || 'N/A'}</td>
+                        <td className="p-2 sm:p-3 text-muted-foreground">{problem?.name || 'N/A'}</td>
+                        <td className="p-2 sm:p-3">
+                          <span className="text-red-600">{ticket.cancelledByName || 'Sistema'}</span>
+                        </td>
+                        <td className="p-2 sm:p-3">
+                          <span className="text-muted-foreground text-[10px] sm:text-xs">
+                            {ticket.cancellationReason || 'Não informado'}
+                          </span>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </>
+        )}
+      </CardContent>
+    </Card>
+  </TabsContent>
+  
   {/* Tab MTBF/MTTR */}
   <TabsContent value="metrics" className="mt-4 space-y-4">
           {/* Botão PDF e checkbox incluir pausas */}
