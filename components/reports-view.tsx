@@ -981,7 +981,7 @@ export function ReportsView() {
         )
         break
 
-      case 'metrics':
+      case 'metrics': {
         // Usar período do calendário
         const periodStart = metricsDateRange?.from || startOfMonth(new Date())
         const periodEnd = metricsDateRange?.to || endOfMonth(new Date())
@@ -1078,6 +1078,7 @@ export function ReportsView() {
         
         generateMetricsPDF(metricsForPDF, pausedTicketsForPDF, periodLabel, metricsIncludePaused)
         break
+      }
     }
   }
 
