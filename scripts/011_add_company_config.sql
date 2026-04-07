@@ -1,0 +1,17 @@
+-- Tabela de configuração da empresa (horas mensais de operação)
+CREATE TABLE IF NOT EXISTS company_config (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  config_key VARCHAR(100) UNIQUE NOT NULL,
+  config_value TEXT NOT NULL,
+  description TEXT,
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_by UUID REFERENCES users(id)
+);
+
+-- Inserir configuração padrão de horas mensais
+INSERT INTO company_config (config_key, config_value, description)
+VALUES ('monthly_operation_hours', '470', 'Total de horas de operação da empresa no mês')
+ON CONFLICT (config_key) DO NOTHING;
+
+-- Criar índice para busca rápida
+CREATE INDEX IF NOT EXISTS idx_company_config_key ON company_config(config_key);
