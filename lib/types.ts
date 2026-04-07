@@ -155,6 +155,18 @@ export interface Shift {
   updatedAt: Date
 }
 
+// Dados retornados pela View v_metricas_reais do Supabase
+export interface ViewMetricasReais {
+  machine_id: string
+  machine_name: string
+  total_falhas: number
+  downtime_horas: number
+  uptime_horas: number
+  mtbf: number
+  mttr: number
+  disponibilidade: number
+}
+
 // Estatísticas MTBF/MTTR por máquina
 export interface MachineMetrics {
   machineId: string
@@ -273,6 +285,18 @@ export function formatDurationLong(seconds: number): { days: number; hhmm: strin
     ? `${days}d ${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`
     : hhmm
   return { days, hhmm, full }
+}
+
+// Formata duração em horas (sem conversão para dias)
+// Retorna objeto com horas totais e formato HH:MM:SS
+export function formatDurationHours(seconds: number): { totalHours: number; hhmm: string; display: string } {
+  const totalHours = seconds / 3600
+  const hours = Math.floor(seconds / 3600)
+  const minutes = Math.floor((seconds % 3600) / 60)
+  const secs = Math.floor(seconds % 60)
+  const hhmm = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
+  const display = `${totalHours.toFixed(1)}h`
+  return { totalHours, hhmm, display }
 }
 
 export function formatCurrency(value: number): string {

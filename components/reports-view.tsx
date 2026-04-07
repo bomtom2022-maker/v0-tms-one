@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Label } from '@/components/ui/label'
+import { Input } from '@/components/ui/input'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   Select,
@@ -22,7 +23,7 @@ import {
 import { Calendar } from '@/components/ui/calendar'
 import { useData } from '@/lib/data-context'
 import { useAuth } from '@/lib/auth-context'
-import { formatDuration, formatDurationLong, formatCurrency, PRIORITY_CONFIG, type AuditLog, type Shift, type MachineMetrics } from '@/lib/types'
+import { formatDuration, formatDurationLong, formatDurationHours, formatCurrency, PRIORITY_CONFIG, type AuditLog, type Shift, type MachineMetrics } from '@/lib/types'
 import { fetchShifts, updateMachineShift } from '@/lib/supabase-data'
 import {
   FileText,
@@ -37,6 +38,10 @@ import {
   Package,
   Settings,
   Printer,
+  Loader2,
+  Save,
+  ChevronDown,
+  ChevronUp,
   BarChart3,
   AlertTriangle,
 } from 'lucide-react'
@@ -610,6 +615,29 @@ export function ReportsView() {
   const [localMachineShifts, setLocalMachineShifts] = useState<Record<string, string | null>>({})
   const [metricsIncludePaused, setMetricsIncludePaused] = useState(false)
   
+  // Estados para dados da View v_metricas_reais
+  const [viewMetrics, setViewMetrics] = useState<Array<{
+    machine_id: string
+    machine_name: string
+    total_falhas: number
+    downtime_horas: number
+    uptime_horas: number
+    mtbf: number
+    mttr: number
+    disponibilidade: number
+  }>>([])
+  const [monthlyHours, setMonthlyHours] = useState<number>(0)
+  const [loadingMetrics, setLoadingMetrics] = useState(false)
+  const [metricsError, setMetricsError] = useState<string | null>(null)
+  const [tempMonthlyHours, setTempMonthlyHours] = useState<string>('')
+  const [savingHours, setSavingHours] = useState(false)
+  
+  // Estados para seções colapsáveis
+  const [showShiftsSection, setShowShiftsSection] = useState(false)
+  const [showConfigSection, setShowConfigSection] = useState(false)
+  const [showAvailabilitySection, setShowAvailabilitySection] = useState(false)
+  const [showSummaryCards, setShowSummaryCards] = useState(false)
+  
   // Inicializar shifts locais das máquinas
   useEffect(() => {
     const initial: Record<string, string | null> = {}
@@ -630,6 +658,69 @@ export function ReportsView() {
         .finally(() => setLoadingShifts(false))
     }
   }, [activeTab])
+  
+  // Carregar métricas da View v_metricas_reais quando aba metrics é acessada
+  const loadViewMetrics = async () => {
+    setLoadingMetrics(true)
+    setMetricsError(null)
+    try {
+      const res = await fetch('/api/metrics')
+      if (!res.ok) throw new Error('Erro ao carregar métricas')
+      const data = await res.json()
+      setViewMetrics(data.metrics || [])
+      setMonthlyHours(data.monthlyHours || 0)
+      setTempMonthlyHours(String(data.monthlyHours || ''))
+    } catch (err) {
+      setMetricsError(err instanceof Error ? err.message : 'Erro desconhecido')
+    } finally {
+      setLoadingMetrics(false)
+    }
+  }
+  
+  useEffect(() => {
+    if (activeTab === 'metrics') {
+      loadViewMetrics()
+    }
+  }, [activeTab])
+  
+  // Função para salvar horas mensais
+  const saveMonthlyHours = async () => {
+    const hours = parseFloat(tempMonthlyHours)
+    if (isNaN(hours) || hours < 0) {
+      alert('Digite um valor válido de horas')
+      return
+    }
+    setSavingHours(true)
+    try {
+      const res = await fetch('/api/metrics', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ monthlyHours: hours })
+      })
+      if (!res.ok) throw new Error('Erro ao salvar')
+      // Recarregar métricas para refletir novo cálculo instantaneamente
+      await loadViewMetrics()
+    } catch (err) {
+      alert('Erro ao salvar configuração')
+    } finally {
+      setSavingHours(false)
+    }
+  }
+
+  // Máquinas com pior disponibilidade (ordenadas da menor para maior)
+  const worstAvailability = useMemo(() => {
+    return viewMetrics
+      .filter(m => m.disponibilidade < 100)
+      .sort((a, b) => a.disponibilidade - b.disponibilidade)
+      .slice(0, 5)
+  }, [viewMetrics])
+
+  // Disponibilidade média geral
+  const avgAvailability = useMemo(() => {
+    if (viewMetrics.length === 0) return 100
+    const sum = viewMetrics.reduce((acc, m) => acc + m.disponibilidade, 0)
+    return sum / viewMetrics.length
+  }, [viewMetrics])
 
   const handleDatePreset = (preset: DatePreset) => {
     const today = new Date()
@@ -707,18 +798,32 @@ export function ReportsView() {
   }, [tickets, filters, users])
 
   const stats = useMemo(() => {
-    const totalStoppedTime = filteredTickets.reduce((sum, t) => {
-      const start = new Date(t.createdAt).getTime()
-      const end = t.completedAt ? new Date(t.completedAt).getTime() : Date.now()
-      return sum + Math.floor((end - start) / 1000)
+    // Downtime total: soma da coluna downtime de todos os tickets (tempo real de máquina parada)
+    const totalStoppedTime = filteredTickets.reduce((sum, t) => sum + t.downtime, 0)
+    // Tempo operando: soma dos time_segments (tempo real dos manutentores trabalhando)
+    const totalOperatingTime = filteredTickets.reduce((sum, t) => {
+      const segmentsTime = t.timeSegments?.reduce((s, seg) => s + seg.duration, 0) || 0
+      return sum + segmentsTime
     }, 0)
-    const totalOperatingTime = filteredTickets.reduce((sum, t) => sum + t.downtime, 0)
     const totalCost = filteredTickets.reduce((sum, t) => sum + t.totalCost, 0)
     const resolved = filteredTickets.filter(t => t.resolved).length
     const notResolved = filteredTickets.filter(t => !t.resolved).length
     const uniqueMachines = new Set(filteredTickets.map(t => t.machineId)).size
-    return { total: filteredTickets.length, totalStoppedTime, totalOperatingTime, totalCost, resolved, notResolved, uniqueMachines }
-  }, [filteredTickets])
+    
+    // Downtime da View (em horas) - soma de todas as máquinas
+    const viewDowntimeHoras = viewMetrics.reduce((sum, m) => sum + m.downtime_horas, 0)
+    
+    return { 
+      total: filteredTickets.length, 
+      totalStoppedTime, 
+      totalOperatingTime, 
+      totalCost, 
+      resolved, 
+      notResolved, 
+      uniqueMachines,
+      viewDowntimeHoras // downtime da View em horas
+    }
+  }, [filteredTickets, viewMetrics])
 
   const machineData = useMemo(() => {
     const data = new Map<string, { stoppedTime: number; operatingTime: number; totalCost: number; ticketCount: number; tickets: typeof filteredTickets }>()
@@ -1107,86 +1212,94 @@ export function ReportsView() {
         </CardContent>
       </Card>
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-primary">
-                <Wrench className="w-4 h-4 text-primary-foreground" />
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground">Total Manutenções</p>
-                <p className="text-xl font-bold">{stats.total}</p>
+      {/* Summary Cards - Colapsável */}
+      <Card>
+        <CardHeader 
+          className="pb-2 cursor-pointer hover:bg-muted/50 transition-colors rounded-t-lg"
+          onClick={() => setShowSummaryCards(!showSummaryCards)}
+        >
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>Resumo do Período</CardTitle>
+              <CardDescription>
+                {stats.total} manutenções | {formatDurationHours(stats.totalStoppedTime).display} parado | {stats.uniqueMachines} máquinas
+              </CardDescription>
+            </div>
+            <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+              {showSummaryCards ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+            </Button>
+          </div>
+        </CardHeader>
+        {showSummaryCards && (
+        <CardContent className="pt-0">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="p-3 rounded-lg bg-muted/50">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-primary">
+                  <Wrench className="w-4 h-4 text-primary-foreground" />
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Total Manutenções</p>
+                  <p className="text-xl font-bold">{stats.total}</p>
+                </div>
               </div>
             </div>
-          </CardContent>
-        </Card>
 
-        <Card className="border-red-200">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-red-500">
-                <Clock className="w-4 h-4 text-white" />
-              </div>
-              <div className="min-w-0">
-                <p className="text-xs font-medium text-red-600">Máquina Parada</p>
-                {(() => {
-                  const d = formatDurationLong(stats.totalStoppedTime)
-                  return d.days > 0 ? (
-                    <>
-                      <p className="text-xl font-bold text-red-600 leading-tight">{d.days}d</p>
-                      <p className="text-sm font-mono text-red-500">{d.hhmm}</p>
-                    </>
-                  ) : (
-                    <p className="text-xl font-bold text-red-600 font-mono">{d.hhmm}</p>
-                  )
-                })()}
-                <p className="text-[10px] text-muted-foreground">abertura → resolução</p>
+            <div className="p-3 rounded-lg bg-red-50 border border-red-200">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-red-500">
+                  <Clock className="w-4 h-4 text-white" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-xs font-medium text-red-600">Máquina Parada</p>
+                  {(() => {
+                    const d = formatDurationHours(stats.totalStoppedTime)
+                    return (
+                      <>
+                        <p className="text-xl font-bold text-red-600 leading-tight">{d.display}</p>
+                        <p className="text-xs font-mono text-red-500">{d.hhmm}</p>
+                      </>
+                    )
+                  })()}
+                </div>
               </div>
             </div>
-          </CardContent>
-        </Card>
 
-        <Card className="border-orange-200">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-orange-500">
-                <TrendingUp className="w-4 h-4 text-white" />
-              </div>
-              <div className="min-w-0">
-                <p className="text-xs font-medium text-orange-600">Tempo Operando</p>
-                {(() => {
-                  const d = formatDurationLong(stats.totalOperatingTime)
-                  return d.days > 0 ? (
-                    <>
-                      <p className="text-xl font-bold text-orange-600 leading-tight">{d.days}d</p>
-                      <p className="text-sm font-mono text-orange-500">{d.hhmm}</p>
-                    </>
-                  ) : (
-                    <p className="text-xl font-bold text-orange-600 font-mono">{d.hhmm}</p>
-                  )
-                })()}
-                <p className="text-[10px] text-muted-foreground">manutentor trabalhando</p>
+            <div className="p-3 rounded-lg bg-orange-50 border border-orange-200">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-orange-500">
+                  <TrendingUp className="w-4 h-4 text-white" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-xs font-medium text-orange-600">Tempo Operando</p>
+                  {(() => {
+                    const d = formatDurationHours(stats.totalOperatingTime)
+                    return (
+                      <>
+                        <p className="text-xl font-bold text-orange-600 leading-tight">{d.display}</p>
+                        <p className="text-xs font-mono text-orange-500">{d.hhmm}</p>
+                      </>
+                    )
+                  })()}
+                </div>
               </div>
             </div>
-          </CardContent>
-        </Card>
 
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-blue-500">
-                <Settings className="w-4 h-4 text-white" />
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground">Máquinas Afetadas</p>
-                <p className="text-xl font-bold">{stats.uniqueMachines}</p>
+            <div className="p-3 rounded-lg bg-muted/50">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-blue-500">
+                  <Settings className="w-4 h-4 text-white" />
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Máquinas Afetadas</p>
+                  <p className="text-xl font-bold">{stats.uniqueMachines}</p>
+                </div>
               </div>
             </div>
-          </CardContent>
-        </Card>
-      </div>
+          </div>
+        </CardContent>
+        )}
+      </Card>
 
       {/* Abas */}
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as ReportType)}>
@@ -1365,26 +1478,26 @@ export function ReportsView() {
                       <div className="text-right">
                         <p className="text-[10px] text-red-600 font-medium uppercase tracking-wide">Máquina Parada</p>
                         {(() => {
-                          const d = formatDurationLong(m.stoppedTime)
-                          return d.days > 0 ? (
-                            <><p className="font-bold text-red-600 font-mono leading-tight">{d.days}d</p><p className="text-xs text-red-500 font-mono">{d.hhmm}</p></>
-                          ) : (
-                            <p className="font-bold text-red-600 font-mono">{d.hhmm}</p>
+                          const d = formatDurationHours(m.stoppedTime)
+                          return (
+                            <>
+                              <p className="font-bold text-red-600 font-mono leading-tight">{d.display}</p>
+                              <p className="text-xs text-red-500 font-mono">{d.hhmm}</p>
+                            </>
                           )
                         })()}
-                        <p className="text-[10px] text-muted-foreground">abertura → resolução</p>
                       </div>
                       <div className="text-right hidden sm:block">
                         <p className="text-[10px] text-orange-600 font-medium uppercase tracking-wide">Operando</p>
                         {(() => {
-                          const d = formatDurationLong(m.operatingTime)
-                          return d.days > 0 ? (
-                            <><p className="font-medium text-orange-600 font-mono leading-tight">{d.days}d</p><p className="text-xs text-orange-500 font-mono">{d.hhmm}</p></>
-                          ) : (
-                            <p className="font-medium text-orange-600 font-mono">{d.hhmm}</p>
+                          const d = formatDurationHours(m.operatingTime)
+                          return (
+                            <>
+                              <p className="font-medium text-orange-600 font-mono leading-tight">{d.display}</p>
+                              <p className="text-xs text-orange-500 font-mono">{d.hhmm}</p>
+                            </>
                           )
                         })()}
-                        <p className="text-[10px] text-muted-foreground">trabalhando</p>
                       </div>
                     </div>
                   </div>
@@ -1425,11 +1538,12 @@ export function ReportsView() {
                       <div className="text-right hidden sm:block">
                         <p className="text-[10px] text-orange-600 font-medium uppercase tracking-wide">Tempo Operando</p>
                         {(() => {
-                          const d = formatDurationLong(u.operatingTime)
-                          return d.days > 0 ? (
-                            <><p className="font-medium text-orange-600 font-mono leading-tight">{d.days}d</p><p className="text-xs text-orange-500 font-mono">{d.hhmm}</p></>
-                          ) : (
-                            <p className="font-medium text-orange-600 font-mono">{d.hhmm}</p>
+                          const d = formatDurationHours(u.operatingTime)
+                          return (
+                            <>
+                              <p className="font-medium text-orange-600 font-mono leading-tight">{d.display}</p>
+                              <p className="text-xs text-orange-500 font-mono">{d.hhmm}</p>
+                            </>
                           )
                         })()}
                         <p className="text-[10px] text-muted-foreground">trabalhando</p>
@@ -1549,14 +1663,25 @@ export function ReportsView() {
             </CardContent>
           </Card>
 
-          {/* Configuração de Turnos */}
+          {/* Configuração de Turnos - Colapsável */}
           <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base">Turnos de Operação</CardTitle>
-              <CardDescription>
-                Configure o regime de trabalho de cada máquina para cálculos precisos
-              </CardDescription>
+            <CardHeader 
+              className="pb-2 cursor-pointer hover:bg-muted/50 transition-colors rounded-t-lg"
+              onClick={() => setShowShiftsSection(!showShiftsSection)}
+            >
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-base">Turnos de Operação</CardTitle>
+                  <CardDescription>
+                    Configure o regime de trabalho de cada máquina para cálculos precisos
+                  </CardDescription>
+                </div>
+                <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                  {showShiftsSection ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                </Button>
+              </div>
             </CardHeader>
+            {showShiftsSection && (
             <CardContent>
               {loadingShifts ? (
                 <div className="p-4 text-center text-muted-foreground">Carregando turnos...</div>
@@ -1630,6 +1755,166 @@ export function ReportsView() {
                 </div>
               )}
             </CardContent>
+            )}
+          </Card>
+
+          {/* Card de Configurações Globais - Apenas Admin - Colapsável */}
+          {isAdmin && (
+            <Card className="border-blue-200 bg-blue-50/30">
+              <CardHeader 
+                className="pb-2 cursor-pointer hover:bg-blue-100/50 transition-colors rounded-t-lg"
+                onClick={() => setShowConfigSection(!showConfigSection)}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Settings className="w-4 h-4 text-blue-600" />
+                    <div>
+                      <CardTitle className="text-blue-900">Configurações Globais</CardTitle>
+                      <CardDescription className="text-blue-700/70">
+                        Configurações que afetam os cálculos de todo o sistema
+                        {monthlyHours > 0 && <span className="ml-2 text-green-600">({monthlyHours}h/mês)</span>}
+                      </CardDescription>
+                    </div>
+                  </div>
+                  <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                    {showConfigSection ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                  </Button>
+                </div>
+              </CardHeader>
+              {showConfigSection && (
+              <CardContent className="pt-0">
+                <div className="space-y-3">
+                  <div>
+                    <label className="text-xs font-medium text-foreground block mb-1.5">
+                      Capacidade Mensal da Fábrica (Horas)
+                    </label>
+                    <p className="text-[10px] text-muted-foreground mb-2">
+                      Total de horas que a empresa opera por mês. Este valor é o denominador para calcular MTBF, MTTR e Disponibilidade.
+                    </p>
+                    <div className="flex gap-2">
+                      <Input
+                        type="number"
+                        value={tempMonthlyHours}
+                        onChange={(e) => setTempMonthlyHours(e.target.value)}
+                        className="h-9 text-sm flex-1 bg-background max-w-xs"
+                        placeholder="Ex: 720 (24h x 30 dias)"
+                        min={0}
+                      />
+                      <Button 
+                        size="sm" 
+                        className="h-9 gap-2 min-w-[140px]" 
+                        onClick={saveMonthlyHours}
+                        disabled={savingHours}
+                      >
+                        {savingHours ? (
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            Aplicando...
+                          </>
+                        ) : (
+                          <>
+                            <Save className="w-4 h-4" />
+                            Aplicar às Métricas
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                    {monthlyHours > 0 && (
+                      <p className="text-[10px] text-green-600 mt-1.5">
+                        Valor atual: <strong>{monthlyHours}h/mês</strong>
+                      </p>
+                    )}
+                    {monthlyHours === 0 && (
+                      <p className="text-[10px] text-amber-600 mt-1.5">
+                        Nenhum valor configurado. Configure para ativar os cálculos de disponibilidade.
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </CardContent>
+              )}
+            </Card>
+          )}
+
+          {/* Aviso quando horas não configuradas - para não-admins */}
+          {!isAdmin && monthlyHours === 0 && (
+            <div className="p-3 rounded bg-amber-50 border border-amber-200 text-amber-800 text-sm">
+              <strong>Atenção:</strong> As horas de operação mensal não estão configuradas. 
+              Solicite ao administrador para configurar.
+            </div>
+          )}
+
+          {/* Card de Disponibilidade das Máquinas - Colapsável */}
+          <Card>
+            <CardHeader 
+              className="pb-2 cursor-pointer hover:bg-muted/50 transition-colors rounded-t-lg"
+              onClick={() => setShowAvailabilitySection(!showAvailabilitySection)}
+            >
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>Disponibilidade das Máquinas</CardTitle>
+                  <CardDescription>
+                    Máquinas com menor disponibilidade no mês {monthlyHours > 0 && `(${monthlyHours}h configuradas)`}
+                  </CardDescription>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="text-right">
+                    <p className="text-[10px] text-muted-foreground">Média Geral</p>
+                    <p className={cn(
+                      "text-xl font-bold",
+                      avgAvailability >= 95 ? "text-green-600" :
+                      avgAvailability >= 85 ? "text-yellow-600" :
+                      "text-red-600"
+                    )}>
+                      {loadingMetrics ? '...' : `${avgAvailability.toFixed(1)}%`}
+                    </p>
+                  </div>
+                  <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                    {showAvailabilitySection ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                  </Button>
+                </div>
+              </div>
+            </CardHeader>
+            {showAvailabilitySection && (
+            <CardContent className="pt-0">
+              {loadingMetrics ? (
+                <p className="text-xs text-muted-foreground text-center py-4">Carregando métricas...</p>
+              ) : monthlyHours === 0 ? (
+                <div className="text-xs text-amber-600 bg-amber-50 p-3 rounded text-center">
+                  <p className="font-medium">Horas de operação não configuradas</p>
+                  <p className="text-amber-500 mt-1">
+                    {isAdmin 
+                      ? 'Expanda "Configurações Globais" acima para definir.'
+                      : 'Solicite ao administrador para configurar.'}
+                  </p>
+                </div>
+              ) : worstAvailability.length === 0 ? (
+                <p className="text-xs text-green-600 text-center py-2">Todas as máquinas com 100% de disponibilidade!</p>
+              ) : (
+                <div className="space-y-2">
+                  <p className="text-[10px] text-muted-foreground font-medium">Máquinas com menor disponibilidade:</p>
+                  <div className="grid gap-1.5">
+                    {worstAvailability.map(m => (
+                      <div key={m.machine_id} className="flex items-center justify-between p-2 bg-muted/50 rounded text-xs">
+                        <span className="font-medium">{m.machine_name}</span>
+                        <div className="flex items-center gap-3">
+                          <span className="text-muted-foreground">{m.total_falhas} falhas</span>
+                          <span className={cn(
+                            "font-bold",
+                            m.disponibilidade >= 95 ? "text-green-600" :
+                            m.disponibilidade >= 85 ? "text-yellow-600" :
+                            "text-red-600"
+                          )}>
+                            {m.disponibilidade.toFixed(1)}%
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </CardContent>
+            )}
           </Card>
 
           {/* Tabela de Métricas por Máquina */}
@@ -1639,21 +1924,10 @@ export function ReportsView() {
                 <div>
                   <CardTitle>Métricas por Máquina</CardTitle>
                   <CardDescription className="mt-1">
-                    Análise de MTBF, MTTR e Disponibilidade
+                    Análise de MTBF, MTTR e Disponibilidade (mês atual)
                   </CardDescription>
                 </div>
-                <div className="flex flex-wrap gap-2">
-                  {/* Filtro de período */}
-                  <Select value={metricsPeriod} onValueChange={(v) => setMetricsPeriod(v as 'week' | 'month' | 'year')}>
-                    <SelectTrigger className="w-[130px] h-8 text-xs">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="week">Última Semana</SelectItem>
-                      <SelectItem value="month">Último Mês</SelectItem>
-                      <SelectItem value="year">Último Ano</SelectItem>
-                    </SelectContent>
-                  </Select>
+                <div className="flex flex-wrap gap-2 items-center">
                   {/* Busca por máquina */}
                   <input
                     type="text"
@@ -1662,6 +1936,16 @@ export function ReportsView() {
                     value={metricsSearchMachine}
                     onChange={(e) => setMetricsSearchMachine(e.target.value)}
                   />
+                  {/* Botão recarregar */}
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="h-8 text-xs"
+                    onClick={loadViewMetrics}
+                    disabled={loadingMetrics}
+                  >
+                    {loadingMetrics ? 'Carregando...' : 'Atualizar'}
+                  </Button>
                 </div>
               </div>
             </CardHeader>
@@ -1671,97 +1955,34 @@ export function ReportsView() {
                   <thead className="bg-muted">
                     <tr>
                       <th className="p-3 text-left font-medium">Máquina</th>
-                      <th className="p-3 text-center font-medium">Turno</th>
                       <th className="p-3 text-center font-medium">Falhas</th>
+                      <th className="p-3 text-center font-medium">Downtime (h)</th>
                       <th className="p-3 text-center font-medium text-blue-600">MTBF (h)</th>
                       <th className="p-3 text-center font-medium text-orange-600">MTTR (h)</th>
                       <th className="p-3 text-center font-medium text-green-600">Disponib.</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y">
-                    {(() => {
-                      // Definir período baseado no filtro
-                      const now = new Date()
-                      let periodStart: Date
-                      let periodDays: number
-                      
-                      switch (metricsPeriod) {
-                        case 'week':
-                          periodStart = subDays(now, 7)
-                          periodDays = 7
-                          break
-                        case 'year':
-                          periodStart = subDays(now, 365)
-                          periodDays = 365
-                          break
-                        case 'month':
-                        default:
-                          periodStart = subDays(now, 30)
-                          periodDays = 30
-                      }
-                      
+                    {loadingMetrics ? (
+                      <tr>
+                        <td colSpan={6} className="p-8 text-center text-muted-foreground">
+                          Carregando métricas...
+                        </td>
+                      </tr>
+                    ) : metricsError ? (
+                      <tr>
+                        <td colSpan={6} className="p-8 text-center text-red-500">
+                          Erro ao carregar: {metricsError}
+                        </td>
+                      </tr>
+                    ) : (() => {
                       // Filtrar máquinas pela busca
-                      const filteredMachines = machines.filter(m => 
+                      const filteredMetrics = viewMetrics.filter(m => 
                         metricsSearchMachine === '' || 
-                        m.name.toLowerCase().includes(metricsSearchMachine.toLowerCase())
+                        m.machine_name.toLowerCase().includes(metricsSearchMachine.toLowerCase())
                       )
                       
-                      // Calcular métricas para cada máquina
-                      const metricsData: MachineMetrics[] = filteredMachines.map(machine => {
-                        // Usar shift local atualizado ou o original da máquina
-                        const shiftId = localMachineShifts[machine.id] || machine.shiftId
-                        const shift = shifts.find(s => s.id === shiftId)
-                        
-                        // Filtrar tickets da máquina no período selecionado
-                        const machineTickets = tickets.filter(t => 
-                          t.machineId === machine.id && 
-                          (t.status === 'completed' || t.status === 'unresolved') &&
-                          new Date(t.createdAt) >= periodStart &&
-                          new Date(t.createdAt) <= now
-                        )
-                        
-                        const totalFailures = machineTickets.length
-                        const totalRepairTime = machineTickets.reduce((sum, t) => sum + t.downtime, 0)
-                        
-                        // Horas esperadas baseado no turno (ou 8h/dia, 5 dias como padrão)
-                        const hoursPerDay = shift?.hoursPerDay || 8
-                        const daysPerWeek = shift?.daysPerWeek || 5
-                        const weeksInPeriod = periodDays / 7
-                        const expectedHours = hoursPerDay * daysPerWeek * weeksInPeriod
-                        
-                        // Tempo parado em horas
-                        const totalDowntimeHours = totalRepairTime / 3600
-                        
-                        // MTBF = (Tempo Operação - Tempo Parado) / Falhas
-                        // Se não houver falhas, MTBF é infinito (mostramos como "-")
-                        const operatingHours = Math.max(0, expectedHours - totalDowntimeHours)
-                        const mtbf = totalFailures > 0 ? operatingHours / totalFailures : 0
-                        
-                        // MTTR = Tempo Total Reparo / Falhas
-                        const mttr = totalFailures > 0 ? totalDowntimeHours / totalFailures : 0
-                        
-                        // Disponibilidade = (MTBF / (MTBF + MTTR)) * 100
-                        const availability = mtbf > 0 ? (mtbf / (mtbf + mttr)) * 100 : (totalFailures === 0 ? 100 : 0)
-                        
-                        return {
-                          machineId: machine.id,
-                          machineName: machine.name,
-                          shiftName: shift?.name || 'Não definido',
-                          periodDays,
-                          expectedHours,
-                          totalFailures,
-                          totalRepairTime,
-                          totalDowntime: totalRepairTime,
-                          mtbf,
-                          mttr,
-                          availability,
-                        }
-                      })
-                      
-                      // Ordenar por número de falhas (mais problemáticas primeiro)
-                      metricsData.sort((a, b) => b.totalFailures - a.totalFailures)
-                      
-                      if (metricsData.length === 0) {
+                      if (filteredMetrics.length === 0) {
                         return (
                           <tr>
                             <td colSpan={6} className="p-8 text-center text-muted-foreground">
@@ -1771,28 +1992,31 @@ export function ReportsView() {
                         )
                       }
                       
-                      return metricsData.map(m => (
-                        <tr key={m.machineId} className="hover:bg-muted/50">
-                          <td className="p-3 font-medium">{m.machineName}</td>
-                          <td className="p-3 text-center text-xs text-muted-foreground">{m.shiftName}</td>
-                          <td className="p-3 text-center font-mono">{m.totalFailures}</td>
+                      // Dados vem da View já ordenados por total_falhas DESC
+                      return filteredMetrics.map(m => (
+                        <tr key={m.machine_id} className="hover:bg-muted/50">
+                          <td className="p-3 font-medium">{m.machine_name}</td>
+                          <td className="p-3 text-center font-mono">{m.total_falhas}</td>
+                          <td className="p-3 text-center font-mono text-muted-foreground">
+                            {m.downtime_horas.toFixed(2)}
+                          </td>
                           <td className="p-3 text-center font-mono text-blue-600 font-semibold">
-                            {m.totalFailures > 0 ? m.mtbf.toFixed(1) : '-'}
+                            {m.total_falhas === 0 ? (monthlyHours > 0 ? monthlyHours.toFixed(1) : '-') : m.mtbf.toFixed(1)}
                           </td>
                           <td className="p-3 text-center font-mono text-orange-600 font-semibold">
-                            {m.totalFailures > 0 ? m.mttr.toFixed(2) : '-'}
+                            {m.total_falhas === 0 ? '0.00' : m.mttr.toFixed(2)}
                           </td>
                           <td className="p-3 text-center">
                             <Badge 
                               variant="outline" 
                               className={cn(
                                 "font-mono",
-                                m.availability >= 95 ? "bg-green-50 text-green-700 border-green-300" :
-                                m.availability >= 85 ? "bg-yellow-50 text-yellow-700 border-yellow-300" :
+                                m.disponibilidade >= 95 ? "bg-green-50 text-green-700 border-green-300" :
+                                m.disponibilidade >= 85 ? "bg-yellow-50 text-yellow-700 border-yellow-300" :
                                 "bg-red-50 text-red-700 border-red-300"
                               )}
                             >
-                              {m.availability.toFixed(1)}%
+                              {m.disponibilidade.toFixed(1)}%
                             </Badge>
                           </td>
                         </tr>
@@ -1800,9 +2024,9 @@ export function ReportsView() {
                     })()}
                   </tbody>
                 </table>
-                {machines.length === 0 && (
+                {viewMetrics.length === 0 && !loadingMetrics && !metricsError && (
                   <div className="p-8 text-center text-muted-foreground">
-                    Nenhuma máquina cadastrada.
+                    Nenhuma máquina cadastrada ou View não disponível.
                   </div>
                 )}
               </div>
@@ -1826,10 +2050,16 @@ export function ReportsView() {
                   <span>Disponibilidade menor que 85%</span>
                 </div>
               </div>
-              <div className="text-xs text-muted-foreground border-t pt-3">
-                <p className="font-medium mb-1">Período selecionado: {metricsPeriod === 'week' ? 'Última Semana (7 dias)' : metricsPeriod === 'month' ? 'Último Mês (30 dias)' : 'Último Ano (365 dias)'}</p>
-                <p>Os cálculos consideram apenas chamados finalizados (resolvidos ou não resolvidos) dentro do período.</p>
-                <p>Máquinas sem turno definido usam valores padrão: 8h/dia, 5 dias/semana.</p>
+              <div className="text-xs text-muted-foreground border-t pt-3 space-y-2">
+                <p className="font-medium">Período: Mês atual | Horas configuradas: {monthlyHours > 0 ? `${monthlyHours}h/mês` : 'Não configurado'}</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 bg-muted/50 p-2 rounded text-[11px]">
+                  <div><strong>Downtime:</strong> Soma de t.downtime dos tickets (em horas)</div>
+                  <div><strong>Uptime:</strong> monthly_hours - Downtime</div>
+                  <div><strong>MTBF:</strong> Uptime / Número de Falhas (se 0 falhas = monthly_hours)</div>
+                  <div><strong>MTTR:</strong> Downtime / Número de Falhas</div>
+                  <div className="md:col-span-2"><strong>Disponibilidade:</strong> (Uptime / monthly_hours) × 100 (se 0 falhas = 100%)</div>
+                </div>
+                <p>Os dados vêm da View <code className="bg-muted px-1 rounded">v_metricas_reais</code> do Supabase - não são calculados localmente.</p>
               </div>
             </CardContent>
           </Card>
