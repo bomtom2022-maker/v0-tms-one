@@ -640,6 +640,59 @@ export function ReportsView() {
   const [metricsCalendarOpen, setMetricsCalendarOpen] = useState(false)
   const [proportionalHours, setProportionalHours] = useState<number>(0)
   
+  // Estados temporários para seleção por cliques sequenciais
+  const [tempMetricsFrom, setTempMetricsFrom] = useState<Date | undefined>(startOfMonth(new Date()))
+  const [tempMetricsTo, setTempMetricsTo] = useState<Date | undefined>(endOfMonth(new Date()))
+  const [metricsClickCount, setMetricsClickCount] = useState(0)
+  const [metricsCalendarMonth, setMetricsCalendarMonth] = useState<Date>(new Date())
+  
+  // Handler para cliques sequenciais no calendário de métricas
+  const handleMetricsDateClick = (date: Date | undefined) => {
+    if (!date) return
+    
+    if (metricsClickCount === 0) {
+      // 1º clique: define o from
+      setTempMetricsFrom(date)
+      setTempMetricsTo(undefined)
+      setMetricsClickCount(1)
+    } else if (metricsClickCount === 1) {
+      // 2º clique: define o to (garante que from < to)
+      if (tempMetricsFrom && date < tempMetricsFrom) {
+        setTempMetricsTo(tempMetricsFrom)
+        setTempMetricsFrom(date)
+      } else {
+        setTempMetricsTo(date)
+      }
+      setMetricsClickCount(2)
+    } else {
+      // 3º clique: limpa e define novo from
+      setTempMetricsFrom(date)
+      setTempMetricsTo(undefined)
+      setMetricsClickCount(1)
+    }
+  }
+  
+  // Aplicar seleção de datas
+  const applyMetricsDateRange = () => {
+    if (tempMetricsFrom && tempMetricsTo) {
+      setMetricsDateRange({ from: tempMetricsFrom, to: tempMetricsTo })
+      setMetricsCalendarOpen(false)
+    }
+  }
+  
+  // Sincronizar estados temporários quando popover abre
+  const handleMetricsCalendarOpenChange = (open: boolean) => {
+    if (open) {
+      setTempMetricsFrom(metricsDateRange?.from)
+      setTempMetricsTo(metricsDateRange?.to)
+      setMetricsClickCount(metricsDateRange?.from && metricsDateRange?.to ? 2 : 0)
+      if (metricsDateRange?.from) {
+        setMetricsCalendarMonth(metricsDateRange.from)
+      }
+    }
+    setMetricsCalendarOpen(open)
+  }
+  
   // Estados para seções colapsáveis
   const [showShiftsSection, setShowShiftsSection] = useState(false)
   const [showConfigSection, setShowConfigSection] = useState(false)
@@ -1856,7 +1909,7 @@ export function ReportsView() {
                     <CalendarIcon className="w-4 h-4 text-primary" />
                     <span className="text-sm font-medium">Período:</span>
                   </div>
-                  <Popover open={metricsCalendarOpen} onOpenChange={setMetricsCalendarOpen}>
+                  <Popover open={metricsCalendarOpen} onOpenChange={handleMetricsCalendarOpenChange}>
                     <PopoverTrigger asChild>
                       <Button
                         variant="outline"
@@ -1881,30 +1934,93 @@ export function ReportsView() {
                       </Button>
                     </PopoverTrigger>
                     <PopoverContent className="w-auto p-0" align="start">
+                      {/* Instruções de uso */}
+                      <div className="p-3 bg-muted/50 border-b text-xs text-muted-foreground">
+                        <p className="font-medium text-foreground mb-1">Como selecionar:</p>
+                        <p>1º clique = Data inicial | 2º clique = Data final</p>
+                      </div>
+                      
+                      {/* Indicador de seleção atual */}
+                      <div className="p-3 border-b flex items-center justify-between gap-4">
+                        <div className="flex items-center gap-2">
+                          <div className={cn(
+                            "px-3 py-1.5 rounded text-sm font-medium border-2",
+                            tempMetricsFrom 
+                              ? "bg-primary text-primary-foreground border-primary" 
+                              : "bg-muted text-muted-foreground border-dashed border-muted-foreground/30"
+                          )}>
+                            {tempMetricsFrom ? format(tempMetricsFrom, "dd/MM/yyyy", { locale: ptBR }) : "Início"}
+                          </div>
+                          <span className="text-muted-foreground">até</span>
+                          <div className={cn(
+                            "px-3 py-1.5 rounded text-sm font-medium border-2",
+                            tempMetricsTo 
+                              ? "bg-primary text-primary-foreground border-primary" 
+                              : "bg-muted text-muted-foreground border-dashed border-muted-foreground/30"
+                          )}>
+                            {tempMetricsTo ? format(tempMetricsTo, "dd/MM/yyyy", { locale: ptBR }) : "Fim"}
+                          </div>
+                        </div>
+                        {metricsClickCount > 0 && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-xs h-7"
+                            onClick={() => {
+                              setTempMetricsFrom(undefined)
+                              setTempMetricsTo(undefined)
+                              setMetricsClickCount(0)
+                            }}
+                          >
+                            Limpar
+                          </Button>
+                        )}
+                      </div>
+                      
+                      {/* Calendário único com navegação */}
                       <Calendar
-                        initialFocus
-                        mode="range"
-                        defaultMonth={metricsDateRange?.from}
-                        selected={metricsDateRange}
-                        onSelect={(range) => {
-                          setMetricsDateRange(range)
-                          if (range?.from && range?.to) {
-                            setMetricsCalendarOpen(false)
+                        mode="single"
+                        month={metricsCalendarMonth}
+                        onMonthChange={setMetricsCalendarMonth}
+                        selected={undefined}
+                        onSelect={handleMetricsDateClick}
+                        locale={ptBR}
+                        className="p-3"
+                        modifiers={{
+                          selected: (date) => {
+                            if (tempMetricsFrom && date.toDateString() === tempMetricsFrom.toDateString()) return true
+                            if (tempMetricsTo && date.toDateString() === tempMetricsTo.toDateString()) return true
+                            return false
+                          },
+                          range: (date) => {
+                            if (tempMetricsFrom && tempMetricsTo) {
+                              return date > tempMetricsFrom && date < tempMetricsTo
+                            }
+                            return false
                           }
                         }}
-                        numberOfMonths={2}
-                        locale={ptBR}
+                        modifiersStyles={{
+                          selected: { 
+                            backgroundColor: 'hsl(var(--primary))', 
+                            color: 'hsl(var(--primary-foreground))',
+                            fontWeight: 'bold'
+                          },
+                          range: { 
+                            backgroundColor: 'hsl(var(--primary) / 0.15)',
+                            borderRadius: 0
+                          }
+                        }}
                       />
+                      
+                      {/* Atalhos rápidos */}
                       <div className="p-3 border-t flex flex-wrap gap-2">
                         <Button
                           variant="ghost"
                           size="sm"
                           onClick={() => {
-                            setMetricsDateRange({
-                              from: startOfMonth(new Date()),
-                              to: endOfMonth(new Date())
-                            })
-                            setMetricsCalendarOpen(false)
+                            setTempMetricsFrom(startOfMonth(new Date()))
+                            setTempMetricsTo(endOfMonth(new Date()))
+                            setMetricsClickCount(2)
                           }}
                         >
                           Mês Atual
@@ -1915,11 +2031,10 @@ export function ReportsView() {
                           onClick={() => {
                             const lastMonth = new Date()
                             lastMonth.setMonth(lastMonth.getMonth() - 1)
-                            setMetricsDateRange({
-                              from: startOfMonth(lastMonth),
-                              to: endOfMonth(lastMonth)
-                            })
-                            setMetricsCalendarOpen(false)
+                            setTempMetricsFrom(startOfMonth(lastMonth))
+                            setTempMetricsTo(endOfMonth(lastMonth))
+                            setMetricsClickCount(2)
+                            setMetricsCalendarMonth(lastMonth)
                           }}
                         >
                           Mês Anterior
@@ -1928,14 +2043,23 @@ export function ReportsView() {
                           variant="ghost"
                           size="sm"
                           onClick={() => {
-                            setMetricsDateRange({
-                              from: subDays(new Date(), 7),
-                              to: new Date()
-                            })
-                            setMetricsCalendarOpen(false)
+                            setTempMetricsFrom(subDays(new Date(), 7))
+                            setTempMetricsTo(new Date())
+                            setMetricsClickCount(2)
                           }}
                         >
                           Últimos 7 dias
+                        </Button>
+                      </div>
+                      
+                      {/* Botão Aplicar */}
+                      <div className="p-3 border-t bg-muted/30">
+                        <Button
+                          className="w-full"
+                          disabled={!tempMetricsFrom || !tempMetricsTo}
+                          onClick={applyMetricsDateRange}
+                        >
+                          Aplicar Período
                         </Button>
                       </div>
                     </PopoverContent>
