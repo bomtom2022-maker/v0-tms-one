@@ -3,6 +3,7 @@
 import { useState, useMemo, useEffect } from 'react'
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Label } from '@/components/ui/label'
@@ -54,6 +55,7 @@ import {
   ChevronUp,
   BarChart3,
   AlertTriangle,
+  Info,
 } from 'lucide-react'
 import { format, startOfDay, endOfDay, isWithinInterval, startOfMonth, endOfMonth, subDays, differenceInDays, getDaysInMonth } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
@@ -1020,13 +1022,41 @@ export function ReportsView() {
 
   const stats = useMemo(() => {
     // IMPORTANTE: Usar apenas tickets válidos (completed + resolved) para métricas
-    // Downtime total: soma da coluna downtime apenas de tickets válidos
+    // Downtime total: soma da coluna downtime apenas de tickets válidos (em SEGUNDOS)
     const totalStoppedTime = validTicketsForMetrics.reduce((sum, t) => sum + t.downtime, 0)
-    // Tempo operando: soma dos time_segments apenas de tickets válidos
-    const totalOperatingTime = validTicketsForMetrics.reduce((sum, t) => {
-      const segmentsTime = t.timeSegments?.reduce((s, seg) => s + seg.duration, 0) || 0
-      return sum + segmentsTime
-    }, 0)
+    
+    // ========== CÁLCULO TEMPO OPERANDO (PROPORCIONAL AO FILTRO) ==========
+    // CONSTANTES (valores fixos e explícitos):
+    const H_PLANEJADA_DIA = 15.8 // 474h mensais ÷ 30 dias = 15.8h/dia por máquina
+    
+    // PASSO 1: Calcular dias no período filtrado
+    // REGRA: Se from === to (mesmo dia), dias = 1. Se from = ontem e to = hoje, dias = 2
+    let diasNoFiltro = 1 // padrão para "Hoje"
+    if (filters.dateRange?.from && filters.dateRange?.to) {
+      // differenceInDays retorna a diferença absoluta, +1 para incluir ambos os dias
+      diasNoFiltro = Math.max(1, differenceInDays(filters.dateRange.to, filters.dateRange.from) + 1)
+    }
+    
+    // PASSO 2: Total de máquinas ativas (usando o número exato de máquinas cadastradas)
+    const totalMaquinas = machines.length // Todas as máquinas cadastradas
+    
+    // PASSO 3: Calcular Capacidade Total em HORAS
+    // Fórmula: CapacidadeTotalHoras = H_PLANEJADA_DIA × DiasNoFiltro × TotalMaquinas
+    // Exemplo: 15.8 × 2 × 27 = 853.2h
+    const capacidadeTotalHoras = H_PLANEJADA_DIA * diasNoFiltro * totalMaquinas
+    
+    // PASSO 4: Converter Downtime de segundos para HORAS
+    const downtimeTotalHoras = totalStoppedTime / 3600
+    
+    // PASSO 5: Tempo Operando em HORAS
+    // Fórmula: TempoOperando = CapacidadeTotal - DowntimeTotal
+    const tempoOperandoHoras = Math.max(0, capacidadeTotalHoras - downtimeTotalHoras)
+    
+    // PASSO 6: Converter de volta para SEGUNDOS (para manter compatibilidade com formatDurationHours)
+    const totalOperatingTime = tempoOperandoHoras * 3600
+    
+    // ========== FIM CÁLCULO TEMPO OPERANDO ==========
+    
     const totalCost = validTicketsForMetrics.reduce((sum, t) => sum + t.totalCost, 0)
     const resolved = validTicketsForMetrics.length
     const notResolved = filteredTickets.filter(t => t.status === 'unresolved').length
@@ -1048,9 +1078,14 @@ export function ReportsView() {
       notResolved, 
       uniqueMachines,
       viewDowntimeHoras,
-      cancelledCount
+      cancelledCount,
+      // Informações para legenda do card Tempo Operando
+      daysInPeriod: diasNoFiltro,
+      totalMachinesCount: totalMaquinas,
+      plannedCapacityHours: capacidadeTotalHoras,
+      dailyCapacityHours: H_PLANEJADA_DIA
     }
-  }, [filteredTickets, validTicketsForMetrics, cancelledTickets, viewMetrics])
+  }, [filteredTickets, validTicketsForMetrics, cancelledTickets, viewMetrics, filters.dateRange, machines])
 
   const machineData = useMemo(() => {
     // Usar apenas tickets válidos (completed + resolved) para métricas de máquinas
@@ -1570,19 +1605,29 @@ export function ReportsView() {
               </div>
             </div>
 
-            <div className="p-3 rounded-lg bg-orange-50 border border-orange-200">
+            <div className="p-3 rounded-lg bg-emerald-50 border border-emerald-200">
               <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-orange-500">
+                <div className="p-2 rounded-lg bg-emerald-600">
                   <TrendingUp className="w-4 h-4 text-white" />
                 </div>
-                <div className="min-w-0">
-                  <p className="text-xs font-medium text-orange-600">Tempo Operando</p>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-1">
+                    <p className="text-xs font-medium text-emerald-700">Tempo Operando</p>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Info className="w-3 h-3 text-emerald-500 cursor-help" />
+                      </TooltipTrigger>
+                      <TooltipContent side="top" className="max-w-[250px] text-center">
+                        <p>Capacidade total de {stats.totalMachinesCount} máquinas no período de {stats.daysInPeriod} dia{stats.daysInPeriod > 1 ? 's' : ''}, subtraindo o tempo de parada.</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </div>
                   {(() => {
                     const d = formatDurationHours(stats.totalOperatingTime)
                     return (
                       <>
-                        <p className="text-xl font-bold text-orange-600 leading-tight">{d.display}</p>
-                        <p className="text-xs font-mono text-orange-500">{d.hhmm}</p>
+                        <p className="text-xl font-extrabold text-emerald-700 leading-tight">{d.display}</p>
+                        <p className="text-xs font-mono text-emerald-600">{d.hhmm}</p>
                       </>
                     )
                   })()}
