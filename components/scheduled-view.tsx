@@ -104,8 +104,45 @@ export function ScheduledView() {
     setShowDeleteConfirm(null)
   }
 
-  const handleMarkComplete = (id: string) => {
-    updateScheduledMaintenance(id, { status: 'completed' }, currentUser?.id || '', currentUser?.name || '')
+  const handleMarkComplete = async (id: string) => {
+    const maintenance = scheduledMaintenances.find(m => m.id === id)
+    if (!maintenance) return
+    
+    // Marcar como concluída
+    await updateScheduledMaintenance(id, { status: 'completed' }, currentUser?.id || '', currentUser?.name || '')
+    
+    // Se for preventiva, atualizar a data da última preventiva na máquina
+    // e agendar a próxima automaticamente
+    if (maintenance.type === 'preventive') {
+      const machine = getMachineById(maintenance.machineId)
+      if (machine?.preventiveIntervalDays) {
+        const today = new Date()
+        const nextPreventiveDate = addDays(today, machine.preventiveIntervalDays)
+        
+        // Atualizar última preventiva da máquina via API
+        try {
+          await fetch('/api/machines/preventive', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+              machineId: machine.id, 
+              lastPreventiveDate: today.toISOString() 
+            }),
+          })
+          
+          // Criar próxima manutenção preventiva automaticamente
+          await addScheduledMaintenance({
+            machineId: machine.id,
+            title: maintenance.title,
+            description: maintenance.description || `Preventiva automática - Periodicidade: ${machine.preventiveIntervalDays} dias`,
+            scheduledDate: nextPreventiveDate,
+            type: 'preventive',
+          }, currentUser?.id || '', currentUser?.name || '')
+        } catch (err) {
+          console.error('Erro ao agendar próxima preventiva:', err)
+        }
+      }
+    }
   }
 
   const handleMarkCancelled = (id: string) => {
@@ -121,11 +158,49 @@ export function ScheduledView() {
   const completedMaintenances = sortedMaintenances.filter(m => m.status === 'completed')
   const cancelledMaintenances = sortedMaintenances.filter(m => m.status === 'cancelled')
 
+  // Sistema de cores: Vermelho (atrasada), Amarelo (próximos 7 dias), Verde (em dia)
   const getDateStatus = (date: Date) => {
-    if (isToday(date)) return { label: 'Hoje', color: 'text-orange-600 bg-orange-50' }
-    if (isBefore(date, new Date())) return { label: 'Atrasada', color: 'text-red-600 bg-red-50' }
-    if (isBefore(date, addDays(new Date(), 7))) return { label: 'Esta Semana', color: 'text-blue-600 bg-blue-50' }
-    return null
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const compareDate = new Date(date)
+    compareDate.setHours(0, 0, 0, 0)
+    
+    // Atrasada - Vermelho
+    if (isBefore(compareDate, today)) {
+      const daysLate = Math.abs(Math.floor((today.getTime() - compareDate.getTime()) / (1000 * 60 * 60 * 24)))
+      return { 
+        label: daysLate === 1 ? '1 dia atrasada' : `${daysLate} dias atrasada`, 
+        color: 'text-red-600 bg-red-100 border-red-200',
+        dotColor: 'bg-red-500'
+      }
+    }
+    
+    // Hoje - Laranja
+    if (isToday(date)) {
+      return { 
+        label: 'Hoje', 
+        color: 'text-orange-600 bg-orange-100 border-orange-200',
+        dotColor: 'bg-orange-500'
+      }
+    }
+    
+    // Próximos 7 dias - Amarelo
+    if (isBefore(compareDate, addDays(today, 7))) {
+      const daysUntil = Math.floor((compareDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
+      return { 
+        label: daysUntil === 1 ? 'Amanhã' : `Em ${daysUntil} dias`, 
+        color: 'text-yellow-700 bg-yellow-100 border-yellow-200',
+        dotColor: 'bg-yellow-500'
+      }
+    }
+    
+    // Em dia (mais de 7 dias) - Verde
+    const daysUntil = Math.floor((compareDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
+    return { 
+      label: `Em ${daysUntil} dias`, 
+      color: 'text-green-600 bg-green-100 border-green-200',
+      dotColor: 'bg-green-500'
+    }
   }
 
   return (

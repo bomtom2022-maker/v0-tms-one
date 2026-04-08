@@ -43,9 +43,27 @@ export async function POST(request: Request) {
 
 export async function PUT(request: Request) {
   try {
-    const { id, name, sector, status, manufacturer, model, controller } = await request.json()
+    const { id, name, sector, status, manufacturer, model, controller, preventiveIntervalDays, lastPreventiveDate } = await request.json()
     const supabase = createAdminClient()
-    const { error } = await supabase.from('machines').update({ name, sector, status, manufacturer: manufacturer || null, model: model || null, controller: controller || null }).eq('id', id)
+    
+    const updates: Record<string, unknown> = {
+      name,
+      sector,
+      status,
+      manufacturer: manufacturer || null,
+      model: model || null,
+      controller: controller || null,
+    }
+    
+    // Campos de preventiva (opcionais)
+    if (preventiveIntervalDays !== undefined) {
+      updates.preventive_interval_days = preventiveIntervalDays || null
+    }
+    if (lastPreventiveDate !== undefined) {
+      updates.last_preventive_date = lastPreventiveDate || null
+    }
+    
+    const { error } = await supabase.from('machines').update(updates).eq('id', id)
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     return NextResponse.json({ success: true })
   } catch (err: unknown) {

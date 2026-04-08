@@ -43,7 +43,18 @@ export async function fetchMachines(includeInactive = false): Promise<Machine[]>
     status: row.status as MachineStatus,
     shiftId: (row.shift_id as string) || undefined,
     isActive: row.is_active !== false, // default true se coluna não existir
+    preventiveIntervalDays: row.preventive_interval_days ? Number(row.preventive_interval_days) : undefined,
+    lastPreventiveDate: row.last_preventive_date ? new Date(row.last_preventive_date as string) : undefined,
   }))
+}
+
+// Atualizar campos de preventiva de uma máquina
+export async function updateMachinePreventive(machineId: string, lastPreventiveDate: Date): Promise<void> {
+  await apiFetch('/api/machines/preventive', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ machineId, lastPreventiveDate: lastPreventiveDate.toISOString() }),
+  })
 }
 
 export async function insertMachine(name: string, sector: string, status: MachineStatus, manufacturer?: string, model?: string, controller?: string): Promise<Machine> {
@@ -55,11 +66,11 @@ export async function insertMachine(name: string, sector: string, status: Machin
   return { id: row.id, name: row.name, sector: row.sector, status: row.status, manufacturer: row.manufacturer, model: row.model, controller: row.controller }
 }
 
-export async function updateMachineDb(id: string, name: string, sector: string, status: MachineStatus, manufacturer?: string, model?: string, controller?: string): Promise<void> {
+export async function updateMachineDb(id: string, name: string, sector: string, status: MachineStatus, manufacturer?: string, model?: string, controller?: string, preventiveIntervalDays?: number, lastPreventiveDate?: string): Promise<void> {
   await apiFetch('/api/machines', {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ id, name, sector, status, manufacturer, model, controller }),
+    body: JSON.stringify({ id, name, sector, status, manufacturer, model, controller, preventiveIntervalDays, lastPreventiveDate }),
   })
 }
 

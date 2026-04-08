@@ -26,7 +26,11 @@ import {
 } from '@/components/ui/alert-dialog'
 import { useData } from '@/lib/data-context'
 import { useAuth } from '@/lib/auth-context'
-import { Plus, Settings, Pencil, Cpu, Trash2, Search, ChevronDown, ChevronUp } from 'lucide-react'
+import { Plus, Settings, Pencil, Cpu, Trash2, Search, ChevronDown, ChevronUp, CalendarDays, RefreshCw } from 'lucide-react'
+import { format, addDays, isBefore, differenceInDays } from 'date-fns'
+import { ptBR } from 'date-fns/locale'
+import { Badge } from '@/components/ui/badge'
+import { Separator } from '@/components/ui/separator'
 
 interface MachineForm {
   name: string
@@ -34,6 +38,8 @@ interface MachineForm {
   manufacturer: string
   model: string
   controller: string
+  preventiveIntervalDays: string
+  lastPreventiveDate: string
 }
 
 const emptyForm: MachineForm = {
@@ -42,6 +48,8 @@ const emptyForm: MachineForm = {
   manufacturer: '',
   model: '',
   controller: '',
+  preventiveIntervalDays: '',
+  lastPreventiveDate: '',
 }
 
 export function MachinesView() {
@@ -104,12 +112,21 @@ export function MachinesView() {
     setError(null)
     try {
       const machine = machines.find(m => m.id === editingId)
+      
+      // Preparar dados de preventiva
+      const preventiveIntervalDays = editForm.preventiveIntervalDays ? parseInt(editForm.preventiveIntervalDays) : undefined
+      const lastPreventiveDate = editForm.lastPreventiveDate 
+        ? new Date(editForm.lastPreventiveDate + 'T12:00:00').toISOString()
+        : undefined
+      
       await updateMachine(
         editingId, editForm.name.trim(), editForm.sector.trim(), machine?.status || 'ok',
         currentUser?.id || '', currentUser?.name || '',
         editForm.manufacturer.trim() || undefined,
         editForm.model.trim() || undefined,
         editForm.controller.trim() || undefined,
+        preventiveIntervalDays,
+        lastPreventiveDate,
       )
       setEditingId(null)
     } catch (err) {
@@ -134,8 +151,29 @@ export function MachinesView() {
       manufacturer: m.manufacturer || '',
       model: m.model || '',
       controller: m.controller || '',
+      preventiveIntervalDays: m.preventiveIntervalDays?.toString() || '',
+      lastPreventiveDate: m.lastPreventiveDate ? format(m.lastPreventiveDate, 'yyyy-MM-dd') : '',
     })
     setEditingId(id)
+  }
+  
+  // Calcular próxima preventiva de uma máquina
+  const getNextPreventive = (machine: typeof machines[0]) => {
+    if (!machine.preventiveIntervalDays || !machine.lastPreventiveDate) return null
+    return addDays(machine.lastPreventiveDate, machine.preventiveIntervalDays)
+  }
+  
+  // Status da preventiva (verde, amarelo, vermelho)
+  const getPreventiveStatus = (machine: typeof machines[0]) => {
+    const nextDate = getNextPreventive(machine)
+    if (!nextDate) return null
+    
+    const today = new Date()
+    const daysUntil = differenceInDays(nextDate, today)
+    
+    if (daysUntil < 0) return { color: 'destructive', label: 'Atrasada', days: daysUntil }
+    if (daysUntil <= 7) return { color: 'warning', label: 'Próxima', days: daysUntil }
+    return { color: 'success', label: 'Em dia', days: daysUntil }
   }
 
   return (
@@ -198,14 +236,14 @@ export function MachinesView() {
 
       {/* Edit Dialog */}
       <Dialog open={!!editingId} onOpenChange={open => !open && setEditingId(null)}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Editar Maquina</DialogTitle>
-            <DialogDescription>Altere os dados da maquina.</DialogDescription>
+            <DialogTitle>Editar Máquina</DialogTitle>
+            <DialogDescription>Altere os dados da máquina.</DialogDescription>
           </DialogHeader>
           <div className="space-y-3 py-4">
             <div className="space-y-2">
-              <Label htmlFor="edit-name">Nome da Maquina *</Label>
+              <Label htmlFor="edit-name">Nome da Máquina *</Label>
               <Input id="edit-name" value={editForm.name} onChange={e => setEditForm(f => ({ ...f, name: e.target.value }))} />
             </div>
             <div className="space-y-2">
@@ -224,6 +262,52 @@ export function MachinesView() {
               <Label htmlFor="edit-controller">Comando (CNC)</Label>
               <Input id="edit-controller" placeholder="Ex: Fanuc 0i-TF, Siemens 840D" value={editForm.controller} onChange={e => setEditForm(f => ({ ...f, controller: e.target.value }))} />
             </div>
+            
+            {/* Seção de Manutenção Preventiva */}
+            <Separator className="my-4" />
+            <div className="space-y-1">
+              <h4 className="text-sm font-medium flex items-center gap-2">
+                <CalendarDays className="w-4 h-4 text-blue-500" />
+                Manutenção Preventiva
+              </h4>
+              <p className="text-xs text-muted-foreground">
+                Configure a periodicidade para gerar alertas automáticos
+              </p>
+            </div>
+            
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label htmlFor="edit-interval">Periodicidade (dias)</Label>
+                <Input 
+                  id="edit-interval" 
+                  type="number" 
+                  min="1"
+                  placeholder="Ex: 30, 60, 90"
+                  value={editForm.preventiveIntervalDays} 
+                  onChange={e => setEditForm(f => ({ ...f, preventiveIntervalDays: e.target.value }))} 
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-last-preventive">Última Preventiva</Label>
+                <Input 
+                  id="edit-last-preventive" 
+                  type="date" 
+                  value={editForm.lastPreventiveDate} 
+                  onChange={e => setEditForm(f => ({ ...f, lastPreventiveDate: e.target.value }))} 
+                />
+              </div>
+            </div>
+            
+            {editForm.preventiveIntervalDays && editForm.lastPreventiveDate && (
+              <div className="p-3 rounded-lg bg-muted/50 border">
+                <p className="text-xs text-muted-foreground">
+                  Próxima preventiva prevista: {' '}
+                  <span className="font-medium text-foreground">
+                    {format(addDays(new Date(editForm.lastPreventiveDate), parseInt(editForm.preventiveIntervalDays)), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
+                  </span>
+                </p>
+              </div>
+            )}
           </div>
           <DialogFooter className="flex-col gap-2">
               {error && (

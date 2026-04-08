@@ -22,7 +22,8 @@ import { useData } from '@/lib/data-context'
 import { useAuth } from '@/lib/auth-context'
 import { useNotification } from '@/lib/notification-context'
 import { PRIORITY_CONFIG, type Priority } from '@/lib/types'
-import { Clock, Search, Filter, Play, Pause, ArrowRight, AlertCircle, Wrench, CheckCircle2, User, CalendarIcon, XCircle, History, ChevronRight } from 'lucide-react'
+import { Clock, Search, Filter, Play, Pause, ArrowRight, AlertCircle, Wrench, CheckCircle2, User, CalendarIcon, XCircle, History, ChevronRight, CalendarDays } from 'lucide-react'
+import { addDays, isBefore } from 'date-fns'
 import {
   Sheet,
   SheetContent,
@@ -49,7 +50,7 @@ interface DashboardViewProps {
 }
 
 export function DashboardView({ onSelectTicket }: DashboardViewProps) {
-  const { tickets, machines, problems, getMachineById, getProblemById, rejectTicket } = useData()
+  const { tickets, machines, problems, scheduledMaintenances, getMachineById, getProblemById, rejectTicket } = useData()
   const { isManutentor, isLider, currentUser } = useAuth()
   const { notify } = useNotification()
   
@@ -98,6 +99,17 @@ export function DashboardView({ onSelectTicket }: DashboardViewProps) {
       if (t.status !== 'completed' || !t.completedAt) return false
       return isSameDay(t.completedAt, completedDateFilter)
     }).length
+    
+    // Preventivas nos próximos 7 dias
+    const today = new Date()
+    const sevenDaysLater = addDays(today, 7)
+    const pendingPreventives = scheduledMaintenances.filter(m => {
+      if (m.status !== 'pending') return false
+      const scheduledDate = new Date(m.scheduledDate)
+      return isBefore(scheduledDate, sevenDaysLater)
+    })
+    const preventivesNext7Days = pendingPreventives.length
+    const overduePreventives = pendingPreventives.filter(m => isBefore(new Date(m.scheduledDate), today)).length
     // Rejeitados (cancelled)
     const rejectedTickets = tickets.filter(t => t.status === 'cancelled').length
 
@@ -108,8 +120,10 @@ export function DashboardView({ onSelectTicket }: DashboardViewProps) {
       unresolved: unresolvedTickets,
       completed: completedOnDate,
       rejected: rejectedTickets,
+      preventivesNext7Days,
+      overduePreventives,
     }
-  }, [tickets, completedDateFilter])
+  }, [tickets, completedDateFilter, scheduledMaintenances])
 
   // Total de chamados ativos (open + in-progress + paused + unresolved)
   const totalActive = tickets.filter(t =>
@@ -412,9 +426,59 @@ export function DashboardView({ onSelectTicket }: DashboardViewProps) {
                 <p className="text-2xl sm:text-3xl font-bold text-gray-500">{dashboardStats.rejected}</p>
                 <p className="text-[9px] text-muted-foreground">Clique para ver</p>
               </div>
-              <div className="p-2 bg-gray-100 rounded-full">
-                <XCircle className="w-4 h-4 text-gray-500" />
-              </div>
+        <div className="p-2 bg-gray-100 rounded-full">
+            <XCircle className="w-4 h-4 sm:w-5 sm:h-5 text-gray-500" />
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  </div>
+  
+  {/* Widget de Preventivas - Próximos 7 dias */}
+  {dashboardStats.preventivesNext7Days > 0 && (
+    <Card className={cn(
+      "border-2 transition-all",
+      dashboardStats.overduePreventives > 0 
+        ? "border-red-300 bg-gradient-to-r from-red-50 to-orange-50 dark:from-red-950/30 dark:to-orange-950/30" 
+        : "border-blue-200 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30"
+    )}>
+      <CardContent className="p-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className={cn(
+              "p-2.5 rounded-lg",
+              dashboardStats.overduePreventives > 0 ? "bg-red-100" : "bg-blue-100"
+            )}>
+              <CalendarDays className={cn(
+                "w-5 h-5",
+                dashboardStats.overduePreventives > 0 ? "text-red-600" : "text-blue-600"
+              )} />
+            </div>
+            <div>
+              <h3 className="font-semibold text-sm">Manutenções Preventivas</h3>
+              <p className="text-xs text-muted-foreground">
+                {dashboardStats.overduePreventives > 0 ? (
+                  <span className="text-red-600 font-medium">
+                    {dashboardStats.overduePreventives} atrasada{dashboardStats.overduePreventives > 1 ? 's' : ''} + {dashboardStats.preventivesNext7Days - dashboardStats.overduePreventives} agendada{(dashboardStats.preventivesNext7Days - dashboardStats.overduePreventives) !== 1 ? 's' : ''}
+                  </span>
+                ) : (
+                  `${dashboardStats.preventivesNext7Days} agendada${dashboardStats.preventivesNext7Days > 1 ? 's' : ''} para os próximos 7 dias`
+                )}
+              </p>
+            </div>
+          </div>
+          <div className="text-right">
+            <p className={cn(
+              "text-3xl font-bold",
+              dashboardStats.overduePreventives > 0 ? "text-red-600" : "text-blue-600"
+            )}>
+              {dashboardStats.preventivesNext7Days}
+            </p>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  )}
             </div>
           </CardContent>
         </Card>

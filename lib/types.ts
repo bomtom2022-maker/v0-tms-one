@@ -68,6 +68,8 @@ export interface Machine {
   status: MachineStatus
   shiftId?: string // referência ao turno de trabalho
   isActive?: boolean // soft delete - máquinas inativas não aparecem nos seletores
+  preventiveIntervalDays?: number // periodicidade da preventiva em dias
+  lastPreventiveDate?: Date // data da última preventiva realizada
 }
 
 export interface Problem {

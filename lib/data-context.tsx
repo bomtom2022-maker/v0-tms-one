@@ -25,7 +25,7 @@ interface DataContextType {
   reloadData: () => Promise<void>
   reloadAuditLogs: () => Promise<void>
   addMachine: (name: string, sector: string, status: MachineStatus, userId: string, userName: string, manufacturer?: string, model?: string, controller?: string) => Promise<void>
-  updateMachine: (id: string, name: string, sector: string, status: MachineStatus, userId: string, userName: string, manufacturer?: string, model?: string, controller?: string) => Promise<void>
+  updateMachine: (id: string, name: string, sector: string, status: MachineStatus, userId: string, userName: string, manufacturer?: string, model?: string, controller?: string, preventiveIntervalDays?: number, lastPreventiveDate?: string) => Promise<void>
   deleteMachine: (id: string, userId: string, userName: string) => Promise<void>
   addPart: (name: string, price: number, description: string | undefined, userId: string, userName: string) => Promise<void>
   updatePart: (id: string, name: string, price: number, description: string | undefined, userId: string, userName: string, previousPrice?: number) => Promise<void>
@@ -123,9 +123,19 @@ export function DataProvider({ children }: { children: ReactNode }) {
     setMachines(prev => [...prev, newMachine])
   }, [])
 
-  const updateMachine = useCallback(async (id: string, name: string, sector: string, status: MachineStatus, _userId: string, _userName: string, manufacturer?: string, model?: string, controller?: string) => {
-    await updateMachineDb(id, name, sector, status, manufacturer, model, controller)
-    setMachines(prev => prev.map(m => m.id === id ? { ...m, name, sector, status, manufacturer, model, controller } : m))
+  const updateMachine = useCallback(async (id: string, name: string, sector: string, status: MachineStatus, _userId: string, _userName: string, manufacturer?: string, model?: string, controller?: string, preventiveIntervalDays?: number, lastPreventiveDate?: string) => {
+    await updateMachineDb(id, name, sector, status, manufacturer, model, controller, preventiveIntervalDays, lastPreventiveDate)
+    setMachines(prev => prev.map(m => m.id === id ? { 
+      ...m, 
+      name, 
+      sector, 
+      status, 
+      manufacturer, 
+      model, 
+      controller,
+      preventiveIntervalDays,
+      lastPreventiveDate: lastPreventiveDate ? new Date(lastPreventiveDate) : undefined,
+    } : m))
   }, [])
 
   const deleteMachine = useCallback(async (id: string, _userId: string, _userName: string) => {
