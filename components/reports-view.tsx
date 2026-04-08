@@ -1020,46 +1020,49 @@ export function ReportsView() {
 
   const stats = useMemo(() => {
     // IMPORTANTE: Usar apenas tickets válidos (completed + resolved) para métricas
-    // Downtime total: soma da coluna downtime apenas de tickets válidos (em segundos)
+    // Downtime total: soma da coluna downtime apenas de tickets válidos (em SEGUNDOS)
     const totalStoppedTime = validTicketsForMetrics.reduce((sum, t) => sum + t.downtime, 0)
     
     // ========== CÁLCULO TEMPO OPERANDO (PROPORCIONAL AO FILTRO) ==========
-    // Constantes:
-    // - Capacidade mensal por máquina: 474h (configurável pelo admin)
-    // - Capacidade diária por máquina: 474 / 30 = 15.8h/dia
-    const MONTHLY_CAPACITY_HOURS = 474
-    const DAILY_CAPACITY_HOURS = MONTHLY_CAPACITY_HOURS / 30 // 15.8h/dia por máquina
+    // CONSTANTES (valores fixos e explícitos):
+    const H_PLANEJADA_DIA = 15.8 // 474h mensais ÷ 30 dias = 15.8h/dia por máquina
     
-    // Calcular dias no período filtrado
-    // REGRA: Se filtro = "Hoje", dias = 1. Se "ontem até hoje", dias = 2
-    let daysInPeriod = 1 // padrão para "Hoje"
+    // PASSO 1: Calcular dias no período filtrado
+    // REGRA: Se from === to (mesmo dia), dias = 1. Se from = ontem e to = hoje, dias = 2
+    let diasNoFiltro = 1 // padrão para "Hoje"
     if (filters.dateRange?.from && filters.dateRange?.to) {
-      // differenceInDays retorna a diferença, então +1 para incluir ambos os dias
-      daysInPeriod = differenceInDays(filters.dateRange.to, filters.dateRange.from) + 1
+      // differenceInDays retorna a diferença absoluta, +1 para incluir ambos os dias
+      diasNoFiltro = Math.max(1, differenceInDays(filters.dateRange.to, filters.dateRange.from) + 1)
     }
     
-    // Total de máquinas ativas no sistema (apenas status 'operational' ou todas cadastradas)
-    const totalMachines = machines.filter(m => m.status !== 'maintenance').length || machines.length
+    // PASSO 2: Total de máquinas ativas (usando o número exato de máquinas cadastradas)
+    const totalMaquinas = machines.length // Todas as máquinas cadastradas
     
-    // Capacidade planejada do período (em segundos para manter consistência com downtime)
-    // Fórmula: 15.8h × dias × máquinas × 3600 (converte horas para segundos)
-    // Exemplo: 2 dias, 27 máquinas = 15.8 * 2 * 27 = 853.2h = 3,071,520 segundos
-    const plannedCapacitySeconds = DAILY_CAPACITY_HOURS * daysInPeriod * totalMachines * 3600
+    // PASSO 3: Calcular Capacidade Total em HORAS
+    // Fórmula: CapacidadeTotalHoras = H_PLANEJADA_DIA × DiasNoFiltro × TotalMaquinas
+    // Exemplo: 15.8 × 2 × 27 = 853.2h
+    const capacidadeTotalHoras = H_PLANEJADA_DIA * diasNoFiltro * totalMaquinas
     
-    // Tempo Operando = Capacidade Planejada - Downtime Total (ambos em segundos)
-    // O resultado final será convertido para horas pela função formatDurationHours
-    const totalOperatingTime = Math.max(0, plannedCapacitySeconds - totalStoppedTime)
+    // PASSO 4: Converter Downtime de segundos para HORAS
+    const downtimeTotalHoras = totalStoppedTime / 3600
+    
+    // PASSO 5: Tempo Operando em HORAS
+    // Fórmula: TempoOperando = CapacidadeTotal - DowntimeTotal
+    const tempoOperandoHoras = Math.max(0, capacidadeTotalHoras - downtimeTotalHoras)
+    
+    // PASSO 6: Converter de volta para SEGUNDOS (para manter compatibilidade com formatDurationHours)
+    const totalOperatingTime = tempoOperandoHoras * 3600
     
     // DEBUG: Verificar valores do cálculo
     console.log('[v0] Cálculo Tempo Operando:', {
-      daysInPeriod,
-      totalMachines,
-      dailyCapacityHours: DAILY_CAPACITY_HOURS,
-      plannedCapacityHours: plannedCapacitySeconds / 3600,
-      totalStoppedTimeHours: totalStoppedTime / 3600,
-      totalOperatingTimeHours: totalOperatingTime / 3600,
-      dateFrom: filters.dateRange?.from,
-      dateTo: filters.dateRange?.to
+      diasNoFiltro,
+      totalMaquinas,
+      H_PLANEJADA_DIA,
+      capacidadeTotalHoras: capacidadeTotalHoras.toFixed(1),
+      downtimeTotalHoras: downtimeTotalHoras.toFixed(1),
+      tempoOperandoHoras: tempoOperandoHoras.toFixed(1),
+      dateFrom: filters.dateRange?.from?.toISOString?.() || filters.dateRange?.from,
+      dateTo: filters.dateRange?.to?.toISOString?.() || filters.dateRange?.to
     })
     // ========== FIM CÁLCULO TEMPO OPERANDO ==========
     
@@ -1086,9 +1089,9 @@ export function ReportsView() {
       viewDowntimeHoras,
       cancelledCount,
       // Extras para debug/transparência
-      daysInPeriod,
-      totalMachinesCount: totalMachines,
-      plannedCapacityHours: (plannedCapacitySeconds / 3600)
+      daysInPeriod: diasNoFiltro,
+      totalMachinesCount: totalMaquinas,
+      plannedCapacityHours: capacidadeTotalHoras
     }
   }, [filteredTickets, validTicketsForMetrics, cancelledTickets, viewMetrics, filters.dateRange, machines])
 
