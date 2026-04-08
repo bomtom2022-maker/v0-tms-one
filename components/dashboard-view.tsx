@@ -426,59 +426,59 @@ export function DashboardView({ onSelectTicket }: DashboardViewProps) {
                 <p className="text-2xl sm:text-3xl font-bold text-gray-500">{dashboardStats.rejected}</p>
                 <p className="text-[9px] text-muted-foreground">Clique para ver</p>
               </div>
-        <div className="p-2 bg-gray-100 rounded-full">
-            <XCircle className="w-4 h-4 sm:w-5 sm:h-5 text-gray-500" />
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-  </div>
+              <div className="p-2 bg-gray-100 rounded-full">
+                <XCircle className="w-4 h-4 sm:w-5 sm:h-5 text-gray-500" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
   
-  {/* Widget de Preventivas - Próximos 7 dias */}
-  {dashboardStats.preventivesNext7Days > 0 && (
-    <Card className={cn(
-      "border-2 transition-all",
-      dashboardStats.overduePreventives > 0 
-        ? "border-red-300 bg-gradient-to-r from-red-50 to-orange-50 dark:from-red-950/30 dark:to-orange-950/30" 
-        : "border-blue-200 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30"
-    )}>
-      <CardContent className="p-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className={cn(
-              "p-2.5 rounded-lg",
-              dashboardStats.overduePreventives > 0 ? "bg-red-100" : "bg-blue-100"
-            )}>
-              <CalendarDays className={cn(
-                "w-5 h-5",
-                dashboardStats.overduePreventives > 0 ? "text-red-600" : "text-blue-600"
-              )} />
+      {/* Widget de Preventivas - Próximos 7 dias */}
+      {dashboardStats.preventivesNext7Days > 0 && (
+        <Card className={cn(
+          "border-2 transition-all",
+          dashboardStats.overduePreventives > 0 
+            ? "border-red-300 bg-gradient-to-r from-red-50 to-orange-50 dark:from-red-950/30 dark:to-orange-950/30" 
+            : "border-blue-200 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30"
+        )}>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className={cn(
+                  "p-2.5 rounded-lg",
+                  dashboardStats.overduePreventives > 0 ? "bg-red-100" : "bg-blue-100"
+                )}>
+                  <CalendarDays className={cn(
+                    "w-5 h-5",
+                    dashboardStats.overduePreventives > 0 ? "text-red-600" : "text-blue-600"
+                  )} />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-sm">Manutenções Preventivas</h3>
+                  <p className="text-xs text-muted-foreground">
+                    {dashboardStats.overduePreventives > 0 ? (
+                      <span className="text-red-600 font-medium">
+                        {dashboardStats.overduePreventives} atrasada{dashboardStats.overduePreventives > 1 ? 's' : ''} + {dashboardStats.preventivesNext7Days - dashboardStats.overduePreventives} agendada{(dashboardStats.preventivesNext7Days - dashboardStats.overduePreventives) !== 1 ? 's' : ''}
+                      </span>
+                    ) : (
+                      `${dashboardStats.preventivesNext7Days} agendada${dashboardStats.preventivesNext7Days > 1 ? 's' : ''} para os próximos 7 dias`
+                    )}
+                  </p>
+                </div>
+              </div>
+              <div className="text-right">
+                <p className={cn(
+                  "text-3xl font-bold",
+                  dashboardStats.overduePreventives > 0 ? "text-red-600" : "text-blue-600"
+                )}>
+                  {dashboardStats.preventivesNext7Days}
+                </p>
+              </div>
             </div>
-            <div>
-              <h3 className="font-semibold text-sm">Manutenções Preventivas</h3>
-              <p className="text-xs text-muted-foreground">
-                {dashboardStats.overduePreventives > 0 ? (
-                  <span className="text-red-600 font-medium">
-                    {dashboardStats.overduePreventives} atrasada{dashboardStats.overduePreventives > 1 ? 's' : ''} + {dashboardStats.preventivesNext7Days - dashboardStats.overduePreventives} agendada{(dashboardStats.preventivesNext7Days - dashboardStats.overduePreventives) !== 1 ? 's' : ''}
-                  </span>
-                ) : (
-                  `${dashboardStats.preventivesNext7Days} agendada${dashboardStats.preventivesNext7Days > 1 ? 's' : ''} para os próximos 7 dias`
-                )}
-              </p>
-            </div>
-          </div>
-          <div className="text-right">
-            <p className={cn(
-              "text-3xl font-bold",
-              dashboardStats.overduePreventives > 0 ? "text-red-600" : "text-blue-600"
-            )}>
-              {dashboardStats.preventivesNext7Days}
-            </p>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-  )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Lista de Chamados Em Aberto */}
       {showOpen && (
