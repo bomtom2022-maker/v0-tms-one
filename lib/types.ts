@@ -67,6 +67,7 @@ export interface Machine {
   controller?: string
   status: MachineStatus
   shiftId?: string // referência ao turno de trabalho
+  isActive?: boolean // soft delete - máquinas inativas não aparecem nos seletores
 }
 
 export interface Problem {

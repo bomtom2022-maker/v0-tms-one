@@ -30,8 +30,9 @@ async function apiFetch(url: string, options?: RequestInit) {
 
 // ─── MAQUINAS ──────────────────────────────────────────────
 
-export async function fetchMachines(): Promise<Machine[]> {
-  const data = await apiFetch('/api/machines')
+export async function fetchMachines(includeInactive = false): Promise<Machine[]> {
+  const url = includeInactive ? '/api/machines?includeInactive=true' : '/api/machines'
+  const data = await apiFetch(url)
   return (data || []).map((row: Record<string, unknown>) => ({
     id: row.id as string,
     name: row.name as string,
@@ -41,6 +42,7 @@ export async function fetchMachines(): Promise<Machine[]> {
     controller: (row.controller as string) || undefined,
     status: row.status as MachineStatus,
     shiftId: (row.shift_id as string) || undefined,
+    isActive: row.is_active !== false, // default true se coluna não existir
   }))
 }
 

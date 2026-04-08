@@ -281,15 +281,20 @@ export function MachinesView() {
         </CardContent>
       </Card>
 
-      {/* Confirmacao de exclusao */}
+      {/* Confirmacao de desativacao (soft delete) */}
       <AlertDialog open={!!deletingMachineId} onOpenChange={open => !open && setDeletingMachineId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Excluir Maquina</AlertDialogTitle>
-            <AlertDialogDescription>
-              Tem certeza que deseja excluir a maquina{' '}
-              <strong>{machines.find(m => m.id === deletingMachineId)?.name}</strong>?
-              Esta acao nao pode ser desfeita.
+            <AlertDialogTitle>Desativar Máquina</AlertDialogTitle>
+            <AlertDialogDescription className="space-y-2">
+              <span className="block">
+                Tem certeza que deseja desativar a máquina{' '}
+                <strong>{machines.find(m => m.id === deletingMachineId)?.name}</strong>?
+              </span>
+              <span className="block text-sm">
+                Os dados históricos de manutenção desta máquina serão preservados, 
+                mas ela não poderá mais receber novos chamados.
+              </span>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -298,7 +303,7 @@ export function MachinesView() {
               onClick={handleDelete}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              Excluir
+              Desativar
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
