@@ -607,8 +607,9 @@ export function ReportsView() {
   }, [])
 
   const [activeTab, setActiveTab] = useState<ReportType>('general')
+  // Filtro padrão: do dia 1 do mês atual até hoje
   const [filters, setFilters] = useState<FilterState>({
-    dateRange: { from: subDays(new Date(), 30), to: new Date() },
+    dateRange: { from: startOfMonth(new Date()), to: new Date() },
     datePreset: 'month',
     machineId: 'all',
     userId: 'all',
@@ -619,7 +620,7 @@ export function ReportsView() {
   const [calendarOpen, setCalendarOpen] = useState(false)
   
   // Estados para cliques sequenciais no calendário de filtros gerais
-  const [tempFilterFrom, setTempFilterFrom] = useState<Date | undefined>(subDays(new Date(), 30))
+  const [tempFilterFrom, setTempFilterFrom] = useState<Date | undefined>(startOfMonth(new Date()))
   const [tempFilterTo, setTempFilterTo] = useState<Date | undefined>(new Date())
   const [filterClickCount, setFilterClickCount] = useState(2)
   const [filterCalendarMonth, setFilterCalendarMonth] = useState<Date>(new Date())
@@ -936,8 +937,9 @@ export function ReportsView() {
   }
 
   const clearFilters = () => {
+    // Resetar para o padrão: do dia 1 do mês atual até hoje
     setFilters({
-      dateRange: { from: subDays(new Date(), 30), to: new Date() },
+      dateRange: { from: startOfMonth(new Date()), to: new Date() },
       datePreset: 'month',
       machineId: 'all',
       userId: 'all',
