@@ -48,7 +48,7 @@ export function ScheduledView() {
   const [completionNotes, setCompletionNotes] = useState('')
   const [showDeleteHistoryConfirm, setShowDeleteHistoryConfirm] = useState<string | null>(null)
   
-  const isAdmin = currentUser?.role === 'admin'
+  const isAdmin = currentUser?.isAdmin === true
 
   // Form state
   const [machineId, setMachineId] = useState('')
