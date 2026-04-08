@@ -274,7 +274,7 @@ export function DashboardView({ onSelectTicket }: DashboardViewProps) {
         </div>
       </div>
 
-      {/* Status Cards - 6 contadores */}
+      {/* Status Cards - Grid de 6 contadores */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-3">
         {/* Em Aberto */}
         <Card 
