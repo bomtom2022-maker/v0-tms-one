@@ -57,6 +57,11 @@ export async function PUT(request: Request) {
     if (updates.scheduledDate !== undefined) dbUpdates.scheduled_date = updates.scheduledDate
     if (updates.type !== undefined) dbUpdates.type = updates.type
     if (updates.status !== undefined) dbUpdates.status = updates.status
+    // Campos de conclusão
+    if (updates.completionNotes !== undefined) dbUpdates.completion_notes = updates.completionNotes
+    if (updates.completedBy !== undefined) dbUpdates.completed_by = toUuidOrNull(updates.completedBy)
+    if (updates.completedByName !== undefined) dbUpdates.completed_by_name = updates.completedByName
+    if (updates.completedAt !== undefined) dbUpdates.completed_at = updates.completedAt
     const { error } = await supabase.from('scheduled_maintenances').update(dbUpdates).eq('id', id)
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     return NextResponse.json({ success: true })

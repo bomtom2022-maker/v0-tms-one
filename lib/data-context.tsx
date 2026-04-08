@@ -217,9 +217,15 @@ export function DataProvider({ children }: { children: ReactNode }) {
     setScheduledMaintenances(prev => [...prev, newSched])
   }, [])
 
-  const updateScheduledMaintenance = useCallback(async (id: string, data: Partial<Omit<ScheduledMaintenance, 'id' | 'createdAt'>>, _userId: string, _userName: string) => {
-    await updateScheduledMaintenanceDb(id, data)
-    setScheduledMaintenances(prev => prev.map(s => s.id === id ? { ...s, ...data } : s))
+  const updateScheduledMaintenance = useCallback(async (id: string, data: Partial<Omit<ScheduledMaintenance, 'id' | 'createdAt'>>, userId: string, userName: string) => {
+    // Se está concluindo, adicionar dados de conclusão
+    const isCompleting = data.status === 'completed'
+    await updateScheduledMaintenanceDb(id, data, isCompleting ? userId : undefined, isCompleting ? userName : undefined)
+    
+    const updatedData = isCompleting 
+      ? { ...data, completedAt: new Date(), completedBy: userId, completedByName: userName }
+      : data
+    setScheduledMaintenances(prev => prev.map(s => s.id === id ? { ...s, ...updatedData } : s))
   }, [])
 
   const deleteScheduledMaintenance = useCallback(async (id: string, _userId: string, _userName: string) => {

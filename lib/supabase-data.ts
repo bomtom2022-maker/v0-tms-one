@@ -332,6 +332,12 @@ export async function fetchScheduledMaintenances(): Promise<ScheduledMaintenance
     type: row.type as ScheduledMaintenance['type'],
     status: row.status as ScheduledMaintenance['status'],
     createdAt: new Date(row.created_at as string),
+    createdBy: row.created_by as string | undefined,
+    createdByName: row.created_by_name as string | undefined,
+    completedAt: row.completed_at ? new Date(row.completed_at as string) : undefined,
+    completedBy: row.completed_by as string | undefined,
+    completedByName: row.completed_by_name as string | undefined,
+    completionNotes: row.completion_notes as string | undefined,
   }))
 }
 
@@ -361,7 +367,7 @@ export async function insertScheduledMaintenance(data: Omit<ScheduledMaintenance
   }
 }
 
-export async function updateScheduledMaintenanceDb(id: string, updates: Partial<ScheduledMaintenance>): Promise<void> {
+export async function updateScheduledMaintenanceDb(id: string, updates: Partial<ScheduledMaintenance>, completedBy?: string, completedByName?: string): Promise<void> {
   await apiFetch('/api/maintenances', {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
@@ -372,6 +378,10 @@ export async function updateScheduledMaintenanceDb(id: string, updates: Partial<
       ...(updates.scheduledDate !== undefined && { scheduledDate: updates.scheduledDate.toISOString() }),
       ...(updates.type !== undefined && { type: updates.type }),
       ...(updates.status !== undefined && { status: updates.status }),
+      ...(updates.completionNotes !== undefined && { completionNotes: updates.completionNotes }),
+      ...(completedBy && { completedBy }),
+      ...(completedByName && { completedByName }),
+      ...(updates.status === 'completed' && { completedAt: new Date().toISOString() }),
     }),
   })
 }

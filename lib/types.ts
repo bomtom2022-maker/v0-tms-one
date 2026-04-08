@@ -145,6 +145,12 @@ export interface ScheduledMaintenance {
   type: 'preventive' | 'corrective' | 'inspection'
   status: 'pending' | 'completed' | 'cancelled'
   createdAt: Date
+  createdBy?: string // ID do usuário que criou
+  createdByName?: string // Nome do usuário que criou
+  completedAt?: Date // Data/hora de conclusão
+  completedBy?: string // ID do usuário que concluiu
+  completedByName?: string // Nome do usuário que concluiu
+  completionNotes?: string // Observações da conclusão
 }
 
 // Turno de trabalho para cálculo de MTBF/MTTR
