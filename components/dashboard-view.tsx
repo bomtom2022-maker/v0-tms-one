@@ -479,10 +479,6 @@ export function DashboardView({ onSelectTicket }: DashboardViewProps) {
       </CardContent>
     </Card>
   )}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
 
       {/* Lista de Chamados Em Aberto */}
       {showOpen && (
