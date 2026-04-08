@@ -20,6 +20,13 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover'
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from '@/components/ui/sheet'
 import { Calendar } from '@/components/ui/calendar'
 import { useData } from '@/lib/data-context'
 import { useAuth } from '@/lib/auth-context'
@@ -655,6 +662,30 @@ export function ReportsView() {
     }
     setCalendarOpen(open)
   }
+  
+  // Estados para o Sheet de detalhes da máquina
+  const [selectedMachineForDetails, setSelectedMachineForDetails] = useState<string | null>(null)
+  const [machineDetailsOpen, setMachineDetailsOpen] = useState(false)
+  
+  // Abrir detalhes da máquina
+  const openMachineDetails = (machineId: string) => {
+    setSelectedMachineForDetails(machineId)
+    setMachineDetailsOpen(true)
+  }
+  
+  // Buscar tickets da máquina selecionada (respeitando o filtro de data atual)
+  const machineDetailTickets = useMemo(() => {
+    if (!selectedMachineForDetails) return []
+    return filteredTickets
+      .filter(t => t.machineId === selectedMachineForDetails)
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+  }, [selectedMachineForDetails, filteredTickets])
+  
+  // Dados da máquina selecionada
+  const selectedMachineData = useMemo(() => {
+    if (!selectedMachineForDetails) return null
+    return getMachineById(selectedMachineForDetails)
+  }, [selectedMachineForDetails, getMachineById])
   
   // Estados para MTBF/MTTR
   const [shifts, setShifts] = useState<Shift[]>([])
@@ -1701,7 +1732,11 @@ export function ReportsView() {
             <CardContent className="p-0">
               <div className="divide-y">
                 {machineData.map((m, index) => (
-                  <div key={m.machineId} className="p-4 hover:bg-muted/50">
+                  <div 
+                    key={m.machineId} 
+                    className="p-4 hover:bg-primary/5 cursor-pointer transition-colors group"
+                    onClick={() => openMachineDetails(m.machineId)}
+                  >
                     <div className="flex items-start gap-4">
                       <div className={cn(
                         "w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm shrink-0 mt-0.5",
@@ -1710,7 +1745,7 @@ export function ReportsView() {
                         {index + 1}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="font-medium truncate">{m.machineName}</p>
+                        <p className="font-medium truncate group-hover:text-primary transition-colors">{m.machineName}</p>
                         <p className="text-xs text-muted-foreground">{m.sector} &bull; {m.ticketCount} chamados</p>
                       </div>
                       <div className="text-right">
@@ -1747,6 +1782,150 @@ export function ReportsView() {
             </CardContent>
           </Card>
         </TabsContent>
+
+        {/* Sheet de Detalhes da Máquina */}
+        <Sheet open={machineDetailsOpen} onOpenChange={setMachineDetailsOpen}>
+          <SheetContent side="right" className="w-full sm:max-w-lg overflow-y-auto">
+            <SheetHeader className="border-b pb-4">
+              <SheetTitle className="flex items-center gap-2">
+                <Wrench className="w-5 h-5" />
+                Histórico de Manutenções
+              </SheetTitle>
+              <SheetDescription>
+                {selectedMachineData ? (
+                  <span className="font-semibold text-foreground">{selectedMachineData.name}</span>
+                ) : 'Máquina'}
+                {' - '}
+                {filters.dateRange?.from && filters.dateRange?.to ? (
+                  <>
+                    {format(filters.dateRange.from, "dd/MM/yyyy", { locale: ptBR })} a{' '}
+                    {format(filters.dateRange.to, "dd/MM/yyyy", { locale: ptBR })}
+                  </>
+                ) : 'Período atual'}
+              </SheetDescription>
+            </SheetHeader>
+            
+            <div className="py-4 space-y-3">
+              {/* Resumo */}
+              <div className="grid grid-cols-2 gap-3 mb-4">
+                <div className="p-3 rounded-lg bg-muted/50 text-center">
+                  <p className="text-2xl font-bold">{machineDetailTickets.length}</p>
+                  <p className="text-xs text-muted-foreground">Chamados</p>
+                </div>
+                <div className="p-3 rounded-lg bg-red-50 dark:bg-red-950/30 text-center">
+                  <p className="text-2xl font-bold text-red-600">
+                    {formatDurationHours(
+                      machineDetailTickets.reduce((sum, t) => sum + (t.downtimeMinutes || 0), 0) * 60000
+                    ).display}
+                  </p>
+                  <p className="text-xs text-red-600/70">Tempo Parado</p>
+                </div>
+              </div>
+              
+              {/* Lista de Chamados */}
+              {machineDetailTickets.length === 0 ? (
+                <div className="p-8 text-center text-muted-foreground">
+                  <Clock className="w-12 h-12 mx-auto mb-3 opacity-20" />
+                  <p>Nenhum chamado encontrado no período selecionado.</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {machineDetailTickets.map((ticket) => {
+                    const problem = getProblemById(ticket.problemId)
+                    const isCompleted = ticket.status === 'completed'
+                    const isCausedDowntime = ticket.downtimeMinutes && ticket.downtimeMinutes > 0
+                    
+                    return (
+                      <div 
+                        key={ticket.id}
+                        className={cn(
+                          "border rounded-lg p-4 transition-colors",
+                          isCompleted 
+                            ? "border-green-200 bg-green-50/50 dark:border-green-900 dark:bg-green-950/20" 
+                            : isCausedDowntime 
+                              ? "border-red-200 bg-red-50/50 dark:border-red-900 dark:bg-red-950/20"
+                              : "border-border bg-card"
+                        )}
+                      >
+                        {/* Header: Data e Status */}
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-medium">
+                              {format(new Date(ticket.createdAt), "dd/MM/yyyy", { locale: ptBR })}
+                            </span>
+                            <span className="text-xs text-muted-foreground">
+                              {format(new Date(ticket.createdAt), "HH:mm", { locale: ptBR })}
+                            </span>
+                          </div>
+                          <Badge 
+                            variant={isCompleted ? "default" : "destructive"}
+                            className={cn(
+                              "text-xs",
+                              isCompleted && "bg-green-600 hover:bg-green-700"
+                            )}
+                          >
+                            {isCompleted ? "Concluído" : ticket.status === 'cancelled' ? "Cancelado" : "Pendente"}
+                          </Badge>
+                        </div>
+                        
+                        {/* Problema */}
+                        <div className="mb-2">
+                          <Badge variant="outline" className="text-xs">
+                            {problem?.name || ticket.customProblemName || 'N/A'}
+                          </Badge>
+                        </div>
+                        
+                        {/* Técnico */}
+                        <div className="flex items-center gap-2 text-sm mb-2">
+                          <User className="w-4 h-4 text-muted-foreground" />
+                          <span className="text-muted-foreground">Técnico:</span>
+                          <span className="font-medium">{ticket.operatorName || ticket.resolvedByName || 'N/A'}</span>
+                        </div>
+                        
+                        {/* Downtime */}
+                        {isCausedDowntime && (
+                          <div className="flex items-center gap-2 text-sm mb-2">
+                            <Clock className="w-4 h-4 text-red-500" />
+                            <span className="text-red-600 font-medium">
+                              Downtime: {formatDurationHours((ticket.downtimeMinutes || 0) * 60000).display}
+                            </span>
+                          </div>
+                        )}
+                        
+                        {/* Peças utilizadas */}
+                        {ticket.usedParts && ticket.usedParts.length > 0 && (
+                          <div className="mt-3 pt-3 border-t">
+                            <p className="text-xs font-medium text-muted-foreground mb-2 flex items-center gap-1">
+                              <Package className="w-3 h-3" />
+                              Peças Utilizadas:
+                            </p>
+                            <div className="flex flex-wrap gap-1">
+                              {ticket.usedParts.map((up, idx) => {
+                                const part = getPartById(up.partId)
+                                return (
+                                  <Badge key={idx} variant="secondary" className="text-xs">
+                                    {part?.name || 'N/A'} x{up.quantity}
+                                  </Badge>
+                                )
+                              })}
+                            </div>
+                          </div>
+                        )}
+                        
+                        {/* Observações */}
+                        {ticket.notes && (
+                          <div className="mt-3 pt-3 border-t">
+                            <p className="text-xs text-muted-foreground">{ticket.notes}</p>
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          </SheetContent>
+        </Sheet>
 
         {/* Tab Usuários */}
         <TabsContent value="users" className="mt-4">
