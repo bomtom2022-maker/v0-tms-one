@@ -42,6 +42,7 @@ import {
   Calendar as CalendarIcon,
   User,
   CheckCircle,
+  CheckCircle2,
   Filter,
   X,
   Package,
@@ -1642,122 +1643,174 @@ export function ReportsView() {
   </TabsTrigger>
   </TabsList>
 
-        {/* Tab Geral */}
-        <TabsContent value="general" className="mt-4">
+        {/* Tab Geral - Resumo Operacional */}
+        <TabsContent value="general" className="mt-4 space-y-4">
+          {/* Cards de Resumo */}
+          {(() => {
+            // Calcular métricas do período selecionado
+            const completedInPeriod = (filteredTickets || []).filter(t => t.status === 'completed')
+            const totalParadas = completedInPeriod.length
+            const totalDowntimeSeconds = completedInPeriod.reduce((sum, t) => sum + (t.downtime || 0), 0)
+            
+            // Máquinas paradas AGORA (tickets abertos ou em andamento)
+            const maquinasParadasAgora = (tickets || []).filter(t => 
+              t.status === 'open' || t.status === 'in-progress' || t.status === 'paused'
+            ).length
+            
+            return (
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <Card>
+                  <CardContent className="p-4 sm:p-6">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 sm:p-3 rounded-full bg-blue-100 dark:bg-blue-950">
+                        <BarChart3 className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600" />
+                      </div>
+                      <div>
+                        <p className="text-xs sm:text-sm text-muted-foreground">Total de Paradas</p>
+                        <p className="text-xl sm:text-2xl font-bold">{totalParadas}</p>
+                        <p className="text-[10px] sm:text-xs text-muted-foreground">ocorrências solucionadas</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+                
+                <Card>
+                  <CardContent className="p-4 sm:p-6">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 sm:p-3 rounded-full bg-red-100 dark:bg-red-950">
+                        <Clock className="w-5 h-5 sm:w-6 sm:h-6 text-red-600" />
+                      </div>
+                      <div>
+                        <p className="text-xs sm:text-sm text-muted-foreground">Downtime Total</p>
+                        <p className="text-xl sm:text-2xl font-bold text-red-600">
+                          {formatDurationHours(totalDowntimeSeconds).display}
+                        </p>
+                        <p className="text-[10px] sm:text-xs text-muted-foreground">horas de máquina parada</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+                
+                <Card className={maquinasParadasAgora > 0 ? "border-orange-300 bg-orange-50/50 dark:bg-orange-950/20" : ""}>
+                  <CardContent className="p-4 sm:p-6">
+                    <div className="flex items-center gap-3">
+                      <div className={cn(
+                        "p-2 sm:p-3 rounded-full",
+                        maquinasParadasAgora > 0 ? "bg-orange-200 dark:bg-orange-900" : "bg-green-100 dark:bg-green-950"
+                      )}>
+                        <AlertTriangle className={cn(
+                          "w-5 h-5 sm:w-6 sm:h-6",
+                          maquinasParadasAgora > 0 ? "text-orange-600" : "text-green-600"
+                        )} />
+                      </div>
+                      <div>
+                        <p className="text-xs sm:text-sm text-muted-foreground">Status Atual</p>
+                        <p className={cn(
+                          "text-xl sm:text-2xl font-bold",
+                          maquinasParadasAgora > 0 ? "text-orange-600" : "text-green-600"
+                        )}>
+                          {maquinasParadasAgora}
+                        </p>
+                        <p className="text-[10px] sm:text-xs text-muted-foreground">
+                          {maquinasParadasAgora === 0 ? "tudo operando" : maquinasParadasAgora === 1 ? "máquina parada agora" : "máquinas paradas agora"}
+                        </p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            )
+          })()}
+          
+          {/* Feed de Ocorrências Solucionadas */}
           <Card>
-            <CardHeader>
-              <CardTitle>{filters.resolved === 'rejected' ? 'Chamados Rejeitados' : 'Lista de Manutenções'}</CardTitle>
-              <CardDescription>{filteredTickets.length} {filters.resolved === 'rejected' ? 'chamados rejeitados' : 'manutenções encontradas'}</CardDescription>
+            <CardHeader className="pb-2">
+              <CardTitle className="flex items-center gap-2">
+                <CheckCircle2 className="w-5 h-5 text-green-600" />
+                Ocorrências Solucionadas
+              </CardTitle>
+              <CardDescription>
+                {(filteredTickets || []).filter(t => t.status === 'completed').length} manutenções concluídas no período
+              </CardDescription>
             </CardHeader>
             <CardContent className="p-0">
-              <div className="overflow-x-auto -mx-4 sm:mx-0">
-                <table className="w-full text-xs sm:text-sm min-w-[600px]">
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs sm:text-sm">
                   <thead className="bg-muted">
                     <tr>
                       <th className="p-2 sm:p-3 text-left font-medium text-[10px] sm:text-xs">Data</th>
                       <th className="p-2 sm:p-3 text-left font-medium text-[10px] sm:text-xs">Máquina</th>
                       <th className="p-2 sm:p-3 text-left font-medium text-[10px] sm:text-xs hidden sm:table-cell">Problema</th>
-                      <th className="p-2 sm:p-3 text-center font-medium text-[10px] sm:text-xs">Status</th>
-                      {filters.resolved === 'rejected' ? (
-                        <>
-                          <th className="p-2 sm:p-3 text-left font-medium text-[10px] sm:text-xs text-red-600">Motivo da Rejeição</th>
-                          <th className="p-2 sm:p-3 text-left font-medium text-[10px] sm:text-xs hidden md:table-cell">Rejeitado por</th>
-                          <th className="p-2 sm:p-3 text-left font-medium text-[10px] sm:text-xs hidden md:table-cell">Reportado por</th>
-                        </>
-                      ) : (
-                        <>
-                          <th className="p-2 sm:p-3 text-right font-medium text-[10px] sm:text-xs text-red-600">Maq. Parada</th>
-                          <th className="p-2 sm:p-3 text-left font-medium text-[10px] sm:text-xs hidden md:table-cell">Manutentor</th>
-                        </>
-                      )}
+                      <th className="p-2 sm:p-3 text-left font-medium text-[10px] sm:text-xs hidden lg:table-cell">Solução</th>
+                      <th className="p-2 sm:p-3 text-left font-medium text-[10px] sm:text-xs hidden md:table-cell">Manutentor</th>
+                      <th className="p-2 sm:p-3 text-right font-medium text-[10px] sm:text-xs text-red-600">Tempo Parado</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y">
-                    {filteredTickets.slice(0, 50).map((ticket) => {
-                      const machine = getMachineById(ticket.machineId)
-                      const problem = getProblemById(ticket.problemId)
-                      const lastAction = ticket.actions[ticket.actions.length - 1]
-                      const stoppedSecs = Math.floor(((ticket.completedAt ? new Date(ticket.completedAt).getTime() : Date.now()) - new Date(ticket.createdAt).getTime()) / 1000)
+                    {(() => {
+                      const completedTickets = (filteredTickets || [])
+                        .filter(t => t.status === 'completed')
+                        .sort((a, b) => new Date(b.completedAt || b.createdAt).getTime() - new Date(a.completedAt || a.createdAt).getTime())
+                        .slice(0, 50)
                       
-                      if (filters.resolved === 'rejected') {
+                      if (completedTickets.length === 0) {
+                        return null
+                      }
+                      
+                      return completedTickets.map((ticket) => {
+                        const machine = getMachineById(ticket.machineId)
+                        const problem = getProblemById(ticket.problemId)
+                        const downtimeSeconds = ticket.downtime || 0
+                        
+                        // Buscar técnico que finalizou
+                        const actions = ticket?.actions || []
+                        const completeAction = [...actions].reverse().find(a => a.type === 'complete')
+                        const lastAction = actions.length > 0 ? actions[actions.length - 1] : null
+                        const technicianName = completeAction?.operatorName || lastAction?.operatorName || ticket?.createdByName || '-'
+                        
+                        // Solução aplicada (notas ou último comentário)
+                        const solution = ticket.notes || completeAction?.reason || '-'
+                        
                         return (
                           <tr key={ticket.id} className="hover:bg-muted/50">
                             <td className="p-2 sm:p-3 whitespace-nowrap text-[10px] sm:text-xs">
-                              {ticket.cancelledAt 
-                                ? format(new Date(ticket.cancelledAt), 'dd/MM/yy HH:mm', { locale: ptBR })
-                                : format(new Date(ticket.createdAt), 'dd/MM/yy HH:mm', { locale: ptBR })}
+                              <div>
+                                {format(new Date(ticket.completedAt || ticket.createdAt), 'dd/MM/yy', { locale: ptBR })}
+                              </div>
+                              <div className="text-muted-foreground">
+                                {format(new Date(ticket.completedAt || ticket.createdAt), 'HH:mm', { locale: ptBR })}
+                              </div>
                             </td>
-                            <td className="p-2 sm:p-3 text-[10px] sm:text-xs max-w-[100px] truncate">{machine?.name || '-'}</td>
-                            <td className="p-2 sm:p-3 text-[10px] sm:text-xs hidden sm:table-cell max-w-[120px] truncate">{ticket.customProblemName || problem?.name || '-'}</td>
-                            <td className="p-2 sm:p-3 text-center">
-                              <Badge variant="outline" className="text-[9px] sm:text-xs px-1 sm:px-2 bg-gray-100 text-gray-700 border-gray-300">
-                                Rejeitado
-                              </Badge>
+                            <td className="p-2 sm:p-3 text-[10px] sm:text-xs font-medium max-w-[100px] truncate">
+                              {machine?.name || '-'}
                             </td>
-                            <td className="p-2 sm:p-3 text-[10px] sm:text-xs text-red-600 max-w-[200px]">
-                              <p className="line-clamp-2">{ticket.cancellationReason || '-'}</p>
+                            <td className="p-2 sm:p-3 text-[10px] sm:text-xs hidden sm:table-cell max-w-[120px] truncate">
+                              {ticket.customProblemName || problem?.name || '-'}
                             </td>
-                            <td className="p-2 sm:p-3 text-[10px] sm:text-xs hidden md:table-cell max-w-[80px] truncate">
-                              {ticket.cancelledByName || '-'}
+                            <td className="p-2 sm:p-3 text-[10px] sm:text-xs hidden lg:table-cell max-w-[150px] truncate text-muted-foreground">
+                              {solution}
                             </td>
-                            <td className="p-2 sm:p-3 text-[10px] sm:text-xs hidden md:table-cell max-w-[80px] truncate">
-                              {ticket.createdByName || '-'}
+                            <td className="p-2 sm:p-3 text-[10px] sm:text-xs hidden md:table-cell max-w-[100px] truncate">
+                              {technicianName}
+                            </td>
+                            <td className="p-2 sm:p-3 text-right font-mono text-[10px] sm:text-xs text-red-600 font-semibold whitespace-nowrap">
+                              {formatDurationHours(downtimeSeconds).display}
                             </td>
                           </tr>
                         )
-                      }
-                      
-                      const lastPauseAction = ticket.status === 'paused' 
-                        ? [...ticket.actions].reverse().find(a => a.type === 'pause')
-                        : null
-                      
-                      return (
-                        <tr key={ticket.id} className="hover:bg-muted/50">
-                          <td className="p-2 sm:p-3 whitespace-nowrap text-[10px] sm:text-xs">
-                            {format(new Date(ticket.createdAt), 'dd/MM/yy HH:mm', { locale: ptBR })}
-                          </td>
-                          <td className="p-2 sm:p-3 text-[10px] sm:text-xs max-w-[100px] truncate">{machine?.name || '-'}</td>
-                          <td className="p-2 sm:p-3 text-[10px] sm:text-xs hidden sm:table-cell max-w-[120px] truncate">{ticket.customProblemName || problem?.name || '-'}</td>
-                          <td className="p-2 sm:p-3 text-center">
-                            <div className="flex flex-col items-center gap-1">
-                              <Badge variant="outline" className={cn(
-                                "text-[9px] sm:text-xs px-1 sm:px-2",
-                                ticket.resolved ? "bg-green-50 text-green-600 border-green-200"
-                                  : ticket.status === 'in-progress' || ticket.status === 'paused' ? "bg-orange-50 text-orange-600 border-orange-200"
-                                  : "bg-red-50 text-red-600 border-red-200"
-                              )}>
-                                {ticket.resolved ? 'Resolvido' : ticket.status === 'in-progress' ? 'Em andamento' : ticket.status === 'paused' ? 'Pausado' : 'Pendente'}
-                              </Badge>
-                              {lastPauseAction?.reason && (
-                                <span className="text-[9px] text-yellow-700 dark:text-yellow-300 max-w-[120px] truncate" title={lastPauseAction.reason}>
-                                  Motivo: {lastPauseAction.reason}
-                                </span>
-                              )}
-                            </div>
-                          </td>
-                          <td className="p-2 sm:p-3 text-right font-mono text-[10px] sm:text-xs text-red-600 font-semibold">
-                            {formatDurationLong(stoppedSecs).full}
-                          </td>
-                          <td className="p-2 sm:p-3 text-[10px] sm:text-xs hidden md:table-cell max-w-[100px] truncate">
-                            {lastAction?.operatorName || '-'}
-                          </td>
-                        </tr>
-                      )
-                    })}
+                      })
+                    })()}
                   </tbody>
                 </table>
-                {filteredTickets.length === 0 && (
+                {(filteredTickets || []).filter(t => t.status === 'completed').length === 0 && (
                   <div className="p-8 text-center text-muted-foreground">
-                    {filters.resolved === 'rejected' 
-                      ? 'Nenhum chamado rejeitado encontrado para os filtros selecionados.'
-                      : filters.resolved === 'paused'
-                        ? 'Nenhum chamado pausado encontrado para os filtros selecionados.'
-                        : 'Nenhuma manutenção encontrada para os filtros selecionados.'}
+                    <CheckCircle2 className="w-12 h-12 mx-auto mb-3 opacity-20" />
+                    <p>Nenhuma ocorrência solucionada no período selecionado.</p>
                   </div>
                 )}
-                {filteredTickets.length > 50 && (
+                {(filteredTickets || []).filter(t => t.status === 'completed').length > 50 && (
                   <div className="p-4 text-center text-muted-foreground text-sm border-t">
-                    Mostrando 50 de {filteredTickets.length} registros. Gere o PDF para ver todos.
+                    Mostrando 50 de {(filteredTickets || []).filter(t => t.status === 'completed').length} registros.
                   </div>
                 )}
               </div>
