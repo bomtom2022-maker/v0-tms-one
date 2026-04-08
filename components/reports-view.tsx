@@ -1022,11 +1022,31 @@ export function ReportsView() {
     // IMPORTANTE: Usar apenas tickets válidos (completed + resolved) para métricas
     // Downtime total: soma da coluna downtime apenas de tickets válidos
     const totalStoppedTime = validTicketsForMetrics.reduce((sum, t) => sum + t.downtime, 0)
-    // Tempo operando: soma dos time_segments apenas de tickets válidos
-    const totalOperatingTime = validTicketsForMetrics.reduce((sum, t) => {
-      const segmentsTime = t.timeSegments?.reduce((s, seg) => s + seg.duration, 0) || 0
-      return sum + segmentsTime
-    }, 0)
+    
+    // ========== CÁLCULO TEMPO OPERANDO (PROPORCIONAL AO FILTRO) ==========
+    // Constantes:
+    // - Capacidade mensal por máquina: 474h (configurável pelo admin)
+    // - Capacidade diária por máquina: 474 / 30 = 15.8h/dia
+    const MONTHLY_CAPACITY_HOURS = 474
+    const DAILY_CAPACITY_HOURS = MONTHLY_CAPACITY_HOURS / 30 // 15.8h/dia por máquina
+    
+    // Calcular dias no período filtrado
+    let daysInPeriod = 30 // padrão
+    if (filters.dateRange?.from && filters.dateRange?.to) {
+      daysInPeriod = differenceInDays(filters.dateRange.to, filters.dateRange.from) + 1
+    }
+    
+    // Total de máquinas ativas no sistema
+    const totalMachines = machines.length
+    
+    // Capacidade planejada do período (em segundos para manter consistência)
+    // Fórmula: 15.8h × dias × máquinas
+    const plannedCapacitySeconds = DAILY_CAPACITY_HOURS * daysInPeriod * totalMachines * 3600
+    
+    // Tempo Operando = Capacidade Planejada - Downtime Total
+    const totalOperatingTime = Math.max(0, plannedCapacitySeconds - totalStoppedTime)
+    // ========== FIM CÁLCULO TEMPO OPERANDO ==========
+    
     const totalCost = validTicketsForMetrics.reduce((sum, t) => sum + t.totalCost, 0)
     const resolved = validTicketsForMetrics.length
     const notResolved = filteredTickets.filter(t => t.status === 'unresolved').length
@@ -1048,9 +1068,13 @@ export function ReportsView() {
       notResolved, 
       uniqueMachines,
       viewDowntimeHoras,
-      cancelledCount
+      cancelledCount,
+      // Extras para debug/transparência
+      daysInPeriod,
+      totalMachinesCount: totalMachines,
+      plannedCapacityHours: (plannedCapacitySeconds / 3600)
     }
-  }, [filteredTickets, validTicketsForMetrics, cancelledTickets, viewMetrics])
+  }, [filteredTickets, validTicketsForMetrics, cancelledTickets, viewMetrics, filters.dateRange, machines])
 
   const machineData = useMemo(() => {
     // Usar apenas tickets válidos (completed + resolved) para métricas de máquinas
