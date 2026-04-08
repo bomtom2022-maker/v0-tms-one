@@ -801,18 +801,35 @@ export function ReportsView() {
     }
   }, [activeTab])
   
+  // Estado para aviso de fallback
+  const [metricsUsedFallback, setMetricsUsedFallback] = useState(false)
+  
   // Carregar métricas da View v_metricas_reais ou função RPC por período
   const loadViewMetrics = async (fromDate?: Date, toDate?: Date) => {
     setLoadingMetrics(true)
     setMetricsError(null)
+    setMetricsUsedFallback(false)
     try {
       const fromStr = fromDate ? format(fromDate, 'yyyy-MM-dd') : undefined
       const toStr = toDate ? format(toDate, 'yyyy-MM-dd') : undefined
       
       const data = await fetchMetricsByPeriod(fromStr, toStr)
-      setViewMetrics(data.metrics || [])
+      
+      // Garantir que metrics seja sempre um array
+      const safeMetrics = Array.isArray(data.metrics) ? data.metrics : []
+      setViewMetrics(safeMetrics)
       setMonthlyHours(data.monthlyHours || 0)
       setTempMonthlyHours(String(data.monthlyHours || ''))
+      
+      // Verificar se usou fallback (RPC falhou e usou View)
+      if (data.usedFallback) {
+        setMetricsUsedFallback(true)
+      }
+      
+      // Se houve erro mas retornou dados vazios, mostrar aviso
+      if (data.error && safeMetrics.length === 0) {
+        setMetricsError(`Aviso: ${data.error}`)
+      }
       
       // Calcular horas proporcionais: (HorasMensais / DiasNoMes) * DiasSelecionados
       if (data.monthlyHours > 0 && fromDate && toDate) {
@@ -824,7 +841,10 @@ export function ReportsView() {
         setProportionalHours(data.monthlyHours || 0)
       }
     } catch (err) {
+      console.error('[v0] Erro ao carregar métricas:', err)
       setMetricsError(err instanceof Error ? err.message : 'Erro desconhecido')
+      // Garantir que viewMetrics seja um array vazio em caso de erro
+      setViewMetrics([])
     } finally {
       setLoadingMetrics(false)
     }
@@ -2370,11 +2390,18 @@ export function ReportsView() {
                     </PopoverContent>
                   </Popover>
                   
-                  {/* Indicador de horas proporcionais */}
+{/* Indicador de horas proporcionais */}
                   {metricsDateRange?.from && metricsDateRange?.to && monthlyHours > 0 && (
                     <div className="text-xs bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 px-2 py-1 rounded">
                       <span className="font-medium">Capacidade proporcional:</span>{" "}
                       {proportionalHours.toFixed(1)}h ({differenceInDays(metricsDateRange.to, metricsDateRange.from) + 1} dias)
+                    </div>
+                  )}
+                  
+                  {/* Aviso de fallback */}
+                  {metricsUsedFallback && (
+                    <div className="text-xs bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-300 px-2 py-1 rounded">
+                      Usando dados do mês atual (filtro por período indisponível)
                     </div>
                   )}
                 </div>
