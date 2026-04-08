@@ -1020,7 +1020,7 @@ export function ReportsView() {
 
   const stats = useMemo(() => {
     // IMPORTANTE: Usar apenas tickets válidos (completed + resolved) para métricas
-    // Downtime total: soma da coluna downtime apenas de tickets válidos
+    // Downtime total: soma da coluna downtime apenas de tickets válidos (em segundos)
     const totalStoppedTime = validTicketsForMetrics.reduce((sum, t) => sum + t.downtime, 0)
     
     // ========== CÁLCULO TEMPO OPERANDO (PROPORCIONAL AO FILTRO) ==========
@@ -1031,20 +1031,36 @@ export function ReportsView() {
     const DAILY_CAPACITY_HOURS = MONTHLY_CAPACITY_HOURS / 30 // 15.8h/dia por máquina
     
     // Calcular dias no período filtrado
-    let daysInPeriod = 30 // padrão
+    // REGRA: Se filtro = "Hoje", dias = 1. Se "ontem até hoje", dias = 2
+    let daysInPeriod = 1 // padrão para "Hoje"
     if (filters.dateRange?.from && filters.dateRange?.to) {
+      // differenceInDays retorna a diferença, então +1 para incluir ambos os dias
       daysInPeriod = differenceInDays(filters.dateRange.to, filters.dateRange.from) + 1
     }
     
-    // Total de máquinas ativas no sistema
-    const totalMachines = machines.length
+    // Total de máquinas ativas no sistema (apenas status 'operational' ou todas cadastradas)
+    const totalMachines = machines.filter(m => m.status !== 'maintenance').length || machines.length
     
-    // Capacidade planejada do período (em segundos para manter consistência)
-    // Fórmula: 15.8h × dias × máquinas
+    // Capacidade planejada do período (em segundos para manter consistência com downtime)
+    // Fórmula: 15.8h × dias × máquinas × 3600 (converte horas para segundos)
+    // Exemplo: 2 dias, 27 máquinas = 15.8 * 2 * 27 = 853.2h = 3,071,520 segundos
     const plannedCapacitySeconds = DAILY_CAPACITY_HOURS * daysInPeriod * totalMachines * 3600
     
-    // Tempo Operando = Capacidade Planejada - Downtime Total
+    // Tempo Operando = Capacidade Planejada - Downtime Total (ambos em segundos)
+    // O resultado final será convertido para horas pela função formatDurationHours
     const totalOperatingTime = Math.max(0, plannedCapacitySeconds - totalStoppedTime)
+    
+    // DEBUG: Verificar valores do cálculo
+    console.log('[v0] Cálculo Tempo Operando:', {
+      daysInPeriod,
+      totalMachines,
+      dailyCapacityHours: DAILY_CAPACITY_HOURS,
+      plannedCapacityHours: plannedCapacitySeconds / 3600,
+      totalStoppedTimeHours: totalStoppedTime / 3600,
+      totalOperatingTimeHours: totalOperatingTime / 3600,
+      dateFrom: filters.dateRange?.from,
+      dateTo: filters.dateRange?.to
+    })
     // ========== FIM CÁLCULO TEMPO OPERANDO ==========
     
     const totalCost = validTicketsForMetrics.reduce((sum, t) => sum + t.totalCost, 0)
