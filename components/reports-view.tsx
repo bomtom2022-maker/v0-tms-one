@@ -765,7 +765,7 @@ export function ReportsView() {
   }
   
   // Estados para seções colapsáveis
-  const [showShiftsSection, setShowShiftsSection] = useState(false)
+
   const [showConfigSection, setShowConfigSection] = useState(false)
   const [showAvailabilitySection, setShowAvailabilitySection] = useState(false)
   const [showSummaryCards, setShowSummaryCards] = useState(false)
@@ -2771,101 +2771,6 @@ export function ReportsView() {
           </div>
           {/* ========== FIM CARDS GLOBAIS ========== */}
 
-          {/* Configuração de Turnos - Colapsável */}
-          <Card>
-            <CardHeader 
-              className="pb-2 cursor-pointer hover:bg-muted/50 transition-colors rounded-t-lg"
-              onClick={() => setShowShiftsSection(!showShiftsSection)}
-            >
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle className="text-base">Turnos de Operação</CardTitle>
-                  <CardDescription>
-                    Configure o regime de trabalho de cada máquina para cálculos precisos
-                  </CardDescription>
-                </div>
-                <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                  {showShiftsSection ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                </Button>
-              </div>
-            </CardHeader>
-            {showShiftsSection && (
-            <CardContent>
-              {loadingShifts ? (
-                <div className="p-4 text-center text-muted-foreground">Carregando turnos...</div>
-              ) : shiftsError ? (
-                <div className="p-4 text-center">
-                  <AlertTriangle className="w-8 h-8 text-yellow-500 mx-auto mb-2" />
-                  <p className="text-sm text-muted-foreground">
-                    A tabela de turnos ainda não foi criada no banco de dados.
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Execute o script SQL no Supabase Dashboard para habilitar esta funcionalidade.
-                  </p>
-                </div>
-              ) : shifts.length === 0 ? (
-                <div className="p-4 text-center text-muted-foreground">
-                  Nenhum turno cadastrado. Configure os turnos no banco de dados.
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                    {shifts.map(shift => (
-                      <div key={shift.id} className="p-2 rounded border bg-muted/30 text-center">
-                        <p className="font-medium text-sm">{shift.name}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {shift.hoursPerDay}h/dia - {shift.daysPerWeek} dias/sem
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-                  
-                  {/* Vincular máquinas aos turnos - apenas admin */}
-                  {isAdmin && (
-                  <div className="border-t pt-4">
-                    <p className="text-sm font-medium mb-3">Vincular Máquinas aos Turnos</p>
-                    <div className="space-y-2 max-h-[300px] overflow-y-auto">
-                      {machines.map(machine => (
-                        <div key={machine.id} className="flex items-center justify-between p-2 rounded border bg-card hover:bg-muted/30">
-                          <span className="text-sm font-medium">{machine.name}</span>
-                          <Select
-                            value={localMachineShifts[machine.id] || 'none'}
-                            onValueChange={async (value) => {
-                              const newShiftId = value === 'none' ? null : value
-                              const oldShiftId = localMachineShifts[machine.id]
-                              // Atualizar estado local imediatamente
-                              setLocalMachineShifts(prev => ({ ...prev, [machine.id]: newShiftId }))
-                              try {
-                                await updateMachineShift(machine.id, newShiftId)
-                              } catch (err) {
-                                // Reverter em caso de erro
-                                setLocalMachineShifts(prev => ({ ...prev, [machine.id]: oldShiftId }))
-                                console.error('[v0] Erro ao atualizar turno:', err)
-                                alert('Erro ao atualizar turno. Verifique se a coluna shift_id existe na tabela machines do banco de dados.')
-                              }
-                            }}
-                          >
-                            <SelectTrigger className="w-[180px] h-8 text-xs">
-                              <SelectValue placeholder="Selecionar turno" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="none">Sem turno definido</SelectItem>
-                              {shifts.map(s => (
-                                <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                  )}
-                </div>
-              )}
-            </CardContent>
-            )}
-          </Card>
-
           {/* Card de Configurações Globais - Apenas Admin - Colapsável */}
           {isAdmin && (
             <Card className="border-blue-200 bg-blue-50/30">
@@ -3159,7 +3064,7 @@ export function ReportsView() {
                 Indicadores de Manutenção
               </CardTitle>
               <CardDescription>
-                Métricas de confiabilidade e eficiência baseadas nos turnos de operação das máquinas
+                Métricas de confiabilidade e eficiência baseadas na operação das máquinas
               </CardDescription>
             </CardHeader>
             <CardContent>
