@@ -3,6 +3,7 @@
 import { useState, useMemo, useEffect } from 'react'
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Label } from '@/components/ui/label'
@@ -54,6 +55,7 @@ import {
   ChevronUp,
   BarChart3,
   AlertTriangle,
+  Info,
 } from 'lucide-react'
 import { format, startOfDay, endOfDay, isWithinInterval, startOfMonth, endOfMonth, subDays, differenceInDays, getDaysInMonth } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
@@ -1053,17 +1055,6 @@ export function ReportsView() {
     // PASSO 6: Converter de volta para SEGUNDOS (para manter compatibilidade com formatDurationHours)
     const totalOperatingTime = tempoOperandoHoras * 3600
     
-    // DEBUG: Verificar valores do cálculo
-    console.log('[v0] Cálculo Tempo Operando:', {
-      diasNoFiltro,
-      totalMaquinas,
-      H_PLANEJADA_DIA,
-      capacidadeTotalHoras: capacidadeTotalHoras.toFixed(1),
-      downtimeTotalHoras: downtimeTotalHoras.toFixed(1),
-      tempoOperandoHoras: tempoOperandoHoras.toFixed(1),
-      dateFrom: filters.dateRange?.from?.toISOString?.() || filters.dateRange?.from,
-      dateTo: filters.dateRange?.to?.toISOString?.() || filters.dateRange?.to
-    })
     // ========== FIM CÁLCULO TEMPO OPERANDO ==========
     
     const totalCost = validTicketsForMetrics.reduce((sum, t) => sum + t.totalCost, 0)
@@ -1088,10 +1079,11 @@ export function ReportsView() {
       uniqueMachines,
       viewDowntimeHoras,
       cancelledCount,
-      // Extras para debug/transparência
+      // Informações para legenda do card Tempo Operando
       daysInPeriod: diasNoFiltro,
       totalMachinesCount: totalMaquinas,
-      plannedCapacityHours: capacidadeTotalHoras
+      plannedCapacityHours: capacidadeTotalHoras,
+      dailyCapacityHours: H_PLANEJADA_DIA
     }
   }, [filteredTickets, validTicketsForMetrics, cancelledTickets, viewMetrics, filters.dateRange, machines])
 
@@ -1613,22 +1605,35 @@ export function ReportsView() {
               </div>
             </div>
 
-            <div className="p-3 rounded-lg bg-orange-50 border border-orange-200">
+            <div className="p-3 rounded-lg bg-emerald-50 border border-emerald-200">
               <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-orange-500">
+                <div className="p-2 rounded-lg bg-emerald-600">
                   <TrendingUp className="w-4 h-4 text-white" />
                 </div>
-                <div className="min-w-0">
-                  <p className="text-xs font-medium text-orange-600">Tempo Operando</p>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-1">
+                    <p className="text-xs font-medium text-emerald-700">Tempo Operando</p>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Info className="w-3 h-3 text-emerald-500 cursor-help" />
+                      </TooltipTrigger>
+                      <TooltipContent side="top" className="max-w-[250px] text-center">
+                        <p>Capacidade total de {stats.totalMachinesCount} máquinas no período de {stats.daysInPeriod} dia{stats.daysInPeriod > 1 ? 's' : ''}, subtraindo o tempo de parada.</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </div>
                   {(() => {
                     const d = formatDurationHours(stats.totalOperatingTime)
                     return (
                       <>
-                        <p className="text-xl font-bold text-orange-600 leading-tight">{d.display}</p>
-                        <p className="text-xs font-mono text-orange-500">{d.hhmm}</p>
+                        <p className="text-xl font-extrabold text-emerald-700 leading-tight">{d.display}</p>
+                        <p className="text-xs font-mono text-emerald-600">{d.hhmm}</p>
                       </>
                     )
                   })()}
+                  <p className="text-[10px] text-emerald-600/70 mt-0.5">
+                    {stats.dailyCapacityHours.toFixed(1)}h/dia × {stats.daysInPeriod} dia{stats.daysInPeriod > 1 ? 's' : ''} × {stats.totalMachinesCount} máquinas
+                  </p>
                 </div>
               </div>
             </div>
