@@ -26,7 +26,7 @@ import {
 } from '@/components/ui/alert-dialog'
 import { useData } from '@/lib/data-context'
 import { useAuth } from '@/lib/auth-context'
-import { Plus, Settings, Pencil, Cpu, Trash2 } from 'lucide-react'
+import { Plus, Settings, Pencil, Cpu, Trash2, Search, ChevronDown, ChevronUp } from 'lucide-react'
 
 interface MachineForm {
   name: string
@@ -54,6 +54,28 @@ export function MachinesView() {
   const [editForm, setEditForm] = useState<MachineForm>(emptyForm)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  
+  // Estados para busca e exibição controlada
+  const [searchQuery, setSearchQuery] = useState('')
+  const [showAll, setShowAll] = useState(false)
+  const INITIAL_DISPLAY_COUNT = 5
+  
+  // Filtrar máquinas com base na busca
+  const filteredMachines = machines.filter(machine => {
+    if (!searchQuery.trim()) return true
+    const query = searchQuery.toLowerCase()
+    return (
+      machine.name.toLowerCase().includes(query) ||
+      machine.sector.toLowerCase().includes(query) ||
+      machine.manufacturer?.toLowerCase().includes(query) ||
+      machine.model?.toLowerCase().includes(query) ||
+      machine.controller?.toLowerCase().includes(query)
+    )
+  })
+  
+  // Limitar exibição inicial a 5 máquinas
+  const displayedMachines = showAll ? filteredMachines : filteredMachines.slice(0, INITIAL_DISPLAY_COUNT)
+  const hasMoreMachines = filteredMachines.length > INITIAL_DISPLAY_COUNT
 
   const handleAdd = async () => {
     if (!form.name.trim() || !form.sector.trim()) return
@@ -220,24 +242,55 @@ export function MachinesView() {
       {/* Machines List */}
       <Card>
         <CardHeader className="p-3 sm:p-6">
-          <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
-            <Settings className="w-4 h-4 sm:w-5 sm:h-5" />
-            Maquinas Cadastradas
-          </CardTitle>
-          <CardDescription className="text-xs sm:text-sm">
-            {machines.length === 0 ? 'Nenhuma maquina cadastrada' : `${machines.length} maquina(s) cadastrada(s)`}
-          </CardDescription>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div>
+              <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+                <Settings className="w-4 h-4 sm:w-5 sm:h-5" />
+                Máquinas Cadastradas
+              </CardTitle>
+              <CardDescription className="text-xs sm:text-sm">
+                {machines.length === 0 
+                  ? 'Nenhuma máquina cadastrada' 
+                  : filteredMachines.length === machines.length
+                    ? `${machines.length} máquina(s) cadastrada(s)`
+                    : `${filteredMachines.length} de ${machines.length} máquina(s)`
+                }
+              </CardDescription>
+            </div>
+            
+            {/* Campo de Busca */}
+            {machines.length > 0 && (
+              <div className="relative w-full sm:w-64">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input
+                  placeholder="Buscar máquina por nome ou ID..."
+                  value={searchQuery}
+                  onChange={(e) => {
+                    setSearchQuery(e.target.value)
+                    setShowAll(false) // Reset para mostrar apenas 5 ao buscar
+                  }}
+                  className="pl-9 h-9 text-sm"
+                />
+              </div>
+            )}
+          </div>
         </CardHeader>
         <CardContent className="p-3 sm:p-6 pt-0">
           {machines.length === 0 ? (
             <div className="text-center py-10 text-muted-foreground">
               <Cpu className="w-10 h-10 mx-auto mb-3 opacity-30" />
-              <p className="text-sm">Nenhuma maquina cadastrada ainda.</p>
-              <p className="text-xs mt-1">Clique em "Nova Maquina" para comecar.</p>
+              <p className="text-sm">Nenhuma máquina cadastrada ainda.</p>
+              <p className="text-xs mt-1">Clique em &quot;Nova Máquina&quot; para começar.</p>
+            </div>
+          ) : filteredMachines.length === 0 ? (
+            <div className="text-center py-10 text-muted-foreground">
+              <Search className="w-10 h-10 mx-auto mb-3 opacity-30" />
+              <p className="text-sm">Nenhuma máquina encontrada com este nome.</p>
+              <p className="text-xs mt-1">Tente buscar por outro termo.</p>
             </div>
           ) : (
             <div className="grid gap-2 sm:gap-3">
-              {machines.map((machine) => (
+              {displayedMachines.map((machine) => (
                 <div
                   key={machine.id}
                   className="flex items-center justify-between p-3 rounded-lg border bg-card hover:bg-muted/50 transition-colors"
@@ -276,6 +329,27 @@ export function MachinesView() {
                   </div>
                 </div>
               ))}
+              
+              {/* Botão Exibir Mais / Exibir Menos */}
+              {hasMoreMachines && (
+                <Button
+                  variant="ghost"
+                  className="w-full mt-2 text-muted-foreground hover:text-foreground"
+                  onClick={() => setShowAll(!showAll)}
+                >
+                  {showAll ? (
+                    <>
+                      <ChevronUp className="w-4 h-4 mr-2" />
+                      Exibir menos
+                    </>
+                  ) : (
+                    <>
+                      <ChevronDown className="w-4 h-4 mr-2" />
+                      Exibir mais ({filteredMachines.length - INITIAL_DISPLAY_COUNT} máquinas restantes)
+                    </>
+                  )}
+                </Button>
+              )}
             </div>
           )}
         </CardContent>
