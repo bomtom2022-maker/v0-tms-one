@@ -4,6 +4,7 @@ import { useState, useMemo, useEffect } from 'react'
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Label } from '@/components/ui/label'
@@ -764,7 +765,7 @@ export function ReportsView() {
   }
   
   // Estados para seções colapsáveis
-  const [showShiftsSection, setShowShiftsSection] = useState(false)
+
   const [showConfigSection, setShowConfigSection] = useState(false)
   const [showAvailabilitySection, setShowAvailabilitySection] = useState(false)
   const [showSummaryCards, setShowSummaryCards] = useState(false)
@@ -922,7 +923,42 @@ export function ReportsView() {
     const sum = viewMetrics.reduce((acc, m) => acc + m.disponibilidade, 0)
     return sum / viewMetrics.length
   }, [viewMetrics])
-
+  
+  // ========== MÉTRICAS GLOBAIS (NÃO AFETADAS PELO FILTRO DE MÁQUINA) ==========
+  // MTBF Global: Tempo total operando / Número total de falhas
+  // MTTR Global: Média do tempo de reparo de todos os chamados
+  const globalMetrics = useMemo(() => {
+    if (viewMetrics.length === 0) return { mtbfGlobal: 0, mttrGlobal: 0, totalFalhas: 0, totalDowntime: 0 }
+    
+    // Somar todas as falhas e downtime de TODAS as máquinas
+    const totalFalhas = viewMetrics.reduce((sum, m) => sum + m.total_falhas, 0)
+    const totalDowntimeHoras = viewMetrics.reduce((sum, m) => sum + m.downtime_horas, 0)
+    
+    // MTTR Global: Downtime total / Número de falhas (tempo médio de reparo)
+    const mttrGlobal = totalFalhas > 0 ? totalDowntimeHoras / totalFalhas : 0
+    
+    // MTBF Global: (Tempo operando total) / (Número de falhas)
+    // Tempo operando = Capacidade total - Downtime total
+    // Capacidade total = monthlyHours * número de máquinas * (dias no período / 30)
+    const diasNoPeriodo = metricsDateRange?.from && metricsDateRange?.to 
+      ? differenceInDays(metricsDateRange.to, metricsDateRange.from) + 1 
+      : 30
+    const capacidadeTotal = monthlyHours * viewMetrics.length * (diasNoPeriodo / 30)
+    const tempoOperandoTotal = Math.max(0, capacidadeTotal - totalDowntimeHoras)
+    const mtbfGlobal = totalFalhas > 0 ? tempoOperandoTotal / totalFalhas : capacidadeTotal
+    
+    return { 
+      mtbfGlobal, 
+      mttrGlobal, 
+      totalFalhas, 
+      totalDowntime: totalDowntimeHoras,
+      tempoOperandoTotal,
+      capacidadeTotal,
+      totalMaquinas: viewMetrics.length
+    }
+  }, [viewMetrics, monthlyHours, metricsDateRange])
+  // ========== FIM MÉTRICAS GLOBAIS ==========
+  
   const handleDatePreset = (preset: DatePreset) => {
     const today = new Date()
     let from: Date
@@ -2669,100 +2705,71 @@ export function ReportsView() {
             </CardContent>
           </Card>
 
-          {/* Configuração de Turnos - Colapsável */}
-          <Card>
-            <CardHeader 
-              className="pb-2 cursor-pointer hover:bg-muted/50 transition-colors rounded-t-lg"
-              onClick={() => setShowShiftsSection(!showShiftsSection)}
-            >
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle className="text-base">Turnos de Operação</CardTitle>
-                  <CardDescription>
-                    Configure o regime de trabalho de cada máquina para cálculos precisos
-                  </CardDescription>
-                </div>
-                <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                  {showShiftsSection ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                </Button>
-              </div>
-            </CardHeader>
-            {showShiftsSection && (
-            <CardContent>
-              {loadingShifts ? (
-                <div className="p-4 text-center text-muted-foreground">Carregando turnos...</div>
-              ) : shiftsError ? (
-                <div className="p-4 text-center">
-                  <AlertTriangle className="w-8 h-8 text-yellow-500 mx-auto mb-2" />
-                  <p className="text-sm text-muted-foreground">
-                    A tabela de turnos ainda não foi criada no banco de dados.
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Execute o script SQL no Supabase Dashboard para habilitar esta funcionalidade.
-                  </p>
-                </div>
-              ) : shifts.length === 0 ? (
-                <div className="p-4 text-center text-muted-foreground">
-                  Nenhum turno cadastrado. Configure os turnos no banco de dados.
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                    {shifts.map(shift => (
-                      <div key={shift.id} className="p-2 rounded border bg-muted/30 text-center">
-                        <p className="font-medium text-sm">{shift.name}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {shift.hoursPerDay}h/dia - {shift.daysPerWeek} dias/sem
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-                  
-                  {/* Vincular máquinas aos turnos - apenas admin */}
-                  {isAdmin && (
-                  <div className="border-t pt-4">
-                    <p className="text-sm font-medium mb-3">Vincular Máquinas aos Turnos</p>
-                    <div className="space-y-2 max-h-[300px] overflow-y-auto">
-                      {machines.map(machine => (
-                        <div key={machine.id} className="flex items-center justify-between p-2 rounded border bg-card hover:bg-muted/30">
-                          <span className="text-sm font-medium">{machine.name}</span>
-                          <Select
-                            value={localMachineShifts[machine.id] || 'none'}
-                            onValueChange={async (value) => {
-                              const newShiftId = value === 'none' ? null : value
-                              const oldShiftId = localMachineShifts[machine.id]
-                              // Atualizar estado local imediatamente
-                              setLocalMachineShifts(prev => ({ ...prev, [machine.id]: newShiftId }))
-                              try {
-                                await updateMachineShift(machine.id, newShiftId)
-                              } catch (err) {
-                                // Reverter em caso de erro
-                                setLocalMachineShifts(prev => ({ ...prev, [machine.id]: oldShiftId }))
-                                console.error('[v0] Erro ao atualizar turno:', err)
-                                alert('Erro ao atualizar turno. Verifique se a coluna shift_id existe na tabela machines do banco de dados.')
-                              }
-                            }}
-                          >
-                            <SelectTrigger className="w-[180px] h-8 text-xs">
-                              <SelectValue placeholder="Selecionar turno" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="none">Sem turno definido</SelectItem>
-                              {shifts.map(s => (
-                                <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      ))}
+          {/* ========== CARDS GLOBAIS DE PERFORMANCE (MTBF e MTTR) ========== */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Card MTBF Global */}
+            <Card className="border-blue-200 bg-gradient-to-br from-blue-50 to-blue-100/50 dark:from-blue-950/50 dark:to-blue-900/30 dark:border-blue-800">
+              <CardContent className="p-4">
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-1">
+                      <h3 className="text-sm font-semibold text-blue-700 dark:text-blue-300">MTBF Global</h3>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Info className="w-3.5 h-3.5 text-blue-500 cursor-help" />
+                        </TooltipTrigger>
+                        <TooltipContent side="top" className="max-w-[280px]">
+                          <p className="font-medium mb-1">Tempo Médio Entre Falhas</p>
+                          <p className="text-xs">Média de todas as {globalMetrics.totalMaquinas} máquinas. Indica quanto tempo, em média, as máquinas operam até apresentar uma falha. Quanto maior, melhor.</p>
+                        </TooltipContent>
+                      </Tooltip>
                     </div>
+                    <p className="text-3xl font-bold text-blue-600 dark:text-blue-400">
+                      {loadingMetrics ? '...' : `${globalMetrics.mtbfGlobal.toFixed(1)}h`}
+                    </p>
+                    <p className="text-xs text-blue-600/70 dark:text-blue-400/70 mt-1">
+                      {globalMetrics.totalFalhas} falhas em {globalMetrics.totalMaquinas} máquinas
+                    </p>
                   </div>
-                  )}
+                  <div className="p-2 rounded-lg bg-blue-500/20">
+                    <TrendingUp className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+                  </div>
                 </div>
-              )}
-            </CardContent>
-            )}
-          </Card>
+              </CardContent>
+            </Card>
+
+            {/* Card MTTR Global */}
+            <Card className="border-orange-200 bg-gradient-to-br from-orange-50 to-orange-100/50 dark:from-orange-950/50 dark:to-orange-900/30 dark:border-orange-800">
+              <CardContent className="p-4">
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-1">
+                      <h3 className="text-sm font-semibold text-orange-700 dark:text-orange-300">MTTR Global</h3>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Info className="w-3.5 h-3.5 text-orange-500 cursor-help" />
+                        </TooltipTrigger>
+                        <TooltipContent side="top" className="max-w-[280px]">
+                          <p className="font-medium mb-1">Tempo Médio de Reparo</p>
+                          <p className="text-xs">Média de todas as {globalMetrics.totalMaquinas} máquinas. Indica quanto tempo leva, em média, para reparar uma máquina. Quanto menor, mais eficiente.</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </div>
+                    <p className="text-3xl font-bold text-orange-600 dark:text-orange-400">
+                      {loadingMetrics ? '...' : `${globalMetrics.mttrGlobal.toFixed(1)}h`}
+                    </p>
+                    <p className="text-xs text-orange-600/70 dark:text-orange-400/70 mt-1">
+                      {globalMetrics.totalDowntime.toFixed(1)}h de downtime total
+                    </p>
+                  </div>
+                  <div className="p-2 rounded-lg bg-orange-500/20">
+                    <Clock className="w-6 h-6 text-orange-600 dark:text-orange-400" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+          {/* ========== FIM CARDS GLOBAIS ========== */}
 
           {/* Card de Configurações Globais - Apenas Admin - Colapsável */}
           {isAdmin && (
@@ -2923,39 +2930,42 @@ export function ReportsView() {
             )}
           </Card>
 
-          {/* Tabela de Métricas por Máquina */}
+          {/* Detalhamento por Máquina - Expansível (Accordion) */}
           <Card>
-            <CardHeader className="pb-2">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                <div>
-                  <CardTitle>Métricas por Máquina</CardTitle>
-                  <CardDescription className="mt-1">
-                    Análise de MTBF, MTTR e Disponibilidade (mês atual)
-                  </CardDescription>
-                </div>
-                <div className="flex flex-wrap gap-2 items-center">
-                  {/* Busca por máquina */}
-                  <input
-                    type="text"
-                    placeholder="Buscar máquina..."
-                    className="h-8 px-2 text-xs border rounded-md w-[150px] bg-background"
-                    value={metricsSearchMachine}
-                    onChange={(e) => setMetricsSearchMachine(e.target.value)}
-                  />
-                  {/* Botão recarregar */}
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    className="h-8 text-xs"
-                    onClick={loadViewMetrics}
-                    disabled={loadingMetrics}
-                  >
-                    {loadingMetrics ? 'Carregando...' : 'Atualizar'}
-                  </Button>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent className="p-0">
+            <Accordion type="single" collapsible className="w-full">
+              <AccordionItem value="machine-details" className="border-0">
+                <CardHeader className="pb-0">
+                  <AccordionTrigger className="hover:no-underline py-0">
+                    <div className="flex flex-col items-start gap-1 text-left">
+                      <CardTitle className="text-base">Ver Detalhamento por Máquina</CardTitle>
+                      <CardDescription className="text-xs">
+                        Clique para expandir a análise individual de MTBF, MTTR e Disponibilidade das {viewMetrics.length} máquinas
+                      </CardDescription>
+                    </div>
+                  </AccordionTrigger>
+                </CardHeader>
+                <AccordionContent>
+                  <CardContent className="pt-4">
+                    <div className="flex flex-wrap gap-2 items-center mb-4">
+                      {/* Busca por máquina */}
+                      <input
+                        type="text"
+                        placeholder="Buscar máquina..."
+                        className="h-8 px-2 text-xs border rounded-md w-[150px] bg-background"
+                        value={metricsSearchMachine}
+                        onChange={(e) => setMetricsSearchMachine(e.target.value)}
+                      />
+                      {/* Botão recarregar */}
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="h-8 text-xs"
+                        onClick={() => loadViewMetrics()}
+                        disabled={loadingMetrics}
+                      >
+                        {loadingMetrics ? 'Carregando...' : 'Atualizar'}
+                      </Button>
+                    </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead className="bg-muted">
@@ -3040,7 +3050,10 @@ export function ReportsView() {
                   </div>
                 )}
               </div>
-            </CardContent>
+                  </CardContent>
+                </AccordionContent>
+              </AccordionItem>
+            </Accordion>
           </Card>
 
           {/* Explicação dos indicadores - Movido para o final */}
@@ -3051,7 +3064,7 @@ export function ReportsView() {
                 Indicadores de Manutenção
               </CardTitle>
               <CardDescription>
-                Métricas de confiabilidade e eficiência baseadas nos turnos de operação das máquinas
+                Métricas de confiabilidade e eficiência baseadas na operação das máquinas
               </CardDescription>
             </CardHeader>
             <CardContent>
