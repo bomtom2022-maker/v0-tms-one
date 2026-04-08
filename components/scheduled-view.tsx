@@ -44,6 +44,11 @@ export function ScheduledView() {
   const [showForm, setShowForm] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null)
+  const [showCompleteModal, setShowCompleteModal] = useState<string | null>(null)
+  const [completionNotes, setCompletionNotes] = useState('')
+  const [showDeleteHistoryConfirm, setShowDeleteHistoryConfirm] = useState<string | null>(null)
+  
+  const isAdmin = currentUser?.isAdmin === true
 
   // Form state
   const [machineId, setMachineId] = useState('')
@@ -104,8 +109,63 @@ export function ScheduledView() {
     setShowDeleteConfirm(null)
   }
 
-  const handleMarkComplete = (id: string) => {
-    updateScheduledMaintenance(id, { status: 'completed' }, currentUser?.id || '', currentUser?.name || '')
+  const handleOpenCompleteModal = (id: string) => {
+    setCompletionNotes('')
+    setShowCompleteModal(id)
+  }
+  
+  const handleMarkComplete = async () => {
+    if (!showCompleteModal) return
+    const id = showCompleteModal
+    const maintenance = scheduledMaintenances.find(m => m.id === id)
+    if (!maintenance) return
+    
+    // Marcar como concluída com observações
+    await updateScheduledMaintenance(id, { 
+      status: 'completed',
+      completionNotes: completionNotes.trim() || undefined,
+    }, currentUser?.id || '', currentUser?.name || '')
+    
+    // Se for preventiva, atualizar a data da última preventiva na máquina
+    // e agendar a próxima automaticamente
+    if (maintenance.type === 'preventive') {
+      const machine = getMachineById(maintenance.machineId)
+      if (machine?.preventiveIntervalDays) {
+        const today = new Date()
+        const nextPreventiveDate = addDays(today, machine.preventiveIntervalDays)
+        
+        // Atualizar última preventiva da máquina via API
+        try {
+          await fetch('/api/machines/preventive', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+              machineId: machine.id, 
+              lastPreventiveDate: today.toISOString() 
+            }),
+          })
+          
+          // Criar próxima manutenção preventiva automaticamente
+          await addScheduledMaintenance({
+            machineId: machine.id,
+            title: maintenance.title,
+            description: maintenance.description || `Preventiva automática - Periodicidade: ${machine.preventiveIntervalDays} dias`,
+            scheduledDate: nextPreventiveDate,
+            type: 'preventive',
+          }, currentUser?.id || '', currentUser?.name || '')
+        } catch (err) {
+          console.error('Erro ao agendar próxima preventiva:', err)
+        }
+      }
+    }
+    
+    setShowCompleteModal(null)
+    setCompletionNotes('')
+  }
+  
+  const handleDeleteHistory = (id: string) => {
+    deleteScheduledMaintenance(id, currentUser?.id || '', currentUser?.name || '')
+    setShowDeleteHistoryConfirm(null)
   }
 
   const handleMarkCancelled = (id: string) => {
@@ -121,11 +181,49 @@ export function ScheduledView() {
   const completedMaintenances = sortedMaintenances.filter(m => m.status === 'completed')
   const cancelledMaintenances = sortedMaintenances.filter(m => m.status === 'cancelled')
 
+  // Sistema de cores: Vermelho (atrasada), Amarelo (próximos 7 dias), Verde (em dia)
   const getDateStatus = (date: Date) => {
-    if (isToday(date)) return { label: 'Hoje', color: 'text-orange-600 bg-orange-50' }
-    if (isBefore(date, new Date())) return { label: 'Atrasada', color: 'text-red-600 bg-red-50' }
-    if (isBefore(date, addDays(new Date(), 7))) return { label: 'Esta Semana', color: 'text-blue-600 bg-blue-50' }
-    return null
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const compareDate = new Date(date)
+    compareDate.setHours(0, 0, 0, 0)
+    
+    // Atrasada - Vermelho
+    if (isBefore(compareDate, today)) {
+      const daysLate = Math.abs(Math.floor((today.getTime() - compareDate.getTime()) / (1000 * 60 * 60 * 24)))
+      return { 
+        label: daysLate === 1 ? '1 dia atrasada' : `${daysLate} dias atrasada`, 
+        color: 'text-red-600 bg-red-100 border-red-200',
+        dotColor: 'bg-red-500'
+      }
+    }
+    
+    // Hoje - Laranja
+    if (isToday(date)) {
+      return { 
+        label: 'Hoje', 
+        color: 'text-orange-600 bg-orange-100 border-orange-200',
+        dotColor: 'bg-orange-500'
+      }
+    }
+    
+    // Próximos 7 dias - Amarelo
+    if (isBefore(compareDate, addDays(today, 7))) {
+      const daysUntil = Math.floor((compareDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
+      return { 
+        label: daysUntil === 1 ? 'Amanhã' : `Em ${daysUntil} dias`, 
+        color: 'text-yellow-700 bg-yellow-100 border-yellow-200',
+        dotColor: 'bg-yellow-500'
+      }
+    }
+    
+    // Em dia (mais de 7 dias) - Verde
+    const daysUntil = Math.floor((compareDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
+    return { 
+      label: `Em ${daysUntil} dias`, 
+      color: 'text-green-600 bg-green-100 border-green-200',
+      dotColor: 'bg-green-500'
+    }
   }
 
   return (
@@ -299,6 +397,69 @@ export function ScheduledView() {
         </DialogContent>
       </Dialog>
 
+      {/* Modal de Conclusão com Observações */}
+      <Dialog open={!!showCompleteModal} onOpenChange={() => { setShowCompleteModal(null); setCompletionNotes(''); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-green-600">
+              <CheckCircle className="w-5 h-5" />
+              Concluir Manutenção
+            </DialogTitle>
+            <DialogDescription>
+              Adicione observações sobre a manutenção realizada (opcional).
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="completion-notes">Observações</Label>
+              <Textarea
+                id="completion-notes"
+                value={completionNotes}
+                onChange={(e) => setCompletionNotes(e.target.value)}
+                placeholder="Descreva o que foi feito, peças trocadas, observações importantes..."
+                rows={4}
+              />
+            </div>
+            <div className="p-3 bg-muted rounded-lg text-sm">
+              <p className="text-muted-foreground">
+                Será registrado: <span className="font-medium text-foreground">{currentUser?.name}</span>
+              </p>
+              <p className="text-muted-foreground">
+                Data/hora: <span className="font-medium text-foreground">{format(new Date(), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}</span>
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setShowCompleteModal(null); setCompletionNotes(''); }}>
+              Cancelar
+            </Button>
+            <Button onClick={handleMarkComplete} className="bg-green-600 hover:bg-green-700">
+              Confirmar Conclusão
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete History Confirmation (Admin) */}
+      <Dialog open={!!showDeleteHistoryConfirm} onOpenChange={() => setShowDeleteHistoryConfirm(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Apagar do Histórico</DialogTitle>
+            <DialogDescription>
+              Tem certeza que deseja apagar este registro do histórico? Esta ação não pode ser desfeita.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowDeleteHistoryConfirm(null)}>
+              Cancelar
+            </Button>
+            <Button variant="destructive" onClick={() => showDeleteHistoryConfirm && handleDeleteHistory(showDeleteHistoryConfirm)}>
+              Apagar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Pending Maintenances */}
       <Card>
         <CardHeader>
@@ -357,7 +518,8 @@ export function ScheduledView() {
                           variant="outline" 
                           size="icon" 
                           className="h-8 w-8 text-green-600 hover:text-green-700 hover:bg-green-50"
-                          onClick={() => handleMarkComplete(maintenance.id)}
+                          onClick={() => handleOpenCompleteModal(maintenance.id)}
+                          title="Concluir manutenção"
                         >
                           <CheckCircle className="w-4 h-4" />
                         </Button>
@@ -383,29 +545,73 @@ export function ScheduledView() {
       {(completedMaintenances.length > 0 || cancelledMaintenances.length > 0) && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Histórico</CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-base">Histórico</CardTitle>
+              <p className="text-xs text-muted-foreground">
+                {completedMaintenances.length + cancelledMaintenances.length} registro(s)
+              </p>
+            </div>
           </CardHeader>
           <CardContent className="p-0">
             <div className="divide-y">
-              {[...completedMaintenances, ...cancelledMaintenances].map((maintenance) => {
+              {[...completedMaintenances, ...cancelledMaintenances]
+                .sort((a, b) => (b.completedAt?.getTime() || b.createdAt.getTime()) - (a.completedAt?.getTime() || a.createdAt.getTime()))
+                .map((maintenance) => {
                 const machine = getMachineById(maintenance.machineId)
                 const typeConfig = MAINTENANCE_TYPE_CONFIG[maintenance.type]
                 const isCompleted = maintenance.status === 'completed'
                 
                 return (
-                  <div key={maintenance.id} className="p-4 opacity-70">
+                  <div key={maintenance.id} className="p-4 hover:bg-muted/30 transition-colors">
                     <div className="flex items-start justify-between gap-4">
                       <div className="flex-1">
                         <div className="flex items-center gap-2 flex-wrap">
                           <h3 className="font-medium">{maintenance.title}</h3>
-                          <Badge variant="outline" className={cn("text-xs", isCompleted ? "text-green-600" : "text-gray-500")}>
+                          <Badge className={cn("text-xs", typeConfig.bgLight, typeConfig.textColor)}>
+                            {typeConfig.label}
+                          </Badge>
+                          <Badge variant="outline" className={cn("text-xs", isCompleted ? "text-green-600 border-green-200 bg-green-50" : "text-gray-500")}>
                             {isCompleted ? 'Concluída' : 'Cancelada'}
                           </Badge>
                         </div>
                         <p className="text-sm text-muted-foreground mt-1">
                           {machine?.name || 'Máquina desconhecida'}
                         </p>
+                        
+                        {/* Informações de criação e conclusão */}
+                        <div className="mt-2 text-xs text-muted-foreground space-y-1">
+                          <p>
+                            <span className="text-foreground/60">Criado:</span>{' '}
+                            {format(maintenance.createdAt, "dd/MM/yyyy", { locale: ptBR })}
+                            {maintenance.createdByName && <span> por {maintenance.createdByName}</span>}
+                          </p>
+                          {isCompleted && maintenance.completedAt && (
+                            <p>
+                              <span className="text-green-600 font-medium">Concluído:</span>{' '}
+                              {format(maintenance.completedAt, "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                              {maintenance.completedByName && <span> por <strong>{maintenance.completedByName}</strong></span>}
+                            </p>
+                          )}
+                          {maintenance.completionNotes && (
+                            <p className="mt-1 p-2 bg-muted rounded text-foreground/80">
+                              <span className="font-medium">Obs:</span> {maintenance.completionNotes}
+                            </p>
+                          )}
+                        </div>
                       </div>
+                      
+                      {/* Botão de apagar (admin apenas) */}
+                      {isAdmin && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                          onClick={() => setShowDeleteHistoryConfirm(maintenance.id)}
+                          title="Apagar do histórico"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      )}
                     </div>
                   </div>
                 )

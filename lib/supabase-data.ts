@@ -43,7 +43,18 @@ export async function fetchMachines(includeInactive = false): Promise<Machine[]>
     status: row.status as MachineStatus,
     shiftId: (row.shift_id as string) || undefined,
     isActive: row.is_active !== false, // default true se coluna não existir
+    preventiveIntervalDays: row.preventive_interval_days ? Number(row.preventive_interval_days) : undefined,
+    lastPreventiveDate: row.last_preventive_date ? new Date(row.last_preventive_date as string) : undefined,
   }))
+}
+
+// Atualizar campos de preventiva de uma máquina
+export async function updateMachinePreventive(machineId: string, lastPreventiveDate: Date): Promise<void> {
+  await apiFetch('/api/machines/preventive', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ machineId, lastPreventiveDate: lastPreventiveDate.toISOString() }),
+  })
 }
 
 export async function insertMachine(name: string, sector: string, status: MachineStatus, manufacturer?: string, model?: string, controller?: string): Promise<Machine> {
@@ -55,11 +66,11 @@ export async function insertMachine(name: string, sector: string, status: Machin
   return { id: row.id, name: row.name, sector: row.sector, status: row.status, manufacturer: row.manufacturer, model: row.model, controller: row.controller }
 }
 
-export async function updateMachineDb(id: string, name: string, sector: string, status: MachineStatus, manufacturer?: string, model?: string, controller?: string): Promise<void> {
+export async function updateMachineDb(id: string, name: string, sector: string, status: MachineStatus, manufacturer?: string, model?: string, controller?: string, preventiveIntervalDays?: number, lastPreventiveDate?: string): Promise<void> {
   await apiFetch('/api/machines', {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ id, name, sector, status, manufacturer, model, controller }),
+    body: JSON.stringify({ id, name, sector, status, manufacturer, model, controller, preventiveIntervalDays, lastPreventiveDate }),
   })
 }
 
@@ -321,6 +332,12 @@ export async function fetchScheduledMaintenances(): Promise<ScheduledMaintenance
     type: row.type as ScheduledMaintenance['type'],
     status: row.status as ScheduledMaintenance['status'],
     createdAt: new Date(row.created_at as string),
+    createdBy: row.created_by as string | undefined,
+    createdByName: row.created_by_name as string | undefined,
+    completedAt: row.completed_at ? new Date(row.completed_at as string) : undefined,
+    completedBy: row.completed_by as string | undefined,
+    completedByName: row.completed_by_name as string | undefined,
+    completionNotes: row.completion_notes as string | undefined,
   }))
 }
 
@@ -350,7 +367,7 @@ export async function insertScheduledMaintenance(data: Omit<ScheduledMaintenance
   }
 }
 
-export async function updateScheduledMaintenanceDb(id: string, updates: Partial<ScheduledMaintenance>): Promise<void> {
+export async function updateScheduledMaintenanceDb(id: string, updates: Partial<ScheduledMaintenance>, completedBy?: string, completedByName?: string): Promise<void> {
   await apiFetch('/api/maintenances', {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
@@ -361,6 +378,10 @@ export async function updateScheduledMaintenanceDb(id: string, updates: Partial<
       ...(updates.scheduledDate !== undefined && { scheduledDate: updates.scheduledDate.toISOString() }),
       ...(updates.type !== undefined && { type: updates.type }),
       ...(updates.status !== undefined && { status: updates.status }),
+      ...(updates.completionNotes !== undefined && { completionNotes: updates.completionNotes }),
+      ...(completedBy && { completedBy }),
+      ...(completedByName && { completedByName }),
+      ...(updates.status === 'completed' && { completedAt: new Date().toISOString() }),
     }),
   })
 }
