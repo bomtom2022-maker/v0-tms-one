@@ -1022,10 +1022,63 @@ export function ReportsView() {
     })
   }, [tickets, filters])
 
+  // Tickets em aberto (in-progress, paused, pending) para cálculo de downtime progressivo
+  const openTicketsForDowntime = useMemo(() => {
+    return filteredTickets.filter(t => 
+      t.status === 'in-progress' || 
+      t.status === 'paused' || 
+      t.status === 'pending'
+    )
+  }, [filteredTickets])
+
   const stats = useMemo(() => {
-    // IMPORTANTE: Usar apenas tickets válidos (completed + resolved) para métricas
-    // Downtime total: soma da coluna downtime apenas de tickets válidos (em SEGUNDOS)
-    const totalStoppedTime = validTicketsForMetrics.reduce((sum, t) => sum + t.downtime, 0)
+    // ========== CÁLCULO DO DOWNTIME TOTAL (INCLUI TICKETS EM ABERTO) ==========
+    
+    // 1. Downtime de tickets fechados (completed + resolved) - usa o valor já calculado
+    const closedTicketsDowntime = validTicketsForMetrics.reduce((sum, t) => sum + t.downtime, 0)
+    
+    // 2. Downtime de tickets em aberto (progressivo até o final do dia anterior)
+    // REGRA: Calcular desde o início do problema até 23:59:59 do dia anterior
+    const yesterday = subDays(new Date(), 1)
+    const endOfYesterday = endOfDay(yesterday)
+    
+    // Limites do filtro de data
+    const filterStart = filters.dateRange?.from ? startOfDay(filters.dateRange.from) : null
+    const filterEnd = filters.dateRange?.to ? endOfDay(filters.dateRange.to) : null
+    
+    const openTicketsDowntime = openTicketsForDowntime.reduce((sum, ticket) => {
+      // Data de início do problema (criação do ticket)
+      const ticketStart = new Date(ticket.createdAt)
+      
+      // O downtime acumulado vai desde a criação até o fim do dia anterior
+      // MAS deve respeitar o filtro de data selecionado
+      
+      // Início efetivo: o maior entre (início do ticket) e (início do filtro)
+      let effectiveStart = ticketStart
+      if (filterStart && ticketStart < filterStart) {
+        effectiveStart = filterStart
+      }
+      
+      // Fim efetivo: o menor entre (fim do dia anterior) e (fim do filtro)
+      let effectiveEnd = endOfYesterday
+      if (filterEnd && effectiveEnd > filterEnd) {
+        effectiveEnd = filterEnd
+      }
+      
+      // Se o ticket foi criado depois do período do filtro, não conta
+      if (effectiveStart > effectiveEnd) {
+        return sum
+      }
+      
+      // Calcular downtime em segundos
+      const downtimeMs = effectiveEnd.getTime() - effectiveStart.getTime()
+      const downtimeSeconds = Math.max(0, Math.floor(downtimeMs / 1000))
+      
+      return sum + downtimeSeconds
+    }, 0)
+    
+    // Downtime total = fechados + abertos (progressivo)
+    const totalStoppedTime = closedTicketsDowntime + openTicketsDowntime
     
     // ========== CÁLCULO TEMPO OPERANDO (PROPORCIONAL AO FILTRO) ==========
     // CONSTANTES (valores fixos e explícitos):
@@ -1087,15 +1140,17 @@ export function ReportsView() {
       plannedCapacityHours: capacidadeTotalHoras,
       dailyCapacityHours: H_PLANEJADA_DIA
     }
-  }, [filteredTickets, validTicketsForMetrics, cancelledTickets, viewMetrics, filters.dateRange, machines])
+  }, [filteredTickets, validTicketsForMetrics, openTicketsForDowntime, cancelledTickets, viewMetrics, filters.dateRange, machines])
 
   const machineData = useMemo(() => {
-    // Usar apenas tickets válidos (completed + resolved) para métricas de máquinas
-    const data = new Map<string, { stoppedTime: number; operatingTime: number; totalCost: number; ticketCount: number; tickets: typeof validTicketsForMetrics }>()
+    // Usar tickets válidos (completed + resolved) + tickets em aberto para métricas de máquinas
+    const data = new Map<string, { stoppedTime: number; operatingTime: number; totalCost: number; ticketCount: number; tickets: typeof validTicketsForMetrics; openTickets: number }>()
+    
+    // 1. Adicionar downtime de tickets fechados
     validTicketsForMetrics.forEach(ticket => {
       // stoppedTime = downtime real do ticket (não tempo de abertura até fechamento)
       const stoppedTime = ticket.downtime
-      const current = data.get(ticket.machineId) || { stoppedTime: 0, operatingTime: 0, totalCost: 0, ticketCount: 0, tickets: [] }
+      const current = data.get(ticket.machineId) || { stoppedTime: 0, operatingTime: 0, totalCost: 0, ticketCount: 0, tickets: [], openTickets: 0 }
       const segmentsTime = ticket.timeSegments?.reduce((s, seg) => s + seg.duration, 0) || 0
       data.set(ticket.machineId, {
         stoppedTime: current.stoppedTime + stoppedTime,
@@ -1103,15 +1158,50 @@ export function ReportsView() {
         totalCost: current.totalCost + ticket.totalCost,
         ticketCount: current.ticketCount + 1,
         tickets: [...current.tickets, ticket],
+        openTickets: current.openTickets,
       })
     })
+    
+    // 2. Adicionar downtime progressivo de tickets em aberto (até o final do dia anterior)
+    const yesterday = subDays(new Date(), 1)
+    const endOfYesterdayTime = endOfDay(yesterday)
+    const filterStartTime = filters.dateRange?.from ? startOfDay(filters.dateRange.from) : null
+    const filterEndTime = filters.dateRange?.to ? endOfDay(filters.dateRange.to) : null
+    
+    openTicketsForDowntime.forEach(ticket => {
+      const ticketStart = new Date(ticket.createdAt)
+      
+      // Calcular downtime progressivo respeitando o filtro
+      let effectiveStart = ticketStart
+      if (filterStartTime && ticketStart < filterStartTime) {
+        effectiveStart = filterStartTime
+      }
+      
+      let effectiveEnd = endOfYesterdayTime
+      if (filterEndTime && effectiveEnd > filterEndTime) {
+        effectiveEnd = filterEndTime
+      }
+      
+      if (effectiveStart <= effectiveEnd) {
+        const downtimeMs = effectiveEnd.getTime() - effectiveStart.getTime()
+        const downtimeSeconds = Math.max(0, Math.floor(downtimeMs / 1000))
+        
+        const current = data.get(ticket.machineId) || { stoppedTime: 0, operatingTime: 0, totalCost: 0, ticketCount: 0, tickets: [], openTickets: 0 }
+        data.set(ticket.machineId, {
+          ...current,
+          stoppedTime: current.stoppedTime + downtimeSeconds,
+          openTickets: current.openTickets + 1,
+        })
+      }
+    })
+    
     return Array.from(data.entries())
       .map(([machineId, d]) => {
         const machine = getMachineById(machineId)
         return { machineId, machineName: machine?.name || 'Desconhecida', sector: machine?.sector || '', ...d }
       })
       .sort((a, b) => b.stoppedTime - a.stoppedTime)
-  }, [validTicketsForMetrics, getMachineById])
+  }, [validTicketsForMetrics, openTicketsForDowntime, getMachineById, filters.dateRange])
   
   const userData = useMemo(() => {
     // Usar apenas tickets válidos para métricas de usuários
