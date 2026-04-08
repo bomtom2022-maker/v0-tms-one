@@ -1631,9 +1631,6 @@ export function ReportsView() {
                       </>
                     )
                   })()}
-                  <p className="text-[10px] text-emerald-600/70 mt-0.5">
-                    {stats.dailyCapacityHours.toFixed(1)}h/dia × {stats.daysInPeriod} dia{stats.daysInPeriod > 1 ? 's' : ''} × {stats.totalMachinesCount} máquinas
-                  </p>
                 </div>
               </div>
             </div>
