@@ -969,17 +969,39 @@ export function ReportsView() {
         if (t.status === 'open' || t.status === 'cancelled') return false
       }
       
-      const refDate = t.status === 'cancelled' && t.cancelledAt
-        ? new Date(t.cancelledAt)
-        : t.completedAt
-          ? new Date(t.completedAt)
-          : t.actions.length > 0
-            ? new Date(t.actions[t.actions.length - 1].timestamp)
-            : new Date(t.createdAt)
+      // ========== FILTRO DE DATA CORRIGIDO ==========
+      // Tickets em aberto (in-progress, paused, pending) devem ser incluídos se:
+      // - Foram criados ANTES ou DURANTE o período do filtro
+      // - Ainda estão abertos (não finalizados)
+      // Isso garante que o downtime deles seja contabilizado no período
+      
+      const isOpenTicket = t.status === 'in-progress' || t.status === 'paused' || t.status === 'pending'
+      
       if (filters.dateRange?.from && filters.dateRange?.to) {
-        const checkDate = t.status === 'completed' || t.status === 'unresolved' || t.status === 'cancelled' ? refDate : new Date(t.createdAt)
-        if (!isWithinInterval(checkDate, { start: startOfDay(filters.dateRange.from), end: endOfDay(filters.dateRange.to) })) return false
+        const filterStart = startOfDay(filters.dateRange.from)
+        const filterEnd = endOfDay(filters.dateRange.to)
+        
+        if (isOpenTicket) {
+          // Tickets em aberto: incluir se foram criados ANTES do fim do filtro
+          // (se criado antes do período, ainda conta pois está aberto durante o período)
+          const createdAt = new Date(t.createdAt)
+          if (createdAt > filterEnd) return false // Criado depois do período? Não inclui
+          // Se criado antes ou durante o período e ainda está aberto, INCLUI
+        } else {
+          // Tickets fechados: usar lógica original (data de referência dentro do intervalo)
+          const refDate = t.status === 'cancelled' && t.cancelledAt
+            ? new Date(t.cancelledAt)
+            : t.completedAt
+              ? new Date(t.completedAt)
+              : t.actions.length > 0
+                ? new Date(t.actions[t.actions.length - 1].timestamp)
+                : new Date(t.createdAt)
+          const checkDate = t.status === 'completed' || t.status === 'unresolved' || t.status === 'cancelled' ? refDate : new Date(t.createdAt)
+          if (!isWithinInterval(checkDate, { start: filterStart, end: filterEnd })) return false
+        }
       }
+      // ========== FIM FILTRO DE DATA CORRIGIDO ==========
+      
       if (filters.machineId !== 'all' && t.machineId !== filters.machineId) return false
       if (filters.userId !== 'all') {
         const targetUser = users.find(u => u.id === filters.userId)
@@ -1024,11 +1046,20 @@ export function ReportsView() {
 
   // Tickets em aberto (in-progress, paused, pending) para cálculo de downtime progressivo
   const openTicketsForDowntime = useMemo(() => {
-    return filteredTickets.filter(t => 
+    const openTickets = filteredTickets.filter(t => 
       t.status === 'in-progress' || 
       t.status === 'paused' || 
       t.status === 'pending'
     )
+    // DEBUG: Verificar tickets em aberto
+    console.log('[v0] Tickets em aberto para downtime:', openTickets.map(t => ({
+      id: t.id,
+      machineId: t.machineId,
+      status: t.status,
+      createdAt: t.createdAt,
+      diasAberto: Math.floor((Date.now() - new Date(t.createdAt).getTime()) / (1000 * 60 * 60 * 24))
+    })))
+    return openTickets
   }, [filteredTickets])
 
   const stats = useMemo(() => {
@@ -1079,6 +1110,17 @@ export function ReportsView() {
     
     // Downtime total = fechados + abertos (progressivo)
     const totalStoppedTime = closedTicketsDowntime + openTicketsDowntime
+    
+    // DEBUG: Verificar cálculo de downtime
+    console.log('[v0] Cálculo Downtime:', {
+      ticketsFechados: validTicketsForMetrics.length,
+      downtimeFechadosHoras: (closedTicketsDowntime / 3600).toFixed(1),
+      ticketsAbertos: openTicketsForDowntime.length,
+      downtimeAbertosHoras: (openTicketsDowntime / 3600).toFixed(1),
+      downtimeTotalHoras: (totalStoppedTime / 3600).toFixed(1),
+      filterFrom: filters.dateRange?.from,
+      filterTo: filters.dateRange?.to
+    })
     
     // ========== CÁLCULO TEMPO OPERANDO (PROPORCIONAL AO FILTRO) ==========
     // CONSTANTES (valores fixos e explícitos):
