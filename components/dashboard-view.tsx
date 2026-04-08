@@ -22,7 +22,15 @@ import { useData } from '@/lib/data-context'
 import { useAuth } from '@/lib/auth-context'
 import { useNotification } from '@/lib/notification-context'
 import { PRIORITY_CONFIG, type Priority } from '@/lib/types'
-import { Clock, Search, Filter, Play, Pause, ArrowRight, AlertCircle, Wrench, CheckCircle2, User, CalendarIcon, XCircle } from 'lucide-react'
+import { Clock, Search, Filter, Play, Pause, ArrowRight, AlertCircle, Wrench, CheckCircle2, User, CalendarIcon, XCircle, History, ChevronRight } from 'lucide-react'
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from '@/components/ui/sheet'
+import type { Ticket } from '@/lib/types'
 import {
   Dialog,
   DialogContent,
@@ -71,6 +79,9 @@ export function DashboardView({ onSelectTicket }: DashboardViewProps) {
   const [pausedFilter, setPausedFilter] = useState({ search: '', machine: 'all', date: '' })
   const [rejectedFilter, setRejectedFilter] = useState({ search: '', machine: 'all', date: '' })
   const [unresolvedFilter, setUnresolvedFilter] = useState({ search: '', machine: 'all', date: '' })
+  
+  // Estado para Sheet de histórico da manutenção
+  const [selectedTicketHistory, setSelectedTicketHistory] = useState<Ticket | null>(null)
 
   // Estatísticas coerentes com StatusCards
   const dashboardStats = useMemo(() => {
@@ -563,7 +574,9 @@ export function DashboardView({ onSelectTicket }: DashboardViewProps) {
                   {filtered.map((ticket) => {
                     const machine = getMachineById(ticket.machineId)
                     const problem = getProblemById(ticket.problemId)
-                    const lastPauseAction = [...ticket.actions].reverse().find(a => a.type === 'pause')
+                    const pauseActions = ticket.actions.filter(a => a.type === 'pause')
+                    const pauseCount = pauseActions.length
+                    const lastPauseAction = pauseActions[pauseActions.length - 1]
                     return (
                       <div key={ticket.id} className="p-3 rounded-lg border bg-muted/30 cursor-pointer hover:bg-muted/50" onClick={() => onSelectTicket(ticket.id)}>
                         <div className="flex items-start justify-between gap-2">
@@ -571,17 +584,35 @@ export function DashboardView({ onSelectTicket }: DashboardViewProps) {
                             <p className="font-medium text-sm truncate">{machine?.name || 'Máquina'}</p>
                             <p className="text-xs text-muted-foreground">{ticket.customProblemName || problem?.name || 'Problema'}</p>
                           </div>
-                          <div className="text-right shrink-0">
-                            <Badge variant="outline" className="text-[10px] bg-orange-50 text-orange-600 border-orange-200">Pausado</Badge>
-                            <p className="text-[10px] text-muted-foreground mt-1">{format(new Date(ticket.createdAt), "dd/MM HH:mm", { locale: ptBR })}</p>
+                          <div className="text-right shrink-0 flex flex-col items-end gap-1">
+                            <div className="flex items-center gap-1">
+                              <Badge variant="outline" className="text-[10px] bg-orange-50 text-orange-600 border-orange-200">Pausado</Badge>
+                              {pauseCount > 1 && (
+                                <Badge variant="outline" className="text-[9px] bg-orange-100 text-orange-700 border-orange-300">
+                                  Pausa {pauseCount}
+                                </Badge>
+                              )}
+                            </div>
+                            <p className="text-[10px] text-muted-foreground">{format(new Date(ticket.createdAt), "dd/MM HH:mm", { locale: ptBR })}</p>
                           </div>
                         </div>
-                        {lastPauseAction?.reason && (
-                          <div className="mt-2 p-2 rounded bg-orange-50 border border-orange-200 dark:bg-orange-950 dark:border-orange-800">
-                            <p className="text-[10px] font-medium text-orange-700 dark:text-orange-300">Motivo da pausa:</p>
-                            <p className="text-xs text-orange-800 dark:text-orange-200">{lastPauseAction.reason}</p>
-                          </div>
-                        )}
+                        <div className="mt-2 p-2 rounded bg-orange-50 border border-orange-200 dark:bg-orange-950 dark:border-orange-800">
+                          <p className="text-[10px] font-medium text-orange-700 dark:text-orange-300">Motivo da pausa:</p>
+                          <p className="text-xs text-orange-800 dark:text-orange-200">{lastPauseAction?.reason || 'Sem motivo informado'}</p>
+                          {lastPauseAction?.operatorName && (
+                            <p className="text-[10px] text-orange-600 dark:text-orange-400 mt-1 flex items-center gap-1">
+                              <User className="w-3 h-3" />
+                              Pausado por: <span className="font-medium">{lastPauseAction.operatorName}</span>
+                            </p>
+                          )}
+                          <button 
+                            onClick={(e) => { e.stopPropagation(); setSelectedTicketHistory(ticket); }}
+                            className="text-[10px] text-orange-600 hover:text-orange-800 dark:text-orange-400 dark:hover:text-orange-200 mt-1.5 flex items-center gap-0.5 underline"
+                          >
+                            <History className="w-3 h-3" />
+                            Ver histórico completo
+                          </button>
+                        </div>
                       </div>
                     )
                   })}
@@ -989,13 +1020,35 @@ export function DashboardView({ onSelectTicket }: DashboardViewProps) {
                         </div>
                         {/* Motivo da pausa - exibido quando ticket está pausado */}
                         {ticket.status === 'paused' && (() => {
-                          const lastPauseAction = [...ticket.actions].reverse().find(a => a.type === 'pause')
-                          return lastPauseAction?.reason ? (
+                          const pauseActions = ticket.actions.filter(a => a.type === 'pause')
+                          const pauseCount = pauseActions.length
+                          const lastPauseAction = pauseActions[pauseActions.length - 1]
+                          return (
                             <div className="mt-2 p-2 rounded bg-yellow-50 border border-yellow-200 dark:bg-yellow-950 dark:border-yellow-800">
-                              <p className="text-[10px] font-medium text-yellow-700 dark:text-yellow-300">Motivo da pausa:</p>
-                              <p className="text-xs text-yellow-800 dark:text-yellow-200">{lastPauseAction.reason}</p>
+                              <div className="flex items-center justify-between mb-1">
+                                <p className="text-[10px] font-medium text-yellow-700 dark:text-yellow-300">Motivo da pausa:</p>
+                                {pauseCount > 1 && (
+                                  <Badge variant="outline" className="text-[9px] bg-yellow-100 text-yellow-700 border-yellow-300">
+                                    Pausa {pauseCount}
+                                  </Badge>
+                                )}
+                              </div>
+                              <p className="text-xs text-yellow-800 dark:text-yellow-200">{lastPauseAction?.reason || 'Sem motivo informado'}</p>
+                              {lastPauseAction?.operatorName && (
+                                <p className="text-[10px] text-yellow-600 dark:text-yellow-400 mt-1 flex items-center gap-1">
+                                  <User className="w-3 h-3" />
+                                  Pausado por: <span className="font-medium">{lastPauseAction.operatorName}</span>
+                                </p>
+                              )}
+                              <button 
+                                onClick={(e) => { e.stopPropagation(); setSelectedTicketHistory(ticket); }}
+                                className="text-[10px] text-yellow-600 hover:text-yellow-800 dark:text-yellow-400 dark:hover:text-yellow-200 mt-1.5 flex items-center gap-0.5 underline"
+                              >
+                                <History className="w-3 h-3" />
+                                Ver histórico completo
+                              </button>
                             </div>
-                          ) : null
+                          )
                         })()}
                       </div>
                       
@@ -1076,6 +1129,150 @@ export function DashboardView({ onSelectTicket }: DashboardViewProps) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Sheet de Histórico da Manutenção */}
+      <Sheet open={!!selectedTicketHistory} onOpenChange={(open) => !open && setSelectedTicketHistory(null)}>
+        <SheetContent className="w-full sm:max-w-lg overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle className="flex items-center gap-2">
+              <History className="w-5 h-5" />
+              Histórico da Manutenção
+            </SheetTitle>
+            <SheetDescription>
+              {selectedTicketHistory && (() => {
+                const machine = getMachineById(selectedTicketHistory.machineId)
+                const problem = getProblemById(selectedTicketHistory.problemId)
+                return (
+                  <span>
+                    <strong>{machine?.name || 'Máquina'}</strong> - {selectedTicketHistory.customProblemName || problem?.name || 'Problema'}
+                  </span>
+                )
+              })()}
+            </SheetDescription>
+          </SheetHeader>
+          
+          {selectedTicketHistory && (
+            <div className="mt-6 space-y-4">
+              {/* Informações do Chamado */}
+              <div className="p-3 rounded-lg bg-muted/50 border">
+                <p className="text-xs text-muted-foreground">Criado em</p>
+                <p className="text-sm font-medium">
+                  {format(new Date(selectedTicketHistory.createdAt), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Por: <span className="font-medium text-foreground">{selectedTicketHistory.createdByName}</span>
+                </p>
+              </div>
+
+              {/* Linha do Tempo */}
+              <div>
+                <h4 className="text-sm font-semibold mb-3 flex items-center gap-2">
+                  <Clock className="w-4 h-4" />
+                  Linha do Tempo
+                </h4>
+                <div className="relative border-l-2 border-muted-foreground/20 ml-2 space-y-4">
+                  {/* Evento de criação */}
+                  <div className="relative pl-6">
+                    <div className="absolute -left-[9px] top-0 w-4 h-4 rounded-full bg-green-500 flex items-center justify-center">
+                      <CheckCircle2 className="w-2.5 h-2.5 text-white" />
+                    </div>
+                    <div className="p-2 rounded bg-green-50 border border-green-200 dark:bg-green-950 dark:border-green-800">
+                      <p className="text-xs font-medium text-green-700 dark:text-green-300">Chamado Criado</p>
+                      <p className="text-[10px] text-green-600 dark:text-green-400">
+                        {format(new Date(selectedTicketHistory.createdAt), "dd/MM/yyyy HH:mm", { locale: ptBR })}
+                      </p>
+                      <p className="text-[10px] text-muted-foreground mt-0.5">
+                        Por: {selectedTicketHistory.createdByName}
+                      </p>
+                    </div>
+                  </div>
+                  
+                  {/* Ações da manutenção */}
+                  {selectedTicketHistory.actions.map((action, index) => {
+                    const actionConfig = {
+                      start: { label: 'Manutenção Iniciada', color: 'blue', icon: Play },
+                      pause: { label: 'Manutenção Pausada', color: 'orange', icon: Pause },
+                      resume: { label: 'Manutenção Retomada', color: 'blue', icon: Play },
+                      complete: { label: 'Manutenção Finalizada', color: 'green', icon: CheckCircle2 },
+                    }[action.type] || { label: action.type, color: 'gray', icon: Clock }
+                    
+                    const IconComponent = actionConfig.icon
+                    const colorClasses = {
+                      blue: 'bg-blue-500 text-blue-700 dark:text-blue-300 bg-blue-50 border-blue-200 dark:bg-blue-950 dark:border-blue-800',
+                      orange: 'bg-orange-500 text-orange-700 dark:text-orange-300 bg-orange-50 border-orange-200 dark:bg-orange-950 dark:border-orange-800',
+                      green: 'bg-green-500 text-green-700 dark:text-green-300 bg-green-50 border-green-200 dark:bg-green-950 dark:border-green-800',
+                      gray: 'bg-gray-500 text-gray-700 dark:text-gray-300 bg-gray-50 border-gray-200 dark:bg-gray-950 dark:border-gray-800',
+                    }[actionConfig.color]
+
+                    return (
+                      <div key={index} className="relative pl-6">
+                        <div className={cn("absolute -left-[9px] top-0 w-4 h-4 rounded-full flex items-center justify-center", colorClasses.split(' ')[0])}>
+                          <IconComponent className="w-2.5 h-2.5 text-white" />
+                        </div>
+                        <div className={cn("p-2 rounded border", colorClasses.split(' ').slice(1).join(' '))}>
+                          <p className={cn("text-xs font-medium", colorClasses.split(' ')[1])}>{actionConfig.label}</p>
+                          <p className={cn("text-[10px]", colorClasses.split(' ')[1].replace('700', '600').replace('300', '400'))}>
+                            {format(new Date(action.timestamp), "dd/MM/yyyy HH:mm", { locale: ptBR })}
+                          </p>
+                          <p className="text-[10px] text-muted-foreground mt-0.5">
+                            Por: <span className="font-medium text-foreground">{action.operatorName}</span>
+                          </p>
+                          {action.reason && (
+                            <p className="text-xs mt-1 p-1.5 rounded bg-background/50">
+                              <span className="font-medium">Motivo:</span> {action.reason}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+
+              {/* Resumo de Pausas */}
+              {(() => {
+                const pauseActions = selectedTicketHistory.actions.filter(a => a.type === 'pause')
+                if (pauseActions.length === 0) return null
+                return (
+                  <div className="p-3 rounded-lg bg-orange-50 border border-orange-200 dark:bg-orange-950 dark:border-orange-800">
+                    <h4 className="text-sm font-semibold text-orange-700 dark:text-orange-300 mb-2">
+                      Resumo de Pausas ({pauseActions.length})
+                    </h4>
+                    <div className="space-y-2">
+                      {pauseActions.map((pause, idx) => (
+                        <div key={idx} className="text-xs p-2 rounded bg-background/50">
+                          <div className="flex items-center justify-between">
+                            <span className="font-medium">Pausa {idx + 1}</span>
+                            <span className="text-muted-foreground">
+                              {format(new Date(pause.timestamp), "dd/MM HH:mm", { locale: ptBR })}
+                            </span>
+                          </div>
+                          <p className="text-muted-foreground mt-0.5">Por: {pause.operatorName}</p>
+                          {pause.reason && <p className="mt-1">Motivo: {pause.reason}</p>}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )
+              })()}
+
+              {/* Botão para gerenciar */}
+              {isManutentor && (
+                <Button 
+                  className="w-full" 
+                  onClick={() => {
+                    onSelectTicket(selectedTicketHistory.id)
+                    setSelectedTicketHistory(null)
+                  }}
+                >
+                  Gerenciar Manutenção
+                  <ChevronRight className="w-4 h-4 ml-1" />
+                </Button>
+              )}
+            </div>
+          )}
+        </SheetContent>
+      </Sheet>
     </div>
   )
 }
