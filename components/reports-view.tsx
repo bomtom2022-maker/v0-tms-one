@@ -2597,37 +2597,6 @@ export function ReportsView() {
             </CardContent>
           </Card>
 
-          {/* Legenda e informações */}
-          <Card>
-            <CardContent className="p-4 space-y-3">
-              <div className="flex flex-wrap gap-4 text-xs">
-                <div className="flex items-center gap-1">
-                  <div className="w-3 h-3 rounded bg-green-500"></div>
-                  <span>Disponibilidade maior ou igual a 95%</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <div className="w-3 h-3 rounded bg-yellow-500"></div>
-                  <span>Disponibilidade entre 85% e 95%</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <div className="w-3 h-3 rounded bg-red-500"></div>
-                  <span>Disponibilidade menor que 85%</span>
-                </div>
-              </div>
-              <div className="text-xs text-muted-foreground border-t pt-3 space-y-2">
-                <p className="font-medium">Período: Mês atual | Horas configuradas: {monthlyHours > 0 ? `${monthlyHours}h/mês` : 'Não configurado'}</p>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 bg-muted/50 p-2 rounded text-[11px]">
-                  <div><strong>Downtime:</strong> Soma de t.downtime dos tickets (em horas)</div>
-                  <div><strong>Uptime:</strong> monthly_hours - Downtime</div>
-                  <div><strong>MTBF:</strong> Uptime / Número de Falhas (se 0 falhas = monthly_hours)</div>
-                  <div><strong>MTTR:</strong> Downtime / Número de Falhas</div>
-                  <div className="md:col-span-2"><strong>Disponibilidade:</strong> (Uptime / monthly_hours) × 100 (se 0 falhas = 100%)</div>
-                </div>
-                <p>Os dados vêm da View <code className="bg-muted px-1 rounded">v_metricas_reais</code> do Supabase - não são calculados localmente.</p>
-              </div>
-            </CardContent>
-          </Card>
-
           {/* Explicação dos indicadores - Movido para o final */}
           <Card>
             <CardHeader className="pb-2">
