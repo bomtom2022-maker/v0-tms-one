@@ -489,8 +489,6 @@ export interface MetricsResponse {
     disponibilidade: number
   }>
   period: { from: string; to: string } | null
-  usedFallback?: boolean
-  error?: string
 }
 
 export async function fetchMetricsByPeriod(fromDate?: string, toDate?: string): Promise<MetricsResponse> {
@@ -501,24 +499,9 @@ export async function fetchMetricsByPeriod(fromDate?: string, toDate?: string): 
   }
   
   const data = await apiFetch(url)
-  
-  // Garantir que metrics seja sempre um array válido com campos normalizados
-  const metrics = Array.isArray(data.metrics) ? data.metrics.map((m: Record<string, unknown>) => ({
-    machine_id: String(m.machine_id || ''),
-    machine_name: String(m.machine_name || 'N/A'),
-    total_falhas: Number(m.total_falhas) || 0,
-    downtime_horas: Number(m.downtime_horas) || 0,
-    uptime_horas: Number(m.uptime_horas) || 0,
-    mtbf: Number(m.mtbf) || 0,
-    mttr: Number(m.mttr) || 0,
-    disponibilidade: Number(m.disponibilidade) || 0
-  })) : []
-  
   return {
     monthlyHours: data.monthlyHours || 0,
-    metrics,
-    period: data.period || null,
-    usedFallback: data.usedFallback || false,
-    error: data.error || undefined
+    metrics: data.metrics || [],
+    period: data.period || null
   }
 }

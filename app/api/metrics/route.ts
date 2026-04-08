@@ -23,29 +23,16 @@ export async function GET(request: Request) {
     
     let metricsData = null
     let metricsError = null
-    let usedFallback = false
     
-    // Se há datas customizadas, tentar usar a função RPC
+    // Se há datas customizadas, usar a função RPC
     if (fromDate && toDate) {
       const { data, error } = await supabase
         .rpc('fn_metricas_por_periodo', {
           from_date: fromDate,
           to_date: toDate
         })
-      
-      if (error) {
-        console.error('Erro na RPC fn_metricas_por_periodo:', error)
-        // Fallback: usar a View padrão se a RPC falhar
-        console.log('Usando fallback para View v_metricas_reais')
-        const { data: viewData, error: viewError } = await supabase
-          .from('v_metricas_reais')
-          .select('*')
-        metricsData = viewData
-        metricsError = viewError
-        usedFallback = true
-      } else {
-        metricsData = data
-      }
+      metricsData = data
+      metricsError = error
     } else {
       // Sem datas, usar a View padrão (mês atual)
       const { data, error } = await supabase
@@ -57,21 +44,16 @@ export async function GET(request: Request) {
     
     if (metricsError) {
       console.error('Erro ao buscar métricas:', metricsError)
-      // Retornar dados vazios em vez de erro 500 para não quebrar a UI
       return NextResponse.json({ 
-        monthlyHours,
-        metrics: [],
-        period: fromDate && toDate ? { from: fromDate, to: toDate } : null,
-        error: metricsError.message,
-        usedFallback
-      })
+        error: 'Erro ao buscar métricas',
+        details: metricsError.message 
+      }, { status: 500 })
     }
     
     return NextResponse.json({
       monthlyHours,
       metrics: metricsData || [],
-      period: fromDate && toDate ? { from: fromDate, to: toDate } : null,
-      usedFallback
+      period: fromDate && toDate ? { from: fromDate, to: toDate } : null
     })
   } catch (error) {
     console.error('Erro na API de métricas:', error)
