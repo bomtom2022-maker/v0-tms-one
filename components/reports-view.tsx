@@ -824,6 +824,7 @@ export function ReportsView() {
   
   // Função SEGURA para abrir histórico da máquina
   const openMachineHistory = (machineId: string, machineName: string) => {
+    console.log('[v0] Clicou na máquina:', machineId, machineName)
     try {
       // Validações de segurança
       if (!machineId || typeof machineId !== 'string') {
@@ -836,20 +837,20 @@ export function ReportsView() {
       setLoadingMachineHistory(true)
       setMachineHistoryOpen(true)
       
-      // Filtrar tickets da máquina respeitando o dateRange selecionado
+      // Filtrar tickets da máquina respeitando o dateRange selecionado (usa filters.dateRange da aba geral)
       const safeTickets = Array.isArray(tickets) ? tickets : []
       
       const filtered = safeTickets.filter(t => {
         // Verificar se o ticket é da máquina
         if (t.machineId !== machineId) return false
         
-        // Verificar filtro de data se existir
-        if (metricsDateRange?.from && metricsDateRange?.to) {
+        // Verificar filtro de data se existir (usa filters.dateRange que é o filtro geral da página)
+        if (filters.dateRange?.from && filters.dateRange?.to) {
           try {
             const ticketDate = new Date(t.createdAt)
             return isWithinInterval(ticketDate, {
-              start: startOfDay(metricsDateRange.from),
-              end: endOfDay(metricsDateRange.to)
+              start: startOfDay(filters.dateRange.from),
+              end: endOfDay(filters.dateRange.to)
             })
           } catch {
             return false
@@ -1775,7 +1776,11 @@ export function ReportsView() {
             <CardContent className="p-0">
               <div className="divide-y">
                 {machineData.map((m, index) => (
-                  <div key={m.machineId} className="p-4 hover:bg-muted/50">
+                  <div 
+                    key={m.machineId} 
+                    className="p-4 hover:bg-primary/10 cursor-pointer transition-colors"
+                    onClick={() => openMachineHistory(m.machineId, m.machineName)}
+                  >
                     <div className="flex items-start gap-4">
                       <div className={cn(
                         "w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm shrink-0 mt-0.5",
@@ -1820,6 +1825,127 @@ export function ReportsView() {
               </div>
             </CardContent>
           </Card>
+          
+          {/* Sheet de Histórico da Máquina - Aba Máquinas */}
+          <Sheet open={machineHistoryOpen} onOpenChange={setMachineHistoryOpen}>
+            <SheetContent side="right" className="w-full sm:max-w-lg overflow-y-auto">
+              <SheetHeader>
+                <SheetTitle className="flex items-center gap-2">
+                  <Wrench className="w-5 h-5" />
+                  Histórico de Manutenções
+                </SheetTitle>
+                <SheetDescription className="text-base font-semibold text-foreground">
+                  {selectedMachineName || 'Máquina'}
+                </SheetDescription>
+                {filters.dateRange?.from && filters.dateRange?.to && (
+                  <p className="text-xs text-muted-foreground">
+                    Período: {format(filters.dateRange.from, "dd/MM/yyyy", { locale: ptBR })} - {format(filters.dateRange.to, "dd/MM/yyyy", { locale: ptBR })}
+                  </p>
+                )}
+              </SheetHeader>
+              
+              <div className="flex-1 overflow-y-auto py-4">
+                {/* Estado de Loading */}
+                {loadingMachineHistory && (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="w-6 h-6 animate-spin text-primary" />
+                    <span className="ml-2 text-muted-foreground">Carregando...</span>
+                  </div>
+                )}
+                
+                {/* Lista vazia */}
+                {!loadingMachineHistory && (machineHistoryTickets || []).length === 0 && (
+                  <div className="flex flex-col items-center justify-center py-8 text-center">
+                    <Clock className="w-12 h-12 text-muted-foreground/30 mb-3" />
+                    <p className="text-muted-foreground">Nenhum chamado encontrado para esta máquina no período selecionado.</p>
+                  </div>
+                )}
+                
+                {/* Lista de chamados */}
+                {!loadingMachineHistory && (machineHistoryTickets || []).length > 0 && (
+                  <div className="space-y-3">
+                    {(machineHistoryTickets || []).map((ticket) => {
+                      const problem = ticket?.problemId ? getProblemById(ticket.problemId) : null
+                      const downtimeMinutes = ticket?.downtimeMinutes || 0
+                      const isCompleted = ticket?.status === 'completed'
+                      const hasDowntime = downtimeMinutes > 0
+                      
+                      return (
+                        <div
+                          key={ticket?.id || Math.random()}
+                          className={cn(
+                            "border rounded-lg p-4 transition-colors",
+                            isCompleted 
+                              ? "border-green-200 bg-green-50/50 dark:border-green-800 dark:bg-green-950/20"
+                              : hasDowntime
+                                ? "border-red-200 bg-red-50/50 dark:border-red-800 dark:bg-red-950/20"
+                                : "border-border bg-card"
+                          )}
+                        >
+                          {/* Data e Status */}
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center gap-2 text-sm">
+                              <CalendarIcon className="w-4 h-4 text-muted-foreground" />
+                              <span className="font-medium">
+                                {ticket?.createdAt ? format(new Date(ticket.createdAt), "dd/MM/yyyy HH:mm", { locale: ptBR }) : 'N/A'}
+                              </span>
+                            </div>
+                            <Badge 
+                              variant={isCompleted ? "default" : "secondary"}
+                              className={cn(
+                                "text-xs",
+                                isCompleted && "bg-green-600 hover:bg-green-700"
+                              )}
+                            >
+                              {isCompleted ? "Concluído" : ticket?.status === 'cancelled' ? "Cancelado" : "Aberto"}
+                            </Badge>
+                          </div>
+                          
+                          {/* Problema */}
+                          <div className="mb-2">
+                            <Badge variant="outline" className="text-xs">
+                              {problem?.name || ticket?.customProblemName || 'Problema não especificado'}
+                            </Badge>
+                          </div>
+                          
+                          {/* Técnico */}
+                          <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
+                            <User className="w-4 h-4" />
+                            <span>Técnico:</span>
+                            <span className="font-medium text-foreground">
+                              {ticket?.resolvedByName || ticket?.operatorName || 'N/A'}
+                            </span>
+                          </div>
+                          
+                          {/* Downtime */}
+                          {hasDowntime && (
+                            <div className="flex items-center gap-2 text-sm">
+                              <Clock className="w-4 h-4 text-red-500" />
+                              <span className="text-red-600 font-medium">
+                                Downtime: {formatDurationHours(downtimeMinutes * 60000).display}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+              
+              {/* Footer com botão Fechar */}
+              <SheetFooter className="border-t pt-4 mt-4">
+                <Button 
+                  variant="outline" 
+                  className="w-full"
+                  onClick={closeMachineHistory}
+                >
+                  <X className="w-4 h-4 mr-2" />
+                  Fechar
+                </Button>
+              </SheetFooter>
+            </SheetContent>
+          </Sheet>
         </TabsContent>
 
         {/* Tab Usuários */}
