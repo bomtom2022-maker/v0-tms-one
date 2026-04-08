@@ -824,7 +824,6 @@ export function ReportsView() {
   
   // Função SEGURA para abrir histórico da máquina
   const openMachineHistory = (machineId: string, machineName: string) => {
-    console.log('[v0] Clicou na máquina:', machineId, machineName)
     try {
       // Validações de segurança
       if (!machineId || typeof machineId !== 'string') {
@@ -1866,9 +1865,18 @@ export function ReportsView() {
                   <div className="space-y-3">
                     {(machineHistoryTickets || []).map((ticket) => {
                       const problem = ticket?.problemId ? getProblemById(ticket.problemId) : null
-                      const downtimeMinutes = ticket?.downtimeMinutes || 0
+                      const downtimeSeconds = ticket?.downtime || 0
                       const isCompleted = ticket?.status === 'completed'
-                      const hasDowntime = downtimeMinutes > 0
+                      const hasDowntime = downtimeSeconds > 0
+                      
+                      // Buscar técnico: prioriza quem finalizou, depois último operador, depois quem criou
+                      const actions = ticket?.actions || []
+                      const completeAction = [...actions].reverse().find(a => a.type === 'complete')
+                      const lastAction = actions.length > 0 ? actions[actions.length - 1] : null
+                      const technicianName = completeAction?.operatorName 
+                        || lastAction?.operatorName 
+                        || ticket?.createdByName 
+                        || 'N/A'
                       
                       return (
                         <div
@@ -1913,7 +1921,7 @@ export function ReportsView() {
                             <User className="w-4 h-4" />
                             <span>Técnico:</span>
                             <span className="font-medium text-foreground">
-                              {ticket?.resolvedByName || ticket?.operatorName || 'N/A'}
+                              {technicianName}
                             </span>
                           </div>
                           
@@ -1922,7 +1930,7 @@ export function ReportsView() {
                             <div className="flex items-center gap-2 text-sm">
                               <Clock className="w-4 h-4 text-red-500" />
                               <span className="text-red-600 font-medium">
-                                Downtime: {formatDurationHours(downtimeMinutes * 60000).display}
+                                Downtime: {formatDurationHours(downtimeSeconds).display}
                               </span>
                             </div>
                           )}
@@ -2879,9 +2887,18 @@ export function ReportsView() {
                     {(machineHistoryTickets || []).map((ticket) => {
                       // Buscar dados com segurança
                       const problem = ticket?.problemId ? getProblemById(ticket.problemId) : null
-                      const downtimeMinutes = ticket?.downtimeMinutes || 0
+                      const downtimeSeconds = ticket?.downtime || 0
                       const isCompleted = ticket?.status === 'completed'
-                      const hasDowntime = downtimeMinutes > 0
+                      const hasDowntime = downtimeSeconds > 0
+                      
+                      // Buscar técnico: prioriza quem finalizou, depois último operador, depois quem criou
+                      const actions = ticket?.actions || []
+                      const completeAction = [...actions].reverse().find(a => a.type === 'complete')
+                      const lastAction = actions.length > 0 ? actions[actions.length - 1] : null
+                      const technicianName = completeAction?.operatorName 
+                        || lastAction?.operatorName 
+                        || ticket?.createdByName 
+                        || 'N/A'
                       
                       return (
                         <div
@@ -2926,7 +2943,7 @@ export function ReportsView() {
                             <User className="w-4 h-4" />
                             <span>Técnico:</span>
                             <span className="font-medium text-foreground">
-                              {ticket?.resolvedByName || ticket?.operatorName || 'N/A'}
+                              {technicianName}
                             </span>
                           </div>
                           
@@ -2935,7 +2952,7 @@ export function ReportsView() {
                             <div className="flex items-center gap-2 text-sm">
                               <Clock className="w-4 h-4 text-red-500" />
                               <span className="text-red-600 font-medium">
-                                Downtime: {formatDurationHours(downtimeMinutes * 60000).display}
+                                Downtime: {formatDurationHours(downtimeSeconds).display}
                               </span>
                             </div>
                           )}
