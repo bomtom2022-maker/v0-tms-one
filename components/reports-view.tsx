@@ -1072,15 +1072,6 @@ export function ReportsView() {
       return true
     })
     
-    // DEBUG: Verificar tickets em aberto
-    console.log('[v0] Tickets em aberto para downtime:', openTickets.map(t => ({
-      id: t.id,
-      machineId: t.machineId,
-      machineName: getMachineById(t.machineId)?.name,
-      status: t.status,
-      createdAt: t.createdAt,
-      diasAberto: Math.floor((Date.now() - new Date(t.createdAt).getTime()) / (1000 * 60 * 60 * 24))
-    })))
     return openTickets
   }, [tickets, filters.dateRange, filters.machineId, getMachineById])
 
@@ -1132,17 +1123,6 @@ export function ReportsView() {
     
     // Downtime total = fechados + abertos (progressivo)
     const totalStoppedTime = closedTicketsDowntime + openTicketsDowntime
-    
-    // DEBUG: Verificar cálculo de downtime
-    console.log('[v0] Cálculo Downtime:', {
-      ticketsFechados: validTicketsForMetrics.length,
-      downtimeFechadosHoras: (closedTicketsDowntime / 3600).toFixed(1),
-      ticketsAbertos: openTicketsForDowntime.length,
-      downtimeAbertosHoras: (openTicketsDowntime / 3600).toFixed(1),
-      downtimeTotalHoras: (totalStoppedTime / 3600).toFixed(1),
-      filterFrom: filters.dateRange?.from,
-      filterTo: filters.dateRange?.to
-    })
     
     // ========== CÁLCULO TEMPO OPERANDO (PROPORCIONAL AO FILTRO) ==========
     // CONSTANTES (valores fixos e explícitos):
