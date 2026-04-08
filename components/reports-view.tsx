@@ -20,11 +20,20 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover'
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+  SheetFooter,
+  SheetClose,
+} from '@/components/ui/sheet'
 import { Calendar } from '@/components/ui/calendar'
 import { useData } from '@/lib/data-context'
 import { useAuth } from '@/lib/auth-context'
 import { formatDuration, formatDurationLong, formatDurationHours, formatCurrency, PRIORITY_CONFIG, type AuditLog, type Shift, type MachineMetrics } from '@/lib/types'
-import { fetchShifts, updateMachineShift } from '@/lib/supabase-data'
+import { fetchShifts, updateMachineShift, fetchMetricsByPeriod } from '@/lib/supabase-data'
 import {
   FileText,
   Clock,
@@ -45,7 +54,7 @@ import {
   BarChart3,
   AlertTriangle,
 } from 'lucide-react'
-import { format, startOfDay, endOfDay, isWithinInterval, startOfMonth, endOfMonth, subDays } from 'date-fns'
+import { format, startOfDay, endOfDay, isWithinInterval, startOfMonth, endOfMonth, subDays, differenceInDays, getDaysInMonth } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { cn } from '@/lib/utils'
 import type { DateRange } from 'react-day-picker'
@@ -606,12 +615,69 @@ export function ReportsView() {
   })
   const [calendarOpen, setCalendarOpen] = useState(false)
   
+  // Estados para cliques sequenciais no calendário de filtros gerais
+  const [tempFilterFrom, setTempFilterFrom] = useState<Date | undefined>(subDays(new Date(), 30))
+  const [tempFilterTo, setTempFilterTo] = useState<Date | undefined>(new Date())
+  const [filterClickCount, setFilterClickCount] = useState(2)
+  const [filterCalendarMonth, setFilterCalendarMonth] = useState<Date>(new Date())
+  
+  // Handler para cliques sequenciais no calendário de filtros
+  const handleFilterDateClick = (date: Date | undefined) => {
+    if (!date) return
+    
+    if (filterClickCount === 0) {
+      setTempFilterFrom(date)
+      setTempFilterTo(undefined)
+      setFilterClickCount(1)
+    } else if (filterClickCount === 1) {
+      if (tempFilterFrom && date < tempFilterFrom) {
+        setTempFilterTo(tempFilterFrom)
+        setTempFilterFrom(date)
+      } else {
+        setTempFilterTo(date)
+      }
+      setFilterClickCount(2)
+    } else {
+      setTempFilterFrom(date)
+      setTempFilterTo(undefined)
+      setFilterClickCount(1)
+    }
+  }
+  
+  // Aplicar seleção de datas do filtro geral
+  const applyFilterDateRange = () => {
+    if (tempFilterFrom && tempFilterTo) {
+      setFilters(prev => ({ ...prev, dateRange: { from: tempFilterFrom, to: tempFilterTo }, datePreset: 'custom' }))
+      setCalendarOpen(false)
+    }
+  }
+  
+  // Sincronizar estados temporários quando popover abre
+  const handleFilterCalendarOpenChange = (open: boolean) => {
+    if (open) {
+      setTempFilterFrom(filters.dateRange?.from)
+      setTempFilterTo(filters.dateRange?.to)
+      setFilterClickCount(filters.dateRange?.from && filters.dateRange?.to ? 2 : 0)
+      if (filters.dateRange?.from) {
+        setFilterCalendarMonth(filters.dateRange.from)
+      }
+    }
+    setCalendarOpen(open)
+  }
+  
   // Estados para MTBF/MTTR
   const [shifts, setShifts] = useState<Shift[]>([])
   const [loadingShifts, setLoadingShifts] = useState(false)
   const [shiftsError, setShiftsError] = useState<string | null>(null)
   const [metricsPeriod, setMetricsPeriod] = useState<'week' | 'month' | 'year'>('month')
   const [metricsSearchMachine, setMetricsSearchMachine] = useState('')
+  
+  // Estados para Sheet de histórico da máquina (inicializados com valores seguros)
+  const [machineHistoryOpen, setMachineHistoryOpen] = useState(false)
+  const [selectedMachineId, setSelectedMachineId] = useState<string | null>(null)
+  const [selectedMachineName, setSelectedMachineName] = useState<string>('')
+  const [machineHistoryTickets, setMachineHistoryTickets] = useState<typeof tickets>([])
+  const [loadingMachineHistory, setLoadingMachineHistory] = useState(false)
   const [localMachineShifts, setLocalMachineShifts] = useState<Record<string, string | null>>({})
   const [metricsIncludePaused, setMetricsIncludePaused] = useState(false)
   
@@ -631,6 +697,67 @@ export function ReportsView() {
   const [metricsError, setMetricsError] = useState<string | null>(null)
   const [tempMonthlyHours, setTempMonthlyHours] = useState<string>('')
   const [savingHours, setSavingHours] = useState(false)
+  
+  // Estados para filtro de data customizado das métricas
+  const [metricsDateRange, setMetricsDateRange] = useState<DateRange | undefined>({
+    from: startOfMonth(new Date()),
+    to: endOfMonth(new Date())
+  })
+  const [metricsCalendarOpen, setMetricsCalendarOpen] = useState(false)
+  const [proportionalHours, setProportionalHours] = useState<number>(0)
+  
+  // Estados temporários para seleção por cliques sequenciais
+  const [tempMetricsFrom, setTempMetricsFrom] = useState<Date | undefined>(startOfMonth(new Date()))
+  const [tempMetricsTo, setTempMetricsTo] = useState<Date | undefined>(endOfMonth(new Date()))
+  const [metricsClickCount, setMetricsClickCount] = useState(0)
+  const [metricsCalendarMonth, setMetricsCalendarMonth] = useState<Date>(new Date())
+  
+  // Handler para cliques sequenciais no calendário de métricas
+  const handleMetricsDateClick = (date: Date | undefined) => {
+    if (!date) return
+    
+    if (metricsClickCount === 0) {
+      // 1º clique: define o from
+      setTempMetricsFrom(date)
+      setTempMetricsTo(undefined)
+      setMetricsClickCount(1)
+    } else if (metricsClickCount === 1) {
+      // 2º clique: define o to (garante que from < to)
+      if (tempMetricsFrom && date < tempMetricsFrom) {
+        setTempMetricsTo(tempMetricsFrom)
+        setTempMetricsFrom(date)
+      } else {
+        setTempMetricsTo(date)
+      }
+      setMetricsClickCount(2)
+    } else {
+      // 3º clique: limpa e define novo from
+      setTempMetricsFrom(date)
+      setTempMetricsTo(undefined)
+      setMetricsClickCount(1)
+    }
+  }
+  
+  // Aplicar seleção de datas
+  const applyMetricsDateRange = () => {
+    if (tempMetricsFrom && tempMetricsTo) {
+      setMetricsDateRange({ from: tempMetricsFrom, to: tempMetricsTo })
+      setMetricsCalendarOpen(false)
+    }
+  }
+  
+  // Sincronizar estados temporários quando popover abre
+  const handleMetricsCalendarOpenChange = (open: boolean) => {
+    if (open) {
+      setTempMetricsFrom(metricsDateRange?.from)
+      setTempMetricsTo(metricsDateRange?.to)
+      setMetricsClickCount(metricsDateRange?.from && metricsDateRange?.to ? 2 : 0)
+      if (metricsDateRange?.from) {
+        setMetricsCalendarMonth(metricsDateRange.from)
+      }
+    }
+    setMetricsCalendarOpen(open)
+  }
   
   // Estados para seções colapsáveis
   const [showShiftsSection, setShowShiftsSection] = useState(false)
@@ -659,17 +786,28 @@ export function ReportsView() {
     }
   }, [activeTab])
   
-  // Carregar métricas da View v_metricas_reais quando aba metrics é acessada
-  const loadViewMetrics = async () => {
+  // Carregar métricas da View v_metricas_reais ou função RPC por período
+  const loadViewMetrics = async (fromDate?: Date, toDate?: Date) => {
     setLoadingMetrics(true)
     setMetricsError(null)
     try {
-      const res = await fetch('/api/metrics')
-      if (!res.ok) throw new Error('Erro ao carregar métricas')
-      const data = await res.json()
+      const fromStr = fromDate ? format(fromDate, 'yyyy-MM-dd') : undefined
+      const toStr = toDate ? format(toDate, 'yyyy-MM-dd') : undefined
+      
+      const data = await fetchMetricsByPeriod(fromStr, toStr)
       setViewMetrics(data.metrics || [])
       setMonthlyHours(data.monthlyHours || 0)
       setTempMonthlyHours(String(data.monthlyHours || ''))
+      
+      // Calcular horas proporcionais: (HorasMensais / DiasNoMes) * DiasSelecionados
+      if (data.monthlyHours > 0 && fromDate && toDate) {
+        const daysInMonth = getDaysInMonth(new Date())
+        const selectedDays = differenceInDays(toDate, fromDate) + 1
+        const proportional = (data.monthlyHours / daysInMonth) * selectedDays
+        setProportionalHours(Math.round(proportional * 100) / 100)
+      } else {
+        setProportionalHours(data.monthlyHours || 0)
+      }
     } catch (err) {
       setMetricsError(err instanceof Error ? err.message : 'Erro desconhecido')
     } finally {
@@ -677,11 +815,70 @@ export function ReportsView() {
     }
   }
   
+  // Carregar métricas quando aba é acessada ou quando datas mudam
   useEffect(() => {
     if (activeTab === 'metrics') {
-      loadViewMetrics()
+      loadViewMetrics(metricsDateRange?.from, metricsDateRange?.to)
     }
-  }, [activeTab])
+  }, [activeTab, metricsDateRange])
+  
+  // Função SEGURA para abrir histórico da máquina
+  const openMachineHistory = (machineId: string, machineName: string) => {
+    try {
+      // Validações de segurança
+      if (!machineId || typeof machineId !== 'string') {
+        console.error('[v0] machineId inválido:', machineId)
+        return
+      }
+      
+      setSelectedMachineId(machineId)
+      setSelectedMachineName(machineName || 'Máquina')
+      setLoadingMachineHistory(true)
+      setMachineHistoryOpen(true)
+      
+      // Filtrar tickets da máquina respeitando o dateRange selecionado (usa filters.dateRange da aba geral)
+      const safeTickets = Array.isArray(tickets) ? tickets : []
+      
+      const filtered = safeTickets.filter(t => {
+        // Verificar se o ticket é da máquina
+        if (t.machineId !== machineId) return false
+        
+        // Verificar filtro de data se existir (usa filters.dateRange que é o filtro geral da página)
+        if (filters.dateRange?.from && filters.dateRange?.to) {
+          try {
+            const ticketDate = new Date(t.createdAt)
+            return isWithinInterval(ticketDate, {
+              start: startOfDay(filters.dateRange.from),
+              end: endOfDay(filters.dateRange.to)
+            })
+          } catch {
+            return false
+          }
+        }
+        return true
+      })
+      
+      // Ordenar por data mais recente
+      const sorted = filtered.sort((a, b) => 
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      )
+      
+      setMachineHistoryTickets(sorted)
+      setLoadingMachineHistory(false)
+    } catch (err) {
+      console.error('[v0] Erro ao abrir histórico:', err)
+      setMachineHistoryTickets([])
+      setLoadingMachineHistory(false)
+    }
+  }
+  
+  // Função para fechar o Sheet
+  const closeMachineHistory = () => {
+    setMachineHistoryOpen(false)
+    setSelectedMachineId(null)
+    setSelectedMachineName('')
+    setMachineHistoryTickets([])
+  }
   
   // Função para salvar horas mensais
   const saveMonthlyHours = async () => {
@@ -1178,7 +1375,7 @@ export function ReportsView() {
                 <Button variant={filters.datePreset === 'week' ? 'default' : 'outline'} size="sm" onClick={() => handleDatePreset('week')} className="flex-1 text-xs">7 dias</Button>
                 <Button variant={filters.datePreset === 'month' ? 'default' : 'outline'} size="sm" onClick={() => handleDatePreset('month')} className="flex-1 text-xs">Mês</Button>
               </div>
-              <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
+              <Popover open={calendarOpen} onOpenChange={handleFilterCalendarOpenChange}>
                 <PopoverTrigger asChild>
                   <Button variant="outline" size="sm" className="w-full justify-start text-xs">
                     <CalendarIcon className="w-3 h-3 mr-2" />
@@ -1190,13 +1387,89 @@ export function ReportsView() {
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0" align="start">
+                  {/* Indicador de seleção atual */}
+                  <div className="p-3 border-b flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2">
+                      <div className={cn(
+                        "px-2 py-1 rounded text-xs font-medium border-2",
+                        tempFilterFrom 
+                          ? "bg-primary text-primary-foreground border-primary" 
+                          : "bg-muted text-muted-foreground border-dashed border-muted-foreground/30"
+                      )}>
+                        {tempFilterFrom ? format(tempFilterFrom, "dd/MM/yy", { locale: ptBR }) : "Início"}
+                      </div>
+                      <span className="text-muted-foreground text-xs">até</span>
+                      <div className={cn(
+                        "px-2 py-1 rounded text-xs font-medium border-2",
+                        tempFilterTo 
+                          ? "bg-primary text-primary-foreground border-primary" 
+                          : "bg-muted text-muted-foreground border-dashed border-muted-foreground/30"
+                      )}>
+                        {tempFilterTo ? format(tempFilterTo, "dd/MM/yy", { locale: ptBR }) : "Fim"}
+                      </div>
+                    </div>
+                    {filterClickCount > 0 && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-xs h-6 px-2"
+                        onClick={() => {
+                          setTempFilterFrom(undefined)
+                          setTempFilterTo(undefined)
+                          setFilterClickCount(0)
+                        }}
+                      >
+                        Limpar
+                      </Button>
+                    )}
+                  </div>
+                  
+                  {/* Calendário único com navegação */}
                   <Calendar
-                    mode="range"
-                    selected={filters.dateRange}
-                    onSelect={(range) => setFilters(prev => ({ ...prev, dateRange: range, datePreset: 'custom' }))}
-                    numberOfMonths={2}
+                    mode="single"
+                    month={filterCalendarMonth}
+                    onMonthChange={setFilterCalendarMonth}
+                    selected={undefined}
+                    onSelect={handleFilterDateClick}
                     locale={ptBR}
+                    className="p-3"
+                    modifiers={{
+                      selected: (date) => {
+                        if (tempFilterFrom && date.toDateString() === tempFilterFrom.toDateString()) return true
+                        if (tempFilterTo && date.toDateString() === tempFilterTo.toDateString()) return true
+                        return false
+                      },
+                      range: (date) => {
+                        if (tempFilterFrom && tempFilterTo) {
+                          return date > tempFilterFrom && date < tempFilterTo
+                        }
+                        return false
+                      }
+                    }}
+                    modifiersStyles={{
+                      selected: { 
+                        backgroundColor: 'hsl(var(--primary))', 
+                        color: 'hsl(var(--primary-foreground))',
+                        fontWeight: 'bold'
+                      },
+                      range: { 
+                        backgroundColor: 'hsl(var(--primary) / 0.15)',
+                        borderRadius: 0
+                      }
+                    }}
                   />
+                  
+                  {/* Botão Aplicar */}
+                  <div className="p-3 border-t bg-muted/30">
+                    <Button
+                      className="w-full"
+                      size="sm"
+                      disabled={!tempFilterFrom || !tempFilterTo}
+                      onClick={applyFilterDateRange}
+                    >
+                      Aplicar Período
+                    </Button>
+                  </div>
                 </PopoverContent>
               </Popover>
             </div>
@@ -1502,7 +1775,11 @@ export function ReportsView() {
             <CardContent className="p-0">
               <div className="divide-y">
                 {machineData.map((m, index) => (
-                  <div key={m.machineId} className="p-4 hover:bg-muted/50">
+                  <div 
+                    key={m.machineId} 
+                    className="p-4 hover:bg-primary/10 cursor-pointer transition-colors"
+                    onClick={() => openMachineHistory(m.machineId, m.machineName)}
+                  >
                     <div className="flex items-start gap-4">
                       <div className={cn(
                         "w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm shrink-0 mt-0.5",
@@ -1547,6 +1824,136 @@ export function ReportsView() {
               </div>
             </CardContent>
           </Card>
+          
+          {/* Sheet de Histórico da Máquina - Aba Máquinas */}
+          <Sheet open={machineHistoryOpen} onOpenChange={setMachineHistoryOpen}>
+            <SheetContent side="right" className="w-full sm:max-w-lg overflow-y-auto">
+              <SheetHeader>
+                <SheetTitle className="flex items-center gap-2">
+                  <Wrench className="w-5 h-5" />
+                  Histórico de Manutenções
+                </SheetTitle>
+                <SheetDescription className="text-base font-semibold text-foreground">
+                  {selectedMachineName || 'Máquina'}
+                </SheetDescription>
+                {filters.dateRange?.from && filters.dateRange?.to && (
+                  <p className="text-xs text-muted-foreground">
+                    Período: {format(filters.dateRange.from, "dd/MM/yyyy", { locale: ptBR })} - {format(filters.dateRange.to, "dd/MM/yyyy", { locale: ptBR })}
+                  </p>
+                )}
+              </SheetHeader>
+              
+              <div className="flex-1 overflow-y-auto py-4">
+                {/* Estado de Loading */}
+                {loadingMachineHistory && (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="w-6 h-6 animate-spin text-primary" />
+                    <span className="ml-2 text-muted-foreground">Carregando...</span>
+                  </div>
+                )}
+                
+                {/* Lista vazia */}
+                {!loadingMachineHistory && (machineHistoryTickets || []).length === 0 && (
+                  <div className="flex flex-col items-center justify-center py-8 text-center">
+                    <Clock className="w-12 h-12 text-muted-foreground/30 mb-3" />
+                    <p className="text-muted-foreground">Nenhum chamado encontrado para esta máquina no período selecionado.</p>
+                  </div>
+                )}
+                
+                {/* Lista de chamados */}
+                {!loadingMachineHistory && (machineHistoryTickets || []).length > 0 && (
+                  <div className="space-y-3">
+                    {(machineHistoryTickets || []).map((ticket) => {
+                      const problem = ticket?.problemId ? getProblemById(ticket.problemId) : null
+                      const downtimeSeconds = ticket?.downtime || 0
+                      const isCompleted = ticket?.status === 'completed'
+                      const hasDowntime = downtimeSeconds > 0
+                      
+                      // Buscar técnico: prioriza quem finalizou, depois último operador, depois quem criou
+                      const actions = ticket?.actions || []
+                      const completeAction = [...actions].reverse().find(a => a.type === 'complete')
+                      const lastAction = actions.length > 0 ? actions[actions.length - 1] : null
+                      const technicianName = completeAction?.operatorName 
+                        || lastAction?.operatorName 
+                        || ticket?.createdByName 
+                        || 'N/A'
+                      
+                      return (
+                        <div
+                          key={ticket?.id || Math.random()}
+                          className={cn(
+                            "border rounded-lg p-4 transition-colors",
+                            isCompleted 
+                              ? "border-green-200 bg-green-50/50 dark:border-green-800 dark:bg-green-950/20"
+                              : hasDowntime
+                                ? "border-red-200 bg-red-50/50 dark:border-red-800 dark:bg-red-950/20"
+                                : "border-border bg-card"
+                          )}
+                        >
+                          {/* Data e Status */}
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center gap-2 text-sm">
+                              <CalendarIcon className="w-4 h-4 text-muted-foreground" />
+                              <span className="font-medium">
+                                {ticket?.createdAt ? format(new Date(ticket.createdAt), "dd/MM/yyyy HH:mm", { locale: ptBR }) : 'N/A'}
+                              </span>
+                            </div>
+                            <Badge 
+                              variant={isCompleted ? "default" : "secondary"}
+                              className={cn(
+                                "text-xs",
+                                isCompleted && "bg-green-600 hover:bg-green-700"
+                              )}
+                            >
+                              {isCompleted ? "Concluído" : ticket?.status === 'cancelled' ? "Cancelado" : "Aberto"}
+                            </Badge>
+                          </div>
+                          
+                          {/* Problema */}
+                          <div className="mb-2">
+                            <Badge variant="outline" className="text-xs">
+                              {problem?.name || ticket?.customProblemName || 'Problema não especificado'}
+                            </Badge>
+                          </div>
+                          
+                          {/* Técnico */}
+                          <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
+                            <User className="w-4 h-4" />
+                            <span>Técnico:</span>
+                            <span className="font-medium text-foreground">
+                              {technicianName}
+                            </span>
+                          </div>
+                          
+                          {/* Downtime */}
+                          {hasDowntime && (
+                            <div className="flex items-center gap-2 text-sm">
+                              <Clock className="w-4 h-4 text-red-500" />
+                              <span className="text-red-600 font-medium">
+                                Downtime: {formatDurationHours(downtimeSeconds).display}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+              
+              {/* Footer com botão Fechar */}
+              <SheetFooter className="border-t pt-4 mt-4">
+                <Button 
+                  variant="outline" 
+                  className="w-full"
+                  onClick={closeMachineHistory}
+                >
+                  <X className="w-4 h-4 mr-2" />
+                  Fechar
+                </Button>
+              </SheetFooter>
+            </SheetContent>
+          </Sheet>
         </TabsContent>
 
         {/* Tab Usuários */}
@@ -1706,64 +2113,323 @@ export function ReportsView() {
     </Card>
   </TabsContent>
   
+  {/* Tab Cancelados/Rejeitados */}
+  <TabsContent value="cancelled" className="mt-4">
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <X className="w-5 h-5 text-red-500" />
+          Chamados Cancelados/Rejeitados
+        </CardTitle>
+        <CardDescription>
+          {cancelledTickets.length} chamados cancelados ou rejeitados no período. 
+          <span className="text-amber-600 font-medium ml-1">Estes chamados NÃO afetam os cálculos de MTBF, MTTR e Disponibilidade.</span>
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="p-0">
+        {cancelledTickets.length === 0 ? (
+          <div className="p-8 text-center text-muted-foreground">
+            <X className="w-12 h-12 mx-auto mb-3 opacity-20" />
+            <p>Nenhum chamado cancelado no período selecionado.</p>
+          </div>
+        ) : (
+          <>
+            {/* Mobile: Lista de Cards */}
+            <div className="md:hidden p-3 space-y-3">
+              {cancelledTickets.map(ticket => {
+                const machine = getMachineById(ticket.machineId)
+                const problem = getProblemById(ticket.problemId)
+                const cancelDate = ticket.cancelledAt ? new Date(ticket.cancelledAt) : new Date(ticket.createdAt)
+                return (
+                  <div key={ticket.id} className="border rounded-lg p-4 bg-card shadow-sm">
+                    {/* Cabeçalho: Data e Máquina */}
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-muted-foreground">
+                          {cancelDate.toLocaleDateString('pt-BR')}
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          {cancelDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                      </div>
+                      <span className="font-semibold text-sm">{machine?.name || 'N/A'}</span>
+                    </div>
+                    
+                    {/* Badge do Problema */}
+                    <div className="mb-3">
+                      <Badge variant="secondary" className="text-xs">
+                        {problem?.name || ticket.customProblemName || 'N/A'}
+                      </Badge>
+                    </div>
+                    
+                    {/* Quem cancelou */}
+                    <div className="flex items-center gap-2 mb-3 text-sm">
+                      <span className="text-muted-foreground">Cancelado por:</span>
+                      <span className="text-red-600 font-medium">{ticket.cancelledByName || 'Sistema'}</span>
+                    </div>
+                    
+                    {/* Motivo do Cancelamento - Destaque Principal */}
+                    <div className="bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900 rounded-md p-3">
+                      <p className="text-xs font-semibold text-red-700 dark:text-red-400 mb-1">
+                        Motivo do Cancelamento
+                      </p>
+                      <p className="text-sm text-red-900 dark:text-red-200">
+                        {ticket.cancellationReason || 'Não informado'}
+                      </p>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+
+            {/* Desktop: Tabela */}
+            <div className="hidden md:block overflow-x-auto">
+              <table className="w-full text-xs sm:text-sm">
+                <thead className="bg-muted">
+                  <tr>
+                    <th className="p-2 sm:p-3 text-left font-medium text-[10px] sm:text-xs">Data</th>
+                    <th className="p-2 sm:p-3 text-left font-medium text-[10px] sm:text-xs">Máquina</th>
+                    <th className="p-2 sm:p-3 text-left font-medium text-[10px] sm:text-xs">Problema</th>
+                    <th className="p-2 sm:p-3 text-left font-medium text-[10px] sm:text-xs">Cancelado por</th>
+                    <th className="p-2 sm:p-3 text-left font-medium text-[10px] sm:text-xs">Motivo</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {cancelledTickets.map(ticket => {
+                    const machine = getMachineById(ticket.machineId)
+                    const problem = getProblemById(ticket.problemId)
+                    const cancelDate = ticket.cancelledAt ? new Date(ticket.cancelledAt) : new Date(ticket.createdAt)
+                    return (
+                      <tr key={ticket.id} className="hover:bg-muted/50">
+                        <td className="p-2 sm:p-3">
+                          <div className="text-[10px] sm:text-xs">
+                            {cancelDate.toLocaleDateString('pt-BR')}
+                          </div>
+                          <div className="text-[9px] sm:text-[10px] text-muted-foreground">
+                            {cancelDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                          </div>
+                        </td>
+                        <td className="p-2 sm:p-3 font-medium">{machine?.name || 'N/A'}</td>
+                        <td className="p-2 sm:p-3 text-muted-foreground">{problem?.name || 'N/A'}</td>
+                        <td className="p-2 sm:p-3">
+                          <span className="text-red-600">{ticket.cancelledByName || 'Sistema'}</span>
+                        </td>
+                        <td className="p-2 sm:p-3">
+                          <span className="text-muted-foreground text-[10px] sm:text-xs">
+                            {ticket.cancellationReason || 'Não informado'}
+                          </span>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </>
+        )}
+      </CardContent>
+    </Card>
+  </TabsContent>
+  
   {/* Tab MTBF/MTTR */}
   <TabsContent value="metrics" className="mt-4 space-y-4">
-          {/* Botão PDF e checkbox incluir pausas */}
-          <div className="flex items-center justify-between flex-wrap gap-3">
-            <div className="flex items-center gap-3">
-              <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  checked={metricsIncludePaused}
-                  onChange={(e) => setMetricsIncludePaused(e.target.checked)}
-                  className="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary"
-                />
-                <span>Incluir chamados pausados no PDF</span>
-              </label>
-            </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => handleGeneratePDF()}
-              className="gap-2"
-            >
-              <Printer className="w-4 h-4" />
-              Gerar PDF
-            </Button>
-          </div>
-
-          {/* Explicação dos indicadores */}
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="flex items-center gap-2">
-                <BarChart3 className="w-5 h-5" />
-                Indicadores de Manutenção
-              </CardTitle>
-              <CardDescription>
-                Métricas de confiabilidade e eficiência baseadas nos turnos de operação das máquinas
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                <div className="p-3 rounded-lg bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800">
-                  <p className="font-semibold text-blue-700 dark:text-blue-300">MTBF - Tempo Médio Entre Falhas</p>
-                  <p className="text-blue-600 dark:text-blue-400 mt-1">
-                    Indica quanto tempo, em média, uma máquina opera até apresentar uma falha.
-                    Quanto maior, melhor a confiabilidade.
-                  </p>
-                  <p className="text-xs text-blue-500 dark:text-blue-400 mt-2 font-mono">
-                    MTBF = (Horas de Operação - Horas Paradas) / Número de Falhas
-                  </p>
+          {/* Filtro de Data e Controles */}
+          <Card className="border-primary/20 bg-primary/5">
+            <CardContent className="p-4">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                {/* DateRangePicker */}
+                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+                  <div className="flex items-center gap-2">
+                    <CalendarIcon className="w-4 h-4 text-primary" />
+                    <span className="text-sm font-medium">Período:</span>
+                  </div>
+                  <Popover open={metricsCalendarOpen} onOpenChange={handleMetricsCalendarOpenChange}>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className={cn(
+                          "w-full sm:w-[280px] justify-start text-left font-normal",
+                          !metricsDateRange && "text-muted-foreground"
+                        )}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {metricsDateRange?.from ? (
+                          metricsDateRange.to ? (
+                            <>
+                              {format(metricsDateRange.from, "dd/MM/yyyy", { locale: ptBR })} -{" "}
+                              {format(metricsDateRange.to, "dd/MM/yyyy", { locale: ptBR })}
+                            </>
+                          ) : (
+                            format(metricsDateRange.from, "dd/MM/yyyy", { locale: ptBR })
+                          )
+                        ) : (
+                          <span>Selecionar período</span>
+                        )}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      {/* Instruções de uso */}
+                      <div className="p-3 bg-muted/50 border-b text-xs text-muted-foreground">
+                        <p className="font-medium text-foreground mb-1">Como selecionar:</p>
+                        <p>1º clique = Data inicial | 2º clique = Data final</p>
+                      </div>
+                      
+                      {/* Indicador de seleção atual */}
+                      <div className="p-3 border-b flex items-center justify-between gap-4">
+                        <div className="flex items-center gap-2">
+                          <div className={cn(
+                            "px-3 py-1.5 rounded text-sm font-medium border-2",
+                            tempMetricsFrom 
+                              ? "bg-primary text-primary-foreground border-primary" 
+                              : "bg-muted text-muted-foreground border-dashed border-muted-foreground/30"
+                          )}>
+                            {tempMetricsFrom ? format(tempMetricsFrom, "dd/MM/yyyy", { locale: ptBR }) : "Início"}
+                          </div>
+                          <span className="text-muted-foreground">até</span>
+                          <div className={cn(
+                            "px-3 py-1.5 rounded text-sm font-medium border-2",
+                            tempMetricsTo 
+                              ? "bg-primary text-primary-foreground border-primary" 
+                              : "bg-muted text-muted-foreground border-dashed border-muted-foreground/30"
+                          )}>
+                            {tempMetricsTo ? format(tempMetricsTo, "dd/MM/yyyy", { locale: ptBR }) : "Fim"}
+                          </div>
+                        </div>
+                        {metricsClickCount > 0 && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-xs h-7"
+                            onClick={() => {
+                              setTempMetricsFrom(undefined)
+                              setTempMetricsTo(undefined)
+                              setMetricsClickCount(0)
+                            }}
+                          >
+                            Limpar
+                          </Button>
+                        )}
+                      </div>
+                      
+                      {/* Calendário único com navegação */}
+                      <Calendar
+                        mode="single"
+                        month={metricsCalendarMonth}
+                        onMonthChange={setMetricsCalendarMonth}
+                        selected={undefined}
+                        onSelect={handleMetricsDateClick}
+                        locale={ptBR}
+                        className="p-3"
+                        modifiers={{
+                          selected: (date) => {
+                            if (tempMetricsFrom && date.toDateString() === tempMetricsFrom.toDateString()) return true
+                            if (tempMetricsTo && date.toDateString() === tempMetricsTo.toDateString()) return true
+                            return false
+                          },
+                          range: (date) => {
+                            if (tempMetricsFrom && tempMetricsTo) {
+                              return date > tempMetricsFrom && date < tempMetricsTo
+                            }
+                            return false
+                          }
+                        }}
+                        modifiersStyles={{
+                          selected: { 
+                            backgroundColor: 'hsl(var(--primary))', 
+                            color: 'hsl(var(--primary-foreground))',
+                            fontWeight: 'bold'
+                          },
+                          range: { 
+                            backgroundColor: 'hsl(var(--primary) / 0.15)',
+                            borderRadius: 0
+                          }
+                        }}
+                      />
+                      
+                      {/* Atalhos rápidos */}
+                      <div className="p-3 border-t flex flex-wrap gap-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setTempMetricsFrom(startOfMonth(new Date()))
+                            setTempMetricsTo(endOfMonth(new Date()))
+                            setMetricsClickCount(2)
+                          }}
+                        >
+                          Mês Atual
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            const lastMonth = new Date()
+                            lastMonth.setMonth(lastMonth.getMonth() - 1)
+                            setTempMetricsFrom(startOfMonth(lastMonth))
+                            setTempMetricsTo(endOfMonth(lastMonth))
+                            setMetricsClickCount(2)
+                            setMetricsCalendarMonth(lastMonth)
+                          }}
+                        >
+                          Mês Anterior
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setTempMetricsFrom(subDays(new Date(), 7))
+                            setTempMetricsTo(new Date())
+                            setMetricsClickCount(2)
+                          }}
+                        >
+                          Últimos 7 dias
+                        </Button>
+                      </div>
+                      
+                      {/* Botão Aplicar */}
+                      <div className="p-3 border-t bg-muted/30">
+                        <Button
+                          className="w-full"
+                          disabled={!tempMetricsFrom || !tempMetricsTo}
+                          onClick={applyMetricsDateRange}
+                        >
+                          Aplicar Período
+                        </Button>
+                      </div>
+                    </PopoverContent>
+                  </Popover>
+                  
+                  {/* Indicador de horas proporcionais */}
+                  {metricsDateRange?.from && metricsDateRange?.to && monthlyHours > 0 && (
+                    <div className="text-xs bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 px-2 py-1 rounded">
+                      <span className="font-medium">Capacidade proporcional:</span>{" "}
+                      {proportionalHours.toFixed(1)}h ({differenceInDays(metricsDateRange.to, metricsDateRange.from) + 1} dias)
+                    </div>
+                  )}
                 </div>
-                <div className="p-3 rounded-lg bg-orange-50 dark:bg-orange-950 border border-orange-200 dark:border-orange-800">
-                  <p className="font-semibold text-orange-700 dark:text-orange-300">MTTR - Tempo Médio de Reparo</p>
-                  <p className="text-orange-600 dark:text-orange-400 mt-1">
-                    Indica quanto tempo, em média, leva para reparar uma máquina após uma falha.
-                    Quanto menor, mais eficiente a manutenção.
-                  </p>
-                  <p className="text-xs text-orange-500 dark:text-orange-400 mt-2 font-mono">
-                    MTTR = Tempo Total de Reparo / Número de Falhas
-                  </p>
+                
+                {/* Botão PDF e checkbox */}
+                <div className="flex items-center gap-3 flex-wrap">
+                  <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={metricsIncludePaused}
+                      onChange={(e) => setMetricsIncludePaused(e.target.checked)}
+                      className="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary"
+                    />
+                    <span className="hidden sm:inline">Incluir pausados no PDF</span>
+                    <span className="sm:hidden">Pausados</span>
+                  </label>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleGeneratePDF()}
+                    className="gap-2"
+                  >
+                    <Printer className="w-4 h-4" />
+                    <span className="hidden sm:inline">Gerar PDF</span>
+                    <span className="sm:hidden">PDF</span>
+                  </Button>
                 </div>
               </div>
             </CardContent>
@@ -2100,8 +2766,12 @@ export function ReportsView() {
                       
                       // Dados vem da View já ordenados por total_falhas DESC
                       return filteredMetrics.map(m => (
-                        <tr key={m.machine_id} className="hover:bg-muted/50">
-                          <td className="p-3 font-medium">{m.machine_name}</td>
+                        <tr 
+                          key={m.machine_id} 
+                          className="hover:bg-primary/10 cursor-pointer transition-colors"
+                          onClick={() => openMachineHistory(m.machine_id, m.machine_name)}
+                        >
+                          <td className="p-3 font-medium text-primary hover:underline">{m.machine_name}</td>
                           <td className="p-3 text-center font-mono">{m.total_falhas}</td>
                           <td className="p-3 text-center font-mono text-muted-foreground">
                             {m.downtime_horas.toFixed(2)}
@@ -2139,36 +2809,173 @@ export function ReportsView() {
             </CardContent>
           </Card>
 
-          {/* Legenda e informações */}
+          {/* Explicação dos indicadores - Movido para o final */}
           <Card>
-            <CardContent className="p-4 space-y-3">
-              <div className="flex flex-wrap gap-4 text-xs">
-                <div className="flex items-center gap-1">
-                  <div className="w-3 h-3 rounded bg-green-500"></div>
-                  <span>Disponibilidade maior ou igual a 95%</span>
+            <CardHeader className="pb-2">
+              <CardTitle className="flex items-center gap-2">
+                <BarChart3 className="w-5 h-5" />
+                Indicadores de Manutenção
+              </CardTitle>
+              <CardDescription>
+                Métricas de confiabilidade e eficiência baseadas nos turnos de operação das máquinas
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                <div className="p-3 rounded-lg bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800">
+                  <p className="font-semibold text-blue-700 dark:text-blue-300">MTBF - Tempo Médio Entre Falhas</p>
+                  <p className="text-blue-600 dark:text-blue-400 mt-1">
+                    Indica quanto tempo, em média, uma máquina opera até apresentar uma falha.
+                    Quanto maior, melhor a confiabilidade.
+                  </p>
+                  <p className="text-xs text-blue-500 dark:text-blue-400 mt-2 font-mono">
+                    MTBF = (Horas de Operação - Horas Paradas) / Número de Falhas
+                  </p>
                 </div>
-                <div className="flex items-center gap-1">
-                  <div className="w-3 h-3 rounded bg-yellow-500"></div>
-                  <span>Disponibilidade entre 85% e 95%</span>
+                <div className="p-3 rounded-lg bg-orange-50 dark:bg-orange-950 border border-orange-200 dark:border-orange-800">
+                  <p className="font-semibold text-orange-700 dark:text-orange-300">MTTR - Tempo Médio de Reparo</p>
+                  <p className="text-orange-600 dark:text-orange-400 mt-1">
+                    Indica quanto tempo, em média, leva para reparar uma máquina após uma falha.
+                    Quanto menor, mais eficiente a manutenção.
+                  </p>
+                  <p className="text-xs text-orange-500 dark:text-orange-400 mt-2 font-mono">
+                    MTTR = Tempo Total de Reparo / Número de Falhas
+                  </p>
                 </div>
-                <div className="flex items-center gap-1">
-                  <div className="w-3 h-3 rounded bg-red-500"></div>
-                  <span>Disponibilidade menor que 85%</span>
-                </div>
-              </div>
-              <div className="text-xs text-muted-foreground border-t pt-3 space-y-2">
-                <p className="font-medium">Período: Mês atual | Horas configuradas: {monthlyHours > 0 ? `${monthlyHours}h/mês` : 'Não configurado'}</p>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 bg-muted/50 p-2 rounded text-[11px]">
-                  <div><strong>Downtime:</strong> Soma de t.downtime dos tickets (em horas)</div>
-                  <div><strong>Uptime:</strong> monthly_hours - Downtime</div>
-                  <div><strong>MTBF:</strong> Uptime / Número de Falhas (se 0 falhas = monthly_hours)</div>
-                  <div><strong>MTTR:</strong> Downtime / Número de Falhas</div>
-                  <div className="md:col-span-2"><strong>Disponibilidade:</strong> (Uptime / monthly_hours) × 100 (se 0 falhas = 100%)</div>
-                </div>
-                <p>Os dados vêm da View <code className="bg-muted px-1 rounded">v_metricas_reais</code> do Supabase - não são calculados localmente.</p>
               </div>
             </CardContent>
           </Card>
+          
+          {/* Sheet de Histórico da Máquina */}
+          <Sheet open={machineHistoryOpen} onOpenChange={setMachineHistoryOpen}>
+            <SheetContent side="right" className="w-full sm:max-w-lg overflow-y-auto">
+              <SheetHeader>
+                <SheetTitle className="flex items-center gap-2">
+                  <Wrench className="w-5 h-5" />
+                  Histórico de Manutenções
+                </SheetTitle>
+                <SheetDescription className="text-base font-semibold text-foreground">
+                  {selectedMachineName || 'Máquina'}
+                </SheetDescription>
+                {metricsDateRange?.from && metricsDateRange?.to && (
+                  <p className="text-xs text-muted-foreground">
+                    Período: {format(metricsDateRange.from, "dd/MM/yyyy", { locale: ptBR })} - {format(metricsDateRange.to, "dd/MM/yyyy", { locale: ptBR })}
+                  </p>
+                )}
+              </SheetHeader>
+              
+              <div className="flex-1 overflow-y-auto py-4">
+                {/* Estado de Loading */}
+                {loadingMachineHistory && (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="w-6 h-6 animate-spin text-primary" />
+                    <span className="ml-2 text-muted-foreground">Carregando...</span>
+                  </div>
+                )}
+                
+                {/* Lista vazia */}
+                {!loadingMachineHistory && (machineHistoryTickets || []).length === 0 && (
+                  <div className="flex flex-col items-center justify-center py-8 text-center">
+                    <Clock className="w-12 h-12 text-muted-foreground/30 mb-3" />
+                    <p className="text-muted-foreground">Nenhum chamado encontrado para esta máquina no período selecionado.</p>
+                  </div>
+                )}
+                
+                {/* Lista de chamados */}
+                {!loadingMachineHistory && (machineHistoryTickets || []).length > 0 && (
+                  <div className="space-y-3">
+                    {(machineHistoryTickets || []).map((ticket) => {
+                      // Buscar dados com segurança
+                      const problem = ticket?.problemId ? getProblemById(ticket.problemId) : null
+                      const downtimeSeconds = ticket?.downtime || 0
+                      const isCompleted = ticket?.status === 'completed'
+                      const hasDowntime = downtimeSeconds > 0
+                      
+                      // Buscar técnico: prioriza quem finalizou, depois último operador, depois quem criou
+                      const actions = ticket?.actions || []
+                      const completeAction = [...actions].reverse().find(a => a.type === 'complete')
+                      const lastAction = actions.length > 0 ? actions[actions.length - 1] : null
+                      const technicianName = completeAction?.operatorName 
+                        || lastAction?.operatorName 
+                        || ticket?.createdByName 
+                        || 'N/A'
+                      
+                      return (
+                        <div
+                          key={ticket?.id || Math.random()}
+                          className={cn(
+                            "border rounded-lg p-4 transition-colors",
+                            isCompleted 
+                              ? "border-green-200 bg-green-50/50 dark:border-green-800 dark:bg-green-950/20"
+                              : hasDowntime
+                                ? "border-red-200 bg-red-50/50 dark:border-red-800 dark:bg-red-950/20"
+                                : "border-border bg-card"
+                          )}
+                        >
+                          {/* Data e Status */}
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center gap-2 text-sm">
+                              <CalendarIcon className="w-4 h-4 text-muted-foreground" />
+                              <span className="font-medium">
+                                {ticket?.createdAt ? format(new Date(ticket.createdAt), "dd/MM/yyyy HH:mm", { locale: ptBR }) : 'N/A'}
+                              </span>
+                            </div>
+                            <Badge 
+                              variant={isCompleted ? "default" : "secondary"}
+                              className={cn(
+                                "text-xs",
+                                isCompleted && "bg-green-600 hover:bg-green-700"
+                              )}
+                            >
+                              {isCompleted ? "Concluído" : ticket?.status === 'cancelled' ? "Cancelado" : "Aberto"}
+                            </Badge>
+                          </div>
+                          
+                          {/* Problema */}
+                          <div className="mb-2">
+                            <Badge variant="outline" className="text-xs">
+                              {problem?.name || ticket?.customProblemName || 'Problema não especificado'}
+                            </Badge>
+                          </div>
+                          
+                          {/* Técnico */}
+                          <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
+                            <User className="w-4 h-4" />
+                            <span>Técnico:</span>
+                            <span className="font-medium text-foreground">
+                              {technicianName}
+                            </span>
+                          </div>
+                          
+                          {/* Downtime */}
+                          {hasDowntime && (
+                            <div className="flex items-center gap-2 text-sm">
+                              <Clock className="w-4 h-4 text-red-500" />
+                              <span className="text-red-600 font-medium">
+                                Downtime: {formatDurationHours(downtimeSeconds).display}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+              
+              {/* Footer com botão Fechar */}
+              <SheetFooter className="border-t pt-4">
+                <Button 
+                  variant="outline" 
+                  className="w-full"
+                  onClick={closeMachineHistory}
+                >
+                  <X className="w-4 h-4 mr-2" />
+                  Fechar
+                </Button>
+              </SheetFooter>
+            </SheetContent>
+          </Sheet>
         </TabsContent>
       </Tabs>
     </div>

@@ -473,3 +473,35 @@ export async function updateMachineShift(machineId: string, shiftId: string | nu
     body: JSON.stringify({ machineId, shiftId }),
   })
 }
+
+// ─── MÉTRICAS POR PERÍODO ──────────────────────────────────
+
+export interface MetricsResponse {
+  monthlyHours: number
+  metrics: Array<{
+    machine_id: string
+    machine_name: string
+    total_falhas: number
+    downtime_horas: number
+    uptime_horas: number
+    mtbf: number
+    mttr: number
+    disponibilidade: number
+  }>
+  period: { from: string; to: string } | null
+}
+
+export async function fetchMetricsByPeriod(fromDate?: string, toDate?: string): Promise<MetricsResponse> {
+  let url = '/api/metrics'
+  
+  if (fromDate && toDate) {
+    url += `?from=${encodeURIComponent(fromDate)}&to=${encodeURIComponent(toDate)}`
+  }
+  
+  const data = await apiFetch(url)
+  return {
+    monthlyHours: data.monthlyHours || 0,
+    metrics: data.metrics || [],
+    period: data.period || null
+  }
+}
