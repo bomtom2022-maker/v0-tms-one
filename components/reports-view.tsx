@@ -1044,23 +1044,45 @@ export function ReportsView() {
     })
   }, [tickets, filters])
 
-  // Tickets em aberto (in-progress, paused, pending) para cálculo de downtime progressivo
+  // Tickets em aberto (open, in-progress, paused) para cálculo de downtime progressivo
+  // IMPORTANTE: Buscar direto de `tickets` pois `filteredTickets` exclui status 'open'
+  // Status possíveis: 'open' | 'in-progress' | 'paused' | 'completed' | 'cancelled' | 'unresolved'
   const openTicketsForDowntime = useMemo(() => {
-    const openTickets = filteredTickets.filter(t => 
-      t.status === 'in-progress' || 
-      t.status === 'paused' || 
-      t.status === 'pending'
-    )
+    const filterStart = filters.dateRange?.from ? startOfDay(filters.dateRange.from) : null
+    const filterEnd = filters.dateRange?.to ? endOfDay(filters.dateRange.to) : null
+    
+    const openTickets = tickets.filter(t => {
+      // Apenas tickets com status "em aberto" (não finalizados)
+      if (t.status !== 'open' && t.status !== 'in-progress' && t.status !== 'paused') {
+        return false
+      }
+      
+      // Respeitar filtro de máquina se selecionado
+      if (filters.machineId !== 'all' && t.machineId !== filters.machineId) {
+        return false
+      }
+      
+      // Incluir se o ticket foi criado ANTES do fim do filtro
+      // (mesmo criado antes do período, se ainda está aberto, afeta o período)
+      if (filterEnd) {
+        const createdAt = new Date(t.createdAt)
+        if (createdAt > filterEnd) return false
+      }
+      
+      return true
+    })
+    
     // DEBUG: Verificar tickets em aberto
     console.log('[v0] Tickets em aberto para downtime:', openTickets.map(t => ({
       id: t.id,
       machineId: t.machineId,
+      machineName: getMachineById(t.machineId)?.name,
       status: t.status,
       createdAt: t.createdAt,
       diasAberto: Math.floor((Date.now() - new Date(t.createdAt).getTime()) / (1000 * 60 * 60 * 24))
     })))
     return openTickets
-  }, [filteredTickets])
+  }, [tickets, filters.dateRange, filters.machineId, getMachineById])
 
   const stats = useMemo(() => {
     // ========== CÁLCULO DO DOWNTIME TOTAL (INCLUI TICKETS EM ABERTO) ==========
