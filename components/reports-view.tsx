@@ -2170,7 +2170,7 @@ export function ReportsView() {
                         Detalhes da Ocorrência
                       </SheetTitle>
                       <SheetDescription>
-                        #{ticket.id.split('-')[1]} - Concluída em {format(new Date(ticket.completedAt || ticket.createdAt), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                        Concluída em {format(new Date(ticket.completedAt || ticket.createdAt), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
                       </SheetDescription>
                     </SheetHeader>
                     
