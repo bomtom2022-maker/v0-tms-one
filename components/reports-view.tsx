@@ -57,6 +57,9 @@ import {
   BarChart3,
   AlertTriangle,
   Info,
+  Search,
+  Eye,
+  History,
 } from 'lucide-react'
 import { format, startOfDay, endOfDay, isWithinInterval, startOfMonth, endOfMonth, subDays, differenceInDays, getDaysInMonth } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
@@ -769,6 +772,12 @@ export function ReportsView() {
   const [showConfigSection, setShowConfigSection] = useState(false)
   const [showAvailabilitySection, setShowAvailabilitySection] = useState(false)
   const [showSummaryCards, setShowSummaryCards] = useState(false)
+  
+  // Estados para aba Ocorrências Solucionadas
+  const [solvedSearchQuery, setSolvedSearchQuery] = useState('')
+  const [showAllSolved, setShowAllSolved] = useState(false)
+  const [selectedSolvedTicket, setSelectedSolvedTicket] = useState<typeof tickets[0] | null>(null)
+  const INITIAL_SOLVED_COUNT = 5
   
   // Inicializar shifts locais das máquinas
   useEffect(() => {
@@ -1942,13 +1951,47 @@ export function ReportsView() {
           {/* Feed de Ocorrências Solucionadas */}
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="flex items-center gap-2">
-                <CheckCircle2 className="w-5 h-5 text-green-600" />
-                Ocorrências Solucionadas
-              </CardTitle>
-              <CardDescription>
-                {(filteredTickets || []).filter(t => t.status === 'completed').length} manutenções concluídas no período
-              </CardDescription>
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    <CheckCircle2 className="w-5 h-5 text-green-600" />
+                    Ocorrências Solucionadas
+                  </CardTitle>
+                  <CardDescription>
+                    {(() => {
+                      const allCompleted = (filteredTickets || []).filter(t => t.status === 'completed')
+                      const filtered = allCompleted.filter(t => {
+                        if (!solvedSearchQuery.trim()) return true
+                        const q = solvedSearchQuery.toLowerCase()
+                        const machine = getMachineById(t.machineId)
+                        const problem = getProblemById(t.problemId)
+                        return (
+                          machine?.name?.toLowerCase().includes(q) ||
+                          (t.customProblemName || problem?.name || '').toLowerCase().includes(q) ||
+                          t.createdByName?.toLowerCase().includes(q)
+                        )
+                      })
+                      return solvedSearchQuery 
+                        ? `${filtered.length} de ${allCompleted.length} manutenções encontradas`
+                        : `${allCompleted.length} manutenções concluídas no período`
+                    })()}
+                  </CardDescription>
+                </div>
+                
+                {/* Campo de Busca */}
+                <div className="relative w-full sm:w-64">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Buscar por máquina, problema..."
+                    value={solvedSearchQuery}
+                    onChange={(e) => {
+                      setSolvedSearchQuery(e.target.value)
+                      setShowAllSolved(false)
+                    }}
+                    className="pl-9 h-9 text-sm"
+                  />
+                </div>
+              </div>
             </CardHeader>
             <CardContent className="p-0">
               <div className="overflow-x-auto">
@@ -1961,35 +2004,50 @@ export function ReportsView() {
                       <th className="p-2 sm:p-3 text-left font-medium text-[10px] sm:text-xs hidden lg:table-cell">Solução</th>
                       <th className="p-2 sm:p-3 text-left font-medium text-[10px] sm:text-xs hidden md:table-cell">Manutentor</th>
                       <th className="p-2 sm:p-3 text-right font-medium text-[10px] sm:text-xs text-red-600">Tempo Parado</th>
+                      <th className="p-2 sm:p-3 text-center font-medium text-[10px] sm:text-xs w-10">Ver</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y">
                     {(() => {
-                      const completedTickets = (filteredTickets || [])
+                      const allCompleted = (filteredTickets || [])
                         .filter(t => t.status === 'completed')
+                        .filter(t => {
+                          if (!solvedSearchQuery.trim()) return true
+                          const q = solvedSearchQuery.toLowerCase()
+                          const machine = getMachineById(t.machineId)
+                          const problem = getProblemById(t.problemId)
+                          return (
+                            machine?.name?.toLowerCase().includes(q) ||
+                            (t.customProblemName || problem?.name || '').toLowerCase().includes(q) ||
+                            t.createdByName?.toLowerCase().includes(q)
+                          )
+                        })
                         .sort((a, b) => new Date(b.completedAt || b.createdAt).getTime() - new Date(a.completedAt || a.createdAt).getTime())
-                        .slice(0, 50)
                       
-                      if (completedTickets.length === 0) {
+                      const displayedTickets = showAllSolved ? allCompleted : allCompleted.slice(0, INITIAL_SOLVED_COUNT)
+                      
+                      if (allCompleted.length === 0) {
                         return null
                       }
                       
-                      return completedTickets.map((ticket) => {
+                      return displayedTickets.map((ticket) => {
                         const machine = getMachineById(ticket.machineId)
                         const problem = getProblemById(ticket.problemId)
                         const downtimeSeconds = ticket.downtime || 0
                         
-                        // Buscar técnico que finalizou
                         const actions = ticket?.actions || []
                         const completeAction = [...actions].reverse().find(a => a.type === 'complete')
                         const lastAction = actions.length > 0 ? actions[actions.length - 1] : null
                         const technicianName = completeAction?.operatorName || lastAction?.operatorName || ticket?.createdByName || '-'
                         
-                        // Solução aplicada (notas ou último comentário)
                         const solution = ticket.notes || completeAction?.reason || '-'
                         
                         return (
-                          <tr key={ticket.id} className="hover:bg-muted/50">
+                          <tr 
+                            key={ticket.id} 
+                            className="hover:bg-muted/50 cursor-pointer transition-colors"
+                            onClick={() => setSelectedSolvedTicket(ticket)}
+                          >
                             <td className="p-2 sm:p-3 whitespace-nowrap text-[10px] sm:text-xs">
                               <div>
                                 {format(new Date(ticket.completedAt || ticket.createdAt), 'dd/MM/yy', { locale: ptBR })}
@@ -2013,26 +2071,295 @@ export function ReportsView() {
                             <td className="p-2 sm:p-3 text-right font-mono text-[10px] sm:text-xs text-red-600 font-semibold whitespace-nowrap">
                               {formatDurationHours(downtimeSeconds).display}
                             </td>
+                            <td className="p-2 sm:p-3 text-center">
+                              <Button variant="ghost" size="icon" className="h-7 w-7">
+                                <Eye className="w-3.5 h-3.5 text-muted-foreground" />
+                              </Button>
+                            </td>
                           </tr>
                         )
                       })
                     })()}
                   </tbody>
                 </table>
-                {(filteredTickets || []).filter(t => t.status === 'completed').length === 0 && (
-                  <div className="p-8 text-center text-muted-foreground">
-                    <CheckCircle2 className="w-12 h-12 mx-auto mb-3 opacity-20" />
-                    <p>Nenhuma ocorrência solucionada no período selecionado.</p>
-                  </div>
-                )}
-                {(filteredTickets || []).filter(t => t.status === 'completed').length > 50 && (
-                  <div className="p-4 text-center text-muted-foreground text-sm border-t">
-                    Mostrando 50 de {(filteredTickets || []).filter(t => t.status === 'completed').length} registros.
-                  </div>
-                )}
+                
+                {/* Mensagem quando não há resultados */}
+                {(() => {
+                  const allCompleted = (filteredTickets || []).filter(t => t.status === 'completed')
+                  const filtered = allCompleted.filter(t => {
+                    if (!solvedSearchQuery.trim()) return true
+                    const q = solvedSearchQuery.toLowerCase()
+                    const machine = getMachineById(t.machineId)
+                    const problem = getProblemById(t.problemId)
+                    return (
+                      machine?.name?.toLowerCase().includes(q) ||
+                      (t.customProblemName || problem?.name || '').toLowerCase().includes(q) ||
+                      t.createdByName?.toLowerCase().includes(q)
+                    )
+                  })
+                  
+                  if (allCompleted.length === 0) {
+                    return (
+                      <div className="p-8 text-center text-muted-foreground">
+                        <CheckCircle2 className="w-12 h-12 mx-auto mb-3 opacity-20" />
+                        <p>Nenhuma ocorrência solucionada no período selecionado.</p>
+                      </div>
+                    )
+                  }
+                  
+                  if (filtered.length === 0 && solvedSearchQuery) {
+                    return (
+                      <div className="p-8 text-center text-muted-foreground">
+                        <Search className="w-12 h-12 mx-auto mb-3 opacity-20" />
+                        <p>Nenhuma ocorrência encontrada com este termo.</p>
+                        <p className="text-xs mt-1">Tente buscar por outro termo.</p>
+                      </div>
+                    )
+                  }
+                  
+                  // Botão Exibir Mais/Menos
+                  if (allCompleted.length > INITIAL_SOLVED_COUNT) {
+                    return (
+                      <div className="p-3 border-t">
+                        <Button
+                          variant="ghost"
+                          className="w-full text-muted-foreground hover:text-foreground"
+                          onClick={() => setShowAllSolved(!showAllSolved)}
+                        >
+                          {showAllSolved ? (
+                            <>
+                              <ChevronUp className="w-4 h-4 mr-2" />
+                              Exibir menos
+                            </>
+                          ) : (
+                            <>
+                              <ChevronDown className="w-4 h-4 mr-2" />
+                              Exibir mais ({filtered.length - INITIAL_SOLVED_COUNT} restantes)
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                    )
+                  }
+                  
+                  return null
+                })()}
               </div>
             </CardContent>
           </Card>
+          
+          {/* Sheet de Detalhes da Ocorrência Solucionada */}
+          <Sheet open={!!selectedSolvedTicket} onOpenChange={() => setSelectedSolvedTicket(null)}>
+            <SheetContent className="w-full sm:max-w-lg overflow-y-auto">
+              {selectedSolvedTicket && (() => {
+                const ticket = selectedSolvedTicket
+                const machine = getMachineById(ticket.machineId)
+                const problem = getProblemById(ticket.problemId)
+                const downtimeSeconds = ticket.downtime || 0
+                const priorityConfig = PRIORITY_CONFIG[ticket.priority]
+                
+                const actions = ticket?.actions || []
+                const completeAction = [...actions].reverse().find(a => a.type === 'complete')
+                const technicianName = completeAction?.operatorName || ticket?.createdByName || '-'
+                
+                return (
+                  <>
+                    <SheetHeader>
+                      <SheetTitle className="flex items-center gap-2">
+                        <CheckCircle2 className="w-5 h-5 text-green-600" />
+                        Detalhes da Ocorrência
+                      </SheetTitle>
+                      <SheetDescription>
+                        #{ticket.id.split('-')[1]} - Concluída em {format(new Date(ticket.completedAt || ticket.createdAt), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                      </SheetDescription>
+                    </SheetHeader>
+                    
+                    <div className="space-y-6 mt-6">
+                      {/* Informações da Máquina */}
+                      <div className="space-y-2">
+                        <h4 className="text-sm font-medium flex items-center gap-2">
+                          <Settings className="w-4 h-4" />
+                          Máquina
+                        </h4>
+                        <div className="p-3 rounded-lg bg-muted/50 border">
+                          <p className="font-semibold">{machine?.name || '-'}</p>
+                          <p className="text-sm text-muted-foreground">{machine?.sector || '-'}</p>
+                          {machine?.manufacturer && (
+                            <p className="text-xs text-muted-foreground mt-1">
+                              {machine.manufacturer} {machine.model && `- ${machine.model}`}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                      
+                      {/* Problema */}
+                      <div className="space-y-2">
+                        <h4 className="text-sm font-medium">Problema Reportado</h4>
+                        <div className="p-3 rounded-lg bg-muted/50 border">
+                          <p className="font-medium">{ticket.customProblemName || problem?.name || '-'}</p>
+                          {ticket.observation && (
+                            <p className="text-sm text-muted-foreground mt-2">{ticket.observation}</p>
+                          )}
+                          <div className="flex gap-2 mt-2">
+                            <Badge className={cn("text-xs", priorityConfig.bgLight, priorityConfig.textColor)}>
+                              {priorityConfig.label}
+                            </Badge>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      {/* Dados da Operação */}
+                      <div className="space-y-2">
+                        <h4 className="text-sm font-medium flex items-center gap-2">
+                          <Clock className="w-4 h-4" />
+                          Dados da Operação
+                        </h4>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="p-3 rounded-lg bg-muted/50 border">
+                            <p className="text-xs text-muted-foreground">Criado em</p>
+                            <p className="text-sm font-medium">
+                              {format(new Date(ticket.createdAt), "dd/MM/yyyy", { locale: ptBR })}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {format(new Date(ticket.createdAt), "HH:mm", { locale: ptBR })}
+                            </p>
+                          </div>
+                          <div className="p-3 rounded-lg bg-green-50 border border-green-200">
+                            <p className="text-xs text-green-600">Concluído em</p>
+                            <p className="text-sm font-medium text-green-700">
+                              {format(new Date(ticket.completedAt || ticket.createdAt), "dd/MM/yyyy", { locale: ptBR })}
+                            </p>
+                            <p className="text-xs text-green-600">
+                              {format(new Date(ticket.completedAt || ticket.createdAt), "HH:mm", { locale: ptBR })}
+                            </p>
+                          </div>
+                          <div className="p-3 rounded-lg bg-red-50 border border-red-200">
+                            <p className="text-xs text-red-600">Tempo Parado</p>
+                            <p className="text-sm font-bold text-red-700">
+                              {formatDurationHours(downtimeSeconds).display}
+                            </p>
+                          </div>
+                          <div className="p-3 rounded-lg bg-blue-50 border border-blue-200">
+                            <p className="text-xs text-blue-600">Tempo de Reparo</p>
+                            <p className="text-sm font-bold text-blue-700">
+                              {formatDuration(ticket.accumulatedTime || 0)}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      {/* Responsáveis */}
+                      <div className="space-y-2">
+                        <h4 className="text-sm font-medium flex items-center gap-2">
+                          <User className="w-4 h-4" />
+                          Responsáveis
+                        </h4>
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50 border">
+                            <div>
+                              <p className="text-xs text-muted-foreground">Reportado por</p>
+                              <p className="text-sm font-medium">{ticket.createdByName || '-'}</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center justify-between p-3 rounded-lg bg-green-50 border border-green-200">
+                            <div>
+                              <p className="text-xs text-green-600">Finalizado por</p>
+                              <p className="text-sm font-medium text-green-700">{technicianName}</p>
+                            </div>
+                            <CheckCircle2 className="w-5 h-5 text-green-600" />
+                          </div>
+                        </div>
+                      </div>
+                      
+                      {/* Notas de Conclusão */}
+                      {ticket.notes && (
+                        <div className="space-y-2">
+                          <h4 className="text-sm font-medium">Observações da Conclusão</h4>
+                          <div className="p-3 rounded-lg bg-muted/50 border">
+                            <p className="text-sm">{ticket.notes}</p>
+                          </div>
+                        </div>
+                      )}
+                      
+                      {/* Histórico de Ações */}
+                      {actions.length > 0 && (
+                        <div className="space-y-2">
+                          <h4 className="text-sm font-medium flex items-center gap-2">
+                            <History className="w-4 h-4" />
+                            Histórico de Ações
+                          </h4>
+                          <div className="space-y-2 max-h-[200px] overflow-y-auto">
+                            {actions.map((action, index) => {
+                              const actionLabels: Record<string, string> = {
+                                start: 'Iniciou manutenção',
+                                pause: 'Pausou manutenção',
+                                resume: 'Retomou manutenção',
+                                complete: 'Finalizou manutenção',
+                              }
+                              const actionColors: Record<string, string> = {
+                                start: 'bg-green-500',
+                                pause: 'bg-yellow-500',
+                                resume: 'bg-blue-500',
+                                complete: 'bg-green-600',
+                              }
+                              return (
+                                <div key={index} className="flex items-start gap-3 p-2 rounded-lg bg-muted/30">
+                                  <div className={cn("w-2 h-2 rounded-full mt-1.5", actionColors[action.type] || 'bg-gray-400')} />
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-xs font-medium">{actionLabels[action.type] || action.type}</p>
+                                    <p className="text-xs text-muted-foreground">{action.operatorName}</p>
+                                    {action.reason && <p className="text-xs text-muted-foreground mt-0.5">{action.reason}</p>}
+                                  </div>
+                                  <p className="text-[10px] text-muted-foreground whitespace-nowrap">
+                                    {format(new Date(action.timestamp), "dd/MM HH:mm", { locale: ptBR })}
+                                  </p>
+                                </div>
+                              )
+                            })}
+                          </div>
+                        </div>
+                      )}
+                      
+                      {/* Peças Utilizadas */}
+                      {ticket.usedParts && ticket.usedParts.length > 0 && (
+                        <div className="space-y-2">
+                          <h4 className="text-sm font-medium flex items-center gap-2">
+                            <Package className="w-4 h-4" />
+                            Peças Utilizadas
+                          </h4>
+                          <div className="space-y-1">
+                            {ticket.usedParts.map((up, index) => {
+                              const part = parts.find(p => p.id === up.partId)
+                              return (
+                                <div key={index} className="flex items-center justify-between p-2 rounded-lg bg-muted/30">
+                                  <span className="text-sm">{part?.name || 'Peça não encontrada'}</span>
+                                  <Badge variant="secondary">{up.quantity}x</Badge>
+                                </div>
+                              )
+                            })}
+                          </div>
+                          {ticket.totalCost > 0 && (
+                            <div className="flex items-center justify-between p-2 border-t mt-2">
+                              <span className="text-sm font-medium">Custo Total</span>
+                              <span className="text-sm font-bold text-green-600">
+                                {formatCurrency(ticket.totalCost)}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                    
+                    <SheetFooter className="mt-6">
+                      <SheetClose asChild>
+                        <Button variant="outline" className="w-full">Fechar</Button>
+                      </SheetClose>
+                    </SheetFooter>
+                  </>
+                )
+              })()}
+            </SheetContent>
+          </Sheet>
         </TabsContent>
 
         {/* Tab Máquinas */}
