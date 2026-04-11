@@ -610,7 +610,7 @@ export function ReportsView() {
     reloadAuditLogs()
   }, [])
 
-  const [activeTab, setActiveTab] = useState<ReportType>('general')
+  const [activeTab, setActiveTab] = useState<ReportType>('metrics')
   // Filtro padrão: do dia 1 do mês atual até hoje
   const [filters, setFilters] = useState<FilterState>({
     dateRange: { from: startOfMonth(new Date()), to: new Date() },
@@ -771,7 +771,7 @@ export function ReportsView() {
 
   const [showConfigSection, setShowConfigSection] = useState(false)
   const [showAvailabilitySection, setShowAvailabilitySection] = useState(false)
-  const [showSummaryCards, setShowSummaryCards] = useState(false)
+  // showSummaryCards removido - resumo agora sempre visível
   
   // Estados para aba Ocorrências Solucionadas
   const [solvedSearchQuery, setSolvedSearchQuery] = useState('')
@@ -933,11 +933,10 @@ export function ReportsView() {
     return sum / viewMetrics.length
   }, [viewMetrics])
   
-  // ========== MÉTRICAS GLOBAIS (NÃO AFETADAS PELO FILTRO DE MÁQUINA) ==========
-  // MTBF Global: Tempo total operando / Número total de falhas
-  // MTTR Global: Média do tempo de reparo de todos os chamados
-  const globalMetrics = useMemo(() => {
-    if (viewMetrics.length === 0) return { mtbfGlobal: 0, mttrGlobal: 0, totalFalhas: 0, totalDowntime: 0 }
+  // ========== MÉTRICAS GLOBAIS PARCIAIS (MTTR e contagens) ==========
+  // O MTBF Global será calculado depois de 'stats' para usar o mesmo Tempo Operando do resumo
+  const globalMetricsPartial = useMemo(() => {
+    if (viewMetrics.length === 0) return { mttrGlobal: 0, totalFalhas: 0, totalDowntime: 0, totalMaquinas: 0 }
     
     // Somar todas as falhas e downtime de TODAS as máquinas
     const totalFalhas = viewMetrics.reduce((sum, m) => sum + m.total_falhas, 0)
@@ -946,27 +945,14 @@ export function ReportsView() {
     // MTTR Global: Downtime total / Número de falhas (tempo médio de reparo)
     const mttrGlobal = totalFalhas > 0 ? totalDowntimeHoras / totalFalhas : 0
     
-    // MTBF Global: (Tempo operando total) / (Número de falhas)
-    // Tempo operando = Capacidade total - Downtime total
-    // Capacidade total = monthlyHours * número de máquinas * (dias no período / 30)
-    const diasNoPeriodo = metricsDateRange?.from && metricsDateRange?.to 
-      ? differenceInDays(metricsDateRange.to, metricsDateRange.from) + 1 
-      : 30
-    const capacidadeTotal = monthlyHours * viewMetrics.length * (diasNoPeriodo / 30)
-    const tempoOperandoTotal = Math.max(0, capacidadeTotal - totalDowntimeHoras)
-    const mtbfGlobal = totalFalhas > 0 ? tempoOperandoTotal / totalFalhas : capacidadeTotal
-    
     return { 
-      mtbfGlobal, 
       mttrGlobal, 
       totalFalhas, 
       totalDowntime: totalDowntimeHoras,
-      tempoOperandoTotal,
-      capacidadeTotal,
       totalMaquinas: viewMetrics.length
     }
-  }, [viewMetrics, monthlyHours, metricsDateRange])
-  // ========== FIM MÉTRICAS GLOBAIS ==========
+  }, [viewMetrics])
+  // ========== FIM MÉTRICAS GLOBAIS PARCIAIS ==========
   
   const handleDatePreset = (preset: DatePreset) => {
     const today = new Date()
@@ -1230,6 +1216,31 @@ export function ReportsView() {
       dailyCapacityHours: H_PLANEJADA_DIA
     }
   }, [filteredTickets, validTicketsForMetrics, openTicketsForDowntime, cancelledTickets, viewMetrics, filters.dateRange, machines])
+
+  // ========== MTBF GLOBAL CORRIGIDO ==========
+  // Usa o MESMO Tempo Operando do resumo (stats.totalOperatingTime)
+  // Fórmula: MTBF = Tempo Operando / Número de Falhas
+  const globalMetrics = useMemo(() => {
+    // Converter tempo operando de segundos para horas
+    const tempoOperandoHoras = stats.totalOperatingTime / 3600
+    
+    // Usar o total de falhas calculado nas métricas parciais
+    const totalFalhas = globalMetricsPartial.totalFalhas
+    
+    // MTBF Global: Tempo Operando (em horas) / Total de Falhas
+    const mtbfGlobal = totalFalhas > 0 ? tempoOperandoHoras / totalFalhas : 0
+    
+    return {
+      mtbfGlobal,
+      mttrGlobal: globalMetricsPartial.mttrGlobal,
+      totalFalhas,
+      totalDowntime: globalMetricsPartial.totalDowntime,
+      tempoOperandoTotal: tempoOperandoHoras,
+      capacidadeTotal: stats.plannedCapacityHours,
+      totalMaquinas: globalMetricsPartial.totalMaquinas
+    }
+  }, [stats.totalOperatingTime, stats.plannedCapacityHours, globalMetricsPartial])
+  // ========== FIM MTBF GLOBAL CORRIGIDO ==========
 
   const machineData = useMemo(() => {
     // Usar tickets válidos (completed + resolved) + tickets em aberto para métricas de máquinas
@@ -1733,27 +1744,21 @@ export function ReportsView() {
         </CardContent>
       </Card>
 
-      {/* Summary Cards - Colapsável */}
-      <Card>
-        <CardHeader 
-          className="pb-2 cursor-pointer hover:bg-muted/50 transition-colors rounded-t-lg"
-          onClick={() => setShowSummaryCards(!showSummaryCards)}
-        >
+      {/* Resumo do Período - Sempre visível com MTBF/MTTR integrados */}
+      <Card className="border-2">
+        <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle>Resumo do Período</CardTitle>
+              <CardTitle className="text-lg">Resumo do Período</CardTitle>
               <CardDescription>
                 {stats.total} manutenções | {formatDurationHours(stats.totalStoppedTime).display} parado | {stats.uniqueMachines} máquinas
               </CardDescription>
             </div>
-            <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-              {showSummaryCards ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-            </Button>
           </div>
         </CardHeader>
-        {showSummaryCards && (
-        <CardContent className="pt-0">
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <CardContent className="pt-0 space-y-4">
+          {/* Linha 1: Métricas principais */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
             <div className="p-3 rounded-lg bg-muted/50">
               <div className="flex items-center gap-3">
                 <div className="p-2 rounded-lg bg-primary">
@@ -1828,16 +1833,71 @@ export function ReportsView() {
               </div>
             </div>
           </div>
+          
+          {/* Linha 2: MTBF e MTTR Global */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="p-4 rounded-xl bg-gradient-to-br from-blue-50 to-indigo-50 border-2 border-blue-200">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 rounded-lg bg-blue-500 shadow-sm">
+                    <TrendingUp className="w-5 h-5 text-white" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-1.5">
+                      <p className="text-sm font-semibold text-blue-700">MTBF Global</p>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Info className="w-3.5 h-3.5 text-blue-400 cursor-help" />
+                        </TooltipTrigger>
+                        <TooltipContent side="top" className="max-w-[280px]">
+                          <p className="font-medium">Tempo Médio Entre Falhas</p>
+                          <p className="text-xs mt-1">Tempo Operando ({formatDurationHours(stats.totalOperatingTime).display}) / {globalMetrics.totalFalhas} falhas</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </div>
+                    <p className="text-3xl font-bold text-blue-600">{globalMetrics.mtbfGlobal.toFixed(1)}h</p>
+                    <p className="text-xs text-blue-500">{globalMetrics.totalFalhas} falhas em {globalMetrics.totalMaquinas} máquinas</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-4 rounded-xl bg-gradient-to-br from-orange-50 to-amber-50 border-2 border-orange-200">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 rounded-lg bg-orange-500 shadow-sm">
+                    <Clock className="w-5 h-5 text-white" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-1.5">
+                      <p className="text-sm font-semibold text-orange-700">MTTR Global</p>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Info className="w-3.5 h-3.5 text-orange-400 cursor-help" />
+                        </TooltipTrigger>
+                        <TooltipContent side="top" className="max-w-[280px]">
+                          <p className="font-medium">Tempo Médio de Reparo</p>
+                          <p className="text-xs mt-1">Downtime total ({globalMetrics.totalDowntime.toFixed(1)}h) / {globalMetrics.totalFalhas} falhas</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </div>
+                    <p className="text-3xl font-bold text-orange-600">{globalMetrics.mttrGlobal.toFixed(1)}h</p>
+                    <p className="text-xs text-orange-500">{globalMetrics.totalDowntime.toFixed(1)}h de downtime total</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         </CardContent>
-        )}
       </Card>
 
       {/* Abas */}
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as ReportType)}>
 <TabsList className="grid w-full h-auto gap-1 p-1" style={{ gridTemplateColumns: 'repeat(6,minmax(0,1fr))' }}>
-  <TabsTrigger value="general" className="text-[10px] sm:text-xs px-1 sm:px-2 py-2">
-  <FileText className="w-3 h-3 sm:w-4 sm:h-4 mr-0.5 sm:mr-1" />
-  <span>Geral</span>
+  <TabsTrigger value="metrics" className="text-[10px] sm:text-xs px-1 sm:px-2 py-2">
+  <BarChart3 className="w-3 h-3 sm:w-4 sm:h-4 mr-0.5 sm:mr-1" />
+  <span className="hidden sm:inline">MTBF/MTTR</span>
+  <span className="sm:hidden">MTBF</span>
   </TabsTrigger>
   <TabsTrigger value="machines" className="text-[10px] sm:text-xs px-1 sm:px-2 py-2">
   <Settings className="w-3 h-3 sm:w-4 sm:h-4 mr-0.5 sm:mr-1" />
@@ -1862,10 +1922,9 @@ export function ReportsView() {
     <span className="ml-1 px-1.5 py-0.5 text-[8px] bg-red-100 text-red-600 rounded-full">{stats.cancelledCount}</span>
   )}
   </TabsTrigger>
-  <TabsTrigger value="metrics" className="text-[10px] sm:text-xs px-1 sm:px-2 py-2">
-  <BarChart3 className="w-3 h-3 sm:w-4 sm:h-4 mr-0.5 sm:mr-1" />
-  <span className="hidden sm:inline">MTBF/MTTR</span>
-  <span className="sm:hidden">MTBF</span>
+  <TabsTrigger value="general" className="text-[10px] sm:text-xs px-1 sm:px-2 py-2">
+  <FileText className="w-3 h-3 sm:w-4 sm:h-4 mr-0.5 sm:mr-1" />
+  <span>Geral</span>
   </TabsTrigger>
   </TabsList>
 
@@ -3031,72 +3090,6 @@ export function ReportsView() {
               </div>
             </CardContent>
           </Card>
-
-          {/* ========== CARDS GLOBAIS DE PERFORMANCE (MTBF e MTTR) ========== */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Card MTBF Global */}
-            <Card className="border-blue-200 bg-gradient-to-br from-blue-50 to-blue-100/50 dark:from-blue-950/50 dark:to-blue-900/30 dark:border-blue-800">
-              <CardContent className="p-4">
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-1">
-                      <h3 className="text-sm font-semibold text-blue-700 dark:text-blue-300">MTBF Global</h3>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Info className="w-3.5 h-3.5 text-blue-500 cursor-help" />
-                        </TooltipTrigger>
-                        <TooltipContent side="top" className="max-w-[280px]">
-                          <p className="font-medium mb-1">Tempo Médio Entre Falhas</p>
-                          <p className="text-xs">Média de todas as {globalMetrics.totalMaquinas} máquinas. Indica quanto tempo, em média, as máquinas operam até apresentar uma falha. Quanto maior, melhor.</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </div>
-                    <p className="text-3xl font-bold text-blue-600 dark:text-blue-400">
-                      {loadingMetrics ? '...' : `${globalMetrics.mtbfGlobal.toFixed(1)}h`}
-                    </p>
-                    <p className="text-xs text-blue-600/70 dark:text-blue-400/70 mt-1">
-                      {globalMetrics.totalFalhas} falhas em {globalMetrics.totalMaquinas} máquinas
-                    </p>
-                  </div>
-                  <div className="p-2 rounded-lg bg-blue-500/20">
-                    <TrendingUp className="w-6 h-6 text-blue-600 dark:text-blue-400" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Card MTTR Global */}
-            <Card className="border-orange-200 bg-gradient-to-br from-orange-50 to-orange-100/50 dark:from-orange-950/50 dark:to-orange-900/30 dark:border-orange-800">
-              <CardContent className="p-4">
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-1">
-                      <h3 className="text-sm font-semibold text-orange-700 dark:text-orange-300">MTTR Global</h3>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Info className="w-3.5 h-3.5 text-orange-500 cursor-help" />
-                        </TooltipTrigger>
-                        <TooltipContent side="top" className="max-w-[280px]">
-                          <p className="font-medium mb-1">Tempo Médio de Reparo</p>
-                          <p className="text-xs">Média de todas as {globalMetrics.totalMaquinas} máquinas. Indica quanto tempo leva, em média, para reparar uma máquina. Quanto menor, mais eficiente.</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </div>
-                    <p className="text-3xl font-bold text-orange-600 dark:text-orange-400">
-                      {loadingMetrics ? '...' : `${globalMetrics.mttrGlobal.toFixed(1)}h`}
-                    </p>
-                    <p className="text-xs text-orange-600/70 dark:text-orange-400/70 mt-1">
-                      {globalMetrics.totalDowntime.toFixed(1)}h de downtime total
-                    </p>
-                  </div>
-                  <div className="p-2 rounded-lg bg-orange-500/20">
-                    <Clock className="w-6 h-6 text-orange-600 dark:text-orange-400" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-          {/* ========== FIM CARDS GLOBAIS ========== */}
 
           {/* Card de Configurações Globais - Apenas Admin - Colapsável */}
           {isAdmin && (

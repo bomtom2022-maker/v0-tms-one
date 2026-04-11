@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { createAdminClient } from '@/lib/supabase-server'
+import { createAdminClient } from '@/lib/supabase/admin'
 
 // Atualizar campos de preventiva de uma máquina
 export async function PUT(request: Request) {
