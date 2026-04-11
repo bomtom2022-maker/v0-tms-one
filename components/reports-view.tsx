@@ -1217,30 +1217,35 @@ export function ReportsView() {
     }
   }, [filteredTickets, validTicketsForMetrics, openTicketsForDowntime, cancelledTickets, viewMetrics, filters.dateRange, machines])
 
-  // ========== MTBF GLOBAL CORRIGIDO ==========
-  // Usa o MESMO Tempo Operando do resumo (stats.totalOperatingTime)
-  // Fórmula: MTBF = Tempo Operando / Número de Falhas
+  // ========== MTBF E MTTR GLOBAL CORRIGIDOS ==========
+  // Usa os MESMOS dados do Resumo do Período para consistência
+  // MTBF = Tempo Operando / Total de Manutenções
+  // MTTR = Tempo Parado / Total de Manutenções
   const globalMetrics = useMemo(() => {
-    // Converter tempo operando de segundos para horas
+    // Converter tempos de segundos para horas (mesmo do resumo)
     const tempoOperandoHoras = stats.totalOperatingTime / 3600
+    const tempoParadoHoras = stats.totalStoppedTime / 3600
     
-    // Usar o total de falhas calculado nas métricas parciais
-    const totalFalhas = globalMetricsPartial.totalFalhas
+    // Total de manutenções do resumo
+    const totalManutencoes = stats.total
     
-    // MTBF Global: Tempo Operando (em horas) / Total de Falhas
-    const mtbfGlobal = totalFalhas > 0 ? tempoOperandoHoras / totalFalhas : 0
+    // MTBF Global: Tempo Operando / Total de Manutenções
+    const mtbfGlobal = totalManutencoes > 0 ? tempoOperandoHoras / totalManutencoes : 0
+    
+    // MTTR Global: Tempo Parado / Total de Manutenções
+    const mttrGlobal = totalManutencoes > 0 ? tempoParadoHoras / totalManutencoes : 0
     
     return {
       mtbfGlobal,
-      mttrGlobal: globalMetricsPartial.mttrGlobal,
-      totalFalhas,
-      totalDowntime: globalMetricsPartial.totalDowntime,
+      mttrGlobal,
+      totalFalhas: totalManutencoes,
+      totalDowntime: tempoParadoHoras,
       tempoOperandoTotal: tempoOperandoHoras,
       capacidadeTotal: stats.plannedCapacityHours,
-      totalMaquinas: globalMetricsPartial.totalMaquinas
+      totalMaquinas: stats.uniqueMachines
     }
-  }, [stats.totalOperatingTime, stats.plannedCapacityHours, globalMetricsPartial])
-  // ========== FIM MTBF GLOBAL CORRIGIDO ==========
+  }, [stats.totalOperatingTime, stats.totalStoppedTime, stats.total, stats.plannedCapacityHours, stats.uniqueMachines])
+  // ========== FIM MTBF E MTTR GLOBAL CORRIGIDOS ==========
 
   const machineData = useMemo(() => {
     // Usar tickets válidos (completed + resolved) + tickets em aberto para métricas de máquinas
@@ -1851,12 +1856,12 @@ export function ReportsView() {
                         </TooltipTrigger>
                         <TooltipContent side="top" className="max-w-[280px]">
                           <p className="font-medium">Tempo Médio Entre Falhas</p>
-                          <p className="text-xs mt-1">Tempo Operando ({formatDurationHours(stats.totalOperatingTime).display}) / {globalMetrics.totalFalhas} falhas</p>
+                          <p className="text-xs mt-1">Tempo Operando ({formatDurationHours(stats.totalOperatingTime).display}) / {globalMetrics.totalFalhas} manutenções</p>
                         </TooltipContent>
                       </Tooltip>
                     </div>
                     <p className="text-3xl font-bold text-blue-600">{globalMetrics.mtbfGlobal.toFixed(1)}h</p>
-                    <p className="text-xs text-blue-500">{globalMetrics.totalFalhas} falhas em {globalMetrics.totalMaquinas} máquinas</p>
+                    <p className="text-xs text-blue-500">{globalMetrics.totalFalhas} manutenções em {globalMetrics.totalMaquinas} máquinas</p>
                   </div>
                 </div>
               </div>
@@ -1877,12 +1882,12 @@ export function ReportsView() {
                         </TooltipTrigger>
                         <TooltipContent side="top" className="max-w-[280px]">
                           <p className="font-medium">Tempo Médio de Reparo</p>
-                          <p className="text-xs mt-1">Downtime total ({globalMetrics.totalDowntime.toFixed(1)}h) / {globalMetrics.totalFalhas} falhas</p>
+                          <p className="text-xs mt-1">Tempo Parado ({globalMetrics.totalDowntime.toFixed(1)}h) / {globalMetrics.totalFalhas} manutenções</p>
                         </TooltipContent>
                       </Tooltip>
                     </div>
                     <p className="text-3xl font-bold text-orange-600">{globalMetrics.mttrGlobal.toFixed(1)}h</p>
-                    <p className="text-xs text-orange-500">{globalMetrics.totalDowntime.toFixed(1)}h de downtime total</p>
+                    <p className="text-xs text-orange-500">{globalMetrics.totalDowntime.toFixed(1)}h parado / {globalMetrics.totalFalhas} manutenções</p>
                   </div>
                 </div>
               </div>
