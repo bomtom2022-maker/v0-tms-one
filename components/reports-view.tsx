@@ -1158,43 +1158,6 @@ export function ReportsView() {
     // Downtime total = fechados + abertos (progressivo)
     const totalStoppedTime = closedTicketsDowntime + openTicketsDowntime
     
-    // ========== CÁLCULO TEMPO OPERANDO (PROPORCIONAL AO FILTRO) ==========
-    // CONSTANTES (valores fixos e explícitos):
-    const H_PLANEJADA_DIA = 15.8 // 474h mensais ÷ 30 dias = 15.8h/dia por máquina
-    
-    // PASSO 1: Calcular dias no período filtrado
-    // REGRA: Se from === to (mesmo dia), dias = 1. Se from = ontem e to = hoje, dias = 2
-    let diasNoFiltro = 1 // padrão para "Hoje"
-    if (filters.dateRange?.from && filters.dateRange?.to) {
-      // differenceInDays retorna a diferença absoluta, +1 para incluir ambos os dias
-      diasNoFiltro = Math.max(1, differenceInDays(filters.dateRange.to, filters.dateRange.from) + 1)
-    }
-    
-    // PASSO 2: Total de máquinas ativas (usando o número exato de máquinas cadastradas)
-    const totalMaquinas = machines.length // Todas as máquinas cadastradas
-    
-    // PASSO 3: Calcular Capacidade Total em HORAS
-    // Fórmula: CapacidadeTotalHoras = H_PLANEJADA_DIA × DiasNoFiltro × TotalMaquinas
-    // Exemplo: 15.8 × 2 × 27 = 853.2h
-    const capacidadeTotalHoras = H_PLANEJADA_DIA * diasNoFiltro * totalMaquinas
-    
-  // PASSO 4: Converter Downtime de segundos para HORAS (apenas máquinas paradas)
-  const downtimeTotalHoras = stoppedMachineDowntime / 3600
-  
-  // PASSO 5: Tempo Operando em HORAS
-  // Fórmula: TempoOperando = CapacidadeTotal - DowntimeMáquinasParadas
-  const tempoOperandoHoras = Math.max(0, capacidadeTotalHoras - downtimeTotalHoras)
-    
-    // PASSO 6: Converter de volta para SEGUNDOS (para manter compatibilidade com formatDurationHours)
-    const totalOperatingTime = tempoOperandoHoras * 3600
-    
-    // ========== FIM CÁLCULO TEMPO OPERANDO ==========
-    
-    const totalCost = validTicketsForMetrics.reduce((sum, t) => sum + t.totalCost, 0)
-    const resolved = validTicketsForMetrics.length
-    const notResolved = filteredTickets.filter(t => t.status === 'unresolved').length
-    const uniqueMachines = new Set(validTicketsForMetrics.map(t => t.machineId)).size
-    
     // ========== MÉTRICAS APENAS DE MÁQUINAS PARADAS (para MTBF/MTTR) ==========
     // Filtrar apenas tickets onde machineStopped === true
     const stoppedMachineTickets = filteredTickets.filter(t => t.machineStopped === true)
@@ -1228,6 +1191,43 @@ export function ReportsView() {
     const stoppedMachineDowntime = stoppedClosedDowntime + stoppedOpenDowntime
     const stoppedMachineUniqueCount = new Set(stoppedMachineTickets.map(t => t.machineId)).size
     // ========== FIM MÉTRICAS MÁQUINAS PARADAS ==========
+
+    // ========== CÁLCULO TEMPO OPERANDO (PROPORCIONAL AO FILTRO) ==========
+    // CONSTANTES (valores fixos e explícitos):
+    const H_PLANEJADA_DIA = 15.8 // 474h mensais ÷ 30 dias = 15.8h/dia por máquina
+    
+    // PASSO 1: Calcular dias no período filtrado
+    // REGRA: Se from === to (mesmo dia), dias = 1. Se from = ontem e to = hoje, dias = 2
+    let diasNoFiltro = 1 // padrão para "Hoje"
+    if (filters.dateRange?.from && filters.dateRange?.to) {
+      // differenceInDays retorna a diferença absoluta, +1 para incluir ambos os dias
+      diasNoFiltro = Math.max(1, differenceInDays(filters.dateRange.to, filters.dateRange.from) + 1)
+    }
+    
+    // PASSO 2: Total de máquinas ativas (usando o número exato de máquinas cadastradas)
+    const totalMaquinas = machines.length // Todas as máquinas cadastradas
+    
+    // PASSO 3: Calcular Capacidade Total em HORAS
+    // Fórmula: CapacidadeTotalHoras = H_PLANEJADA_DIA × DiasNoFiltro × TotalMaquinas
+    // Exemplo: 15.8 × 2 × 27 = 853.2h
+    const capacidadeTotalHoras = H_PLANEJADA_DIA * diasNoFiltro * totalMaquinas
+    
+    // PASSO 4: Converter Downtime de segundos para HORAS (apenas máquinas paradas)
+    const downtimeTotalHoras = stoppedMachineDowntime / 3600
+    
+    // PASSO 5: Tempo Operando em HORAS
+    // Fórmula: TempoOperando = CapacidadeTotal - DowntimeMáquinasParadas
+    const tempoOperandoHoras = Math.max(0, capacidadeTotalHoras - downtimeTotalHoras)
+    
+    // PASSO 6: Converter de volta para SEGUNDOS (para manter compatibilidade com formatDurationHours)
+    const totalOperatingTime = tempoOperandoHoras * 3600
+    
+    // ========== FIM CÁLCULO TEMPO OPERANDO ==========
+    
+    const totalCost = validTicketsForMetrics.reduce((sum, t) => sum + t.totalCost, 0)
+    const resolved = validTicketsForMetrics.length
+    const notResolved = filteredTickets.filter(t => t.status === 'unresolved').length
+    const uniqueMachines = new Set(validTicketsForMetrics.map(t => t.machineId)).size
     
     // Downtime da View (em horas) - soma de todas as máquinas
     const viewDowntimeHoras = viewMetrics.reduce((sum, m) => sum + m.downtime_horas, 0)
