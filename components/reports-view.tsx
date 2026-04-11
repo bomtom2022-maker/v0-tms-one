@@ -1178,12 +1178,12 @@ export function ReportsView() {
     // Exemplo: 15.8 × 2 × 27 = 853.2h
     const capacidadeTotalHoras = H_PLANEJADA_DIA * diasNoFiltro * totalMaquinas
     
-    // PASSO 4: Converter Downtime de segundos para HORAS
-    const downtimeTotalHoras = totalStoppedTime / 3600
-    
-    // PASSO 5: Tempo Operando em HORAS
-    // Fórmula: TempoOperando = CapacidadeTotal - DowntimeTotal
-    const tempoOperandoHoras = Math.max(0, capacidadeTotalHoras - downtimeTotalHoras)
+  // PASSO 4: Converter Downtime de segundos para HORAS (apenas máquinas paradas)
+  const downtimeTotalHoras = stoppedMachineDowntime / 3600
+  
+  // PASSO 5: Tempo Operando em HORAS
+  // Fórmula: TempoOperando = CapacidadeTotal - DowntimeMáquinasParadas
+  const tempoOperandoHoras = Math.max(0, capacidadeTotalHoras - downtimeTotalHoras)
     
     // PASSO 6: Converter de volta para SEGUNDOS (para manter compatibilidade com formatDurationHours)
     const totalOperatingTime = tempoOperandoHoras * 3600
@@ -1442,7 +1442,7 @@ export function ReportsView() {
           ],
           [
             { label: 'Total de Manutenções', value: String(stats.total) },
-            { label: 'Tempo Máquina Parada', value: formatDurationLong(stats.totalStoppedTime).full, color: '#dc2626' },
+            { label: 'Tempo Máquina Parada', value: formatDurationLong(stats.stoppedMachineDowntime).full, color: '#dc2626' },
             { label: 'Resolvidos', value: `${stats.resolved} de ${stats.total}` },
           ]
         )
@@ -1500,7 +1500,7 @@ export function ReportsView() {
             { label: 'Total de Manutentores', value: String(userData.length) },
             { label: 'Total de Chamados', value: String(stats.total) },
             { label: 'Tempo Total Operando', value: formatDurationLong(stats.totalOperatingTime).full, color: '#ea580c' },
-            { label: 'Tempo Total Maq. Parada', value: formatDurationLong(stats.totalStoppedTime).full, color: '#dc2626' },
+            { label: 'Tempo Total Maq. Parada', value: formatDurationLong(stats.stoppedMachineDowntime).full, color: '#dc2626' },
           ]
         )
         break
@@ -1797,7 +1797,7 @@ export function ReportsView() {
             <div>
               <CardTitle className="text-lg">Resumo do Período</CardTitle>
               <CardDescription>
-                {stats.total} manutenções | {formatDurationHours(stats.totalStoppedTime).display} parado | {stats.uniqueMachines} máquinas
+                {stats.total} reportes | {formatDurationHours(stats.stoppedMachineDowntime).display} parado | {stats.stoppedMachineCount} com máq. parada
               </CardDescription>
             </div>
           </div>
@@ -1824,16 +1824,16 @@ export function ReportsView() {
                   <Clock className="w-4 h-4 text-white" />
                 </div>
                 <div className="min-w-0">
-                  <p className="text-xs font-medium text-red-600">Máquina Parada</p>
-                  {(() => {
-                    const d = formatDurationHours(stats.totalStoppedTime)
-                    return (
-                      <>
-                        <p className="text-xl font-bold text-red-600 leading-tight">{d.display}</p>
-                        <p className="text-xs font-mono text-red-500">{d.hhmm}</p>
-                      </>
-                    )
-                  })()}
+<p className="text-xs font-medium text-red-600">Máquina Parada</p>
+  {(() => {
+  const d = formatDurationHours(stats.stoppedMachineDowntime)
+  return (
+  <>
+  <p className="text-xl font-bold text-red-600 leading-tight">{d.display}</p>
+  <p className="text-xs font-mono text-red-500">{d.hhmm}</p>
+  </>
+  )
+  })()}
                 </div>
               </div>
             </div>
