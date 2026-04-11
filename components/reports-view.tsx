@@ -31,6 +31,7 @@ import {
   SheetFooter,
   SheetClose,
 } from '@/components/ui/sheet'
+
 import { Calendar } from '@/components/ui/calendar'
 import { useData } from '@/lib/data-context'
 import { useAuth } from '@/lib/auth-context'
@@ -779,6 +780,8 @@ export function ReportsView() {
   const [selectedSolvedTicket, setSelectedSolvedTicket] = useState<typeof tickets[0] | null>(null)
   const INITIAL_SOLVED_COUNT = 5
   
+
+  
   // Inicializar shifts locais das máquinas
   useEffect(() => {
     const initial: Record<string, string | null> = {}
@@ -1155,6 +1158,40 @@ export function ReportsView() {
     // Downtime total = fechados + abertos (progressivo)
     const totalStoppedTime = closedTicketsDowntime + openTicketsDowntime
     
+    // ========== MÉTRICAS APENAS DE MÁQUINAS PARADAS (para MTBF/MTTR) ==========
+    // Filtrar apenas tickets onde machineStopped === true
+    const stoppedMachineTickets = filteredTickets.filter(t => t.machineStopped === true)
+    const stoppedMachineCount = stoppedMachineTickets.length
+    
+    // Downtime apenas de máquinas paradas (fechados)
+    const stoppedClosedTickets = validTicketsForMetrics.filter(t => t.machineStopped === true)
+    const stoppedClosedDowntime = stoppedClosedTickets.reduce((sum, t) => sum + t.downtime, 0)
+    
+    // Downtime de tickets abertos com máquina parada
+    const stoppedOpenTickets = openTicketsForDowntime.filter(t => t.machineStopped === true)
+    const stoppedOpenDowntime = stoppedOpenTickets.reduce((sum, ticket) => {
+      const ticketStart = new Date(ticket.createdAt)
+      let effectiveStart = ticketStart
+      if (filterStart && ticketStart < filterStart) {
+        effectiveStart = filterStart
+      }
+      let effectiveEnd = endOfYesterday
+      if (filterEnd && effectiveEnd > filterEnd) {
+        effectiveEnd = filterEnd
+      }
+      if (effectiveStart > effectiveEnd) {
+        return sum
+      }
+      const downtimeMs = effectiveEnd.getTime() - effectiveStart.getTime()
+      const downtimeSeconds = Math.max(0, Math.floor(downtimeMs / 1000))
+      return sum + downtimeSeconds
+    }, 0)
+    
+    // Total de tempo parado apenas de máquinas paradas
+    const stoppedMachineDowntime = stoppedClosedDowntime + stoppedOpenDowntime
+    const stoppedMachineUniqueCount = new Set(stoppedMachineTickets.map(t => t.machineId)).size
+    // ========== FIM MÉTRICAS MÁQUINAS PARADAS ==========
+
     // ========== CÁLCULO TEMPO OPERANDO (PROPORCIONAL AO FILTRO) ==========
     // CONSTANTES (valores fixos e explícitos):
     const H_PLANEJADA_DIA = 15.8 // 474h mensais ÷ 30 dias = 15.8h/dia por máquina
@@ -1175,11 +1212,11 @@ export function ReportsView() {
     // Exemplo: 15.8 × 2 × 27 = 853.2h
     const capacidadeTotalHoras = H_PLANEJADA_DIA * diasNoFiltro * totalMaquinas
     
-    // PASSO 4: Converter Downtime de segundos para HORAS
-    const downtimeTotalHoras = totalStoppedTime / 3600
+    // PASSO 4: Converter Downtime de segundos para HORAS (apenas máquinas paradas)
+    const downtimeTotalHoras = stoppedMachineDowntime / 3600
     
     // PASSO 5: Tempo Operando em HORAS
-    // Fórmula: TempoOperando = CapacidadeTotal - DowntimeTotal
+    // Fórmula: TempoOperando = CapacidadeTotal - DowntimeMáquinasParadas
     const tempoOperandoHoras = Math.max(0, capacidadeTotalHoras - downtimeTotalHoras)
     
     // PASSO 6: Converter de volta para SEGUNDOS (para manter compatibilidade com formatDurationHours)
@@ -1213,34 +1250,43 @@ export function ReportsView() {
       daysInPeriod: diasNoFiltro,
       totalMachinesCount: totalMaquinas,
       plannedCapacityHours: capacidadeTotalHoras,
-      dailyCapacityHours: H_PLANEJADA_DIA
+      dailyCapacityHours: H_PLANEJADA_DIA,
+      // Métricas de máquinas paradas (para MTBF/MTTR)
+      stoppedMachineCount,
+      stoppedMachineDowntime,
+      stoppedMachineUniqueCount
     }
   }, [filteredTickets, validTicketsForMetrics, openTicketsForDowntime, cancelledTickets, viewMetrics, filters.dateRange, machines])
 
-  // ========== MTBF GLOBAL CORRIGIDO ==========
-  // Usa o MESMO Tempo Operando do resumo (stats.totalOperatingTime)
-  // Fórmula: MTBF = Tempo Operando / Número de Falhas
+  // ========== MTBF E MTTR GLOBAL CORRIGIDOS ==========
+  // MTBF e MTTR usam APENAS tickets onde machineStopped === true
+  // MTBF = Tempo Operando / Falhas com Máquina Parada
+  // MTTR = Tempo Parado (máquinas paradas) / Falhas com Máquina Parada
   const globalMetrics = useMemo(() => {
-    // Converter tempo operando de segundos para horas
-    const tempoOperandoHoras = stats.totalOperatingTime / 3600
+    // Tempo operando em horas (usa capacidade total - downtime de máquinas paradas)
+    const stoppedDowntimeHoras = stats.stoppedMachineDowntime / 3600
+    const tempoOperandoHoras = Math.max(0, stats.plannedCapacityHours - stoppedDowntimeHoras)
     
-    // Usar o total de falhas calculado nas métricas parciais
-    const totalFalhas = globalMetricsPartial.totalFalhas
+    // Total de falhas = apenas tickets com máquina parada
+    const totalFalhas = stats.stoppedMachineCount
     
-    // MTBF Global: Tempo Operando (em horas) / Total de Falhas
+    // MTBF Global: Tempo Operando / Falhas com Máquina Parada
     const mtbfGlobal = totalFalhas > 0 ? tempoOperandoHoras / totalFalhas : 0
+    
+    // MTTR Global: Tempo Parado (só máquinas paradas) / Falhas com Máquina Parada
+    const mttrGlobal = totalFalhas > 0 ? stoppedDowntimeHoras / totalFalhas : 0
     
     return {
       mtbfGlobal,
-      mttrGlobal: globalMetricsPartial.mttrGlobal,
+      mttrGlobal,
       totalFalhas,
-      totalDowntime: globalMetricsPartial.totalDowntime,
+      totalDowntime: stoppedDowntimeHoras,
       tempoOperandoTotal: tempoOperandoHoras,
       capacidadeTotal: stats.plannedCapacityHours,
-      totalMaquinas: globalMetricsPartial.totalMaquinas
+      totalMaquinas: stats.stoppedMachineUniqueCount
     }
-  }, [stats.totalOperatingTime, stats.plannedCapacityHours, globalMetricsPartial])
-  // ========== FIM MTBF GLOBAL CORRIGIDO ==========
+  }, [stats.stoppedMachineDowntime, stats.stoppedMachineCount, stats.plannedCapacityHours, stats.stoppedMachineUniqueCount])
+  // ========== FIM MTBF E MTTR GLOBAL CORRIGIDOS ==========
 
   const machineData = useMemo(() => {
     // Usar tickets válidos (completed + resolved) + tickets em aberto para métricas de máquinas
@@ -1396,7 +1442,7 @@ export function ReportsView() {
           ],
           [
             { label: 'Total de Manutenções', value: String(stats.total) },
-            { label: 'Tempo Máquina Parada', value: formatDurationLong(stats.totalStoppedTime).full, color: '#dc2626' },
+            { label: 'Tempo Máquina Parada', value: formatDurationLong(stats.stoppedMachineDowntime).full, color: '#dc2626' },
             { label: 'Resolvidos', value: `${stats.resolved} de ${stats.total}` },
           ]
         )
@@ -1454,7 +1500,7 @@ export function ReportsView() {
             { label: 'Total de Manutentores', value: String(userData.length) },
             { label: 'Total de Chamados', value: String(stats.total) },
             { label: 'Tempo Total Operando', value: formatDurationLong(stats.totalOperatingTime).full, color: '#ea580c' },
-            { label: 'Tempo Total Maq. Parada', value: formatDurationLong(stats.totalStoppedTime).full, color: '#dc2626' },
+            { label: 'Tempo Total Maq. Parada', value: formatDurationLong(stats.stoppedMachineDowntime).full, color: '#dc2626' },
           ]
         )
         break
@@ -1751,7 +1797,7 @@ export function ReportsView() {
             <div>
               <CardTitle className="text-lg">Resumo do Período</CardTitle>
               <CardDescription>
-                {stats.total} manutenções | {formatDurationHours(stats.totalStoppedTime).display} parado | {stats.uniqueMachines} máquinas
+                {stats.total} reportes | {formatDurationHours(stats.stoppedMachineDowntime).display} parado | {stats.stoppedMachineCount} com máq. parada
               </CardDescription>
             </div>
           </div>
@@ -1759,17 +1805,18 @@ export function ReportsView() {
         <CardContent className="pt-0 space-y-4">
           {/* Linha 1: Métricas principais */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-            <div className="p-3 rounded-lg bg-muted/50">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-primary">
-                  <Wrench className="w-4 h-4 text-primary-foreground" />
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Total Manutenções</p>
-                  <p className="text-xl font-bold">{stats.total}</p>
-                </div>
-              </div>
-            </div>
+  <div className="p-3 rounded-lg bg-muted/50">
+  <div className="flex items-center gap-3">
+  <div className="p-2 rounded-lg bg-primary">
+  <Wrench className="w-4 h-4 text-primary-foreground" />
+  </div>
+  <div>
+  <p className="text-xs text-muted-foreground">Total Reportes</p>
+  <p className="text-xl font-bold">{stats.total}</p>
+  <p className="text-[10px] text-muted-foreground">{stats.stoppedMachineCount} com máquina parada</p>
+  </div>
+  </div>
+  </div>
 
             <div className="p-3 rounded-lg bg-red-50 border border-red-200">
               <div className="flex items-center gap-3">
@@ -1777,16 +1824,16 @@ export function ReportsView() {
                   <Clock className="w-4 h-4 text-white" />
                 </div>
                 <div className="min-w-0">
-                  <p className="text-xs font-medium text-red-600">Máquina Parada</p>
-                  {(() => {
-                    const d = formatDurationHours(stats.totalStoppedTime)
-                    return (
-                      <>
-                        <p className="text-xl font-bold text-red-600 leading-tight">{d.display}</p>
-                        <p className="text-xs font-mono text-red-500">{d.hhmm}</p>
-                      </>
-                    )
-                  })()}
+<p className="text-xs font-medium text-red-600">Máquina Parada</p>
+  {(() => {
+  const d = formatDurationHours(stats.stoppedMachineDowntime)
+  return (
+  <>
+  <p className="text-xl font-bold text-red-600 leading-tight">{d.display}</p>
+  <p className="text-xs font-mono text-red-500">{d.hhmm}</p>
+  </>
+  )
+  })()}
                 </div>
               </div>
             </div>
@@ -1851,12 +1898,13 @@ export function ReportsView() {
                         </TooltipTrigger>
                         <TooltipContent side="top" className="max-w-[280px]">
                           <p className="font-medium">Tempo Médio Entre Falhas</p>
-                          <p className="text-xs mt-1">Tempo Operando ({formatDurationHours(stats.totalOperatingTime).display}) / {globalMetrics.totalFalhas} falhas</p>
+                          <p className="text-xs mt-1">Considera apenas reportes com máquina parada.</p>
+                          <p className="text-xs">Tempo Operando / {globalMetrics.totalFalhas} falhas</p>
                         </TooltipContent>
                       </Tooltip>
                     </div>
                     <p className="text-3xl font-bold text-blue-600">{globalMetrics.mtbfGlobal.toFixed(1)}h</p>
-                    <p className="text-xs text-blue-500">{globalMetrics.totalFalhas} falhas em {globalMetrics.totalMaquinas} máquinas</p>
+                    <p className="text-xs text-blue-500">{globalMetrics.totalFalhas} falhas (máq. parada)</p>
                   </div>
                 </div>
               </div>
@@ -1877,12 +1925,13 @@ export function ReportsView() {
                         </TooltipTrigger>
                         <TooltipContent side="top" className="max-w-[280px]">
                           <p className="font-medium">Tempo Médio de Reparo</p>
-                          <p className="text-xs mt-1">Downtime total ({globalMetrics.totalDowntime.toFixed(1)}h) / {globalMetrics.totalFalhas} falhas</p>
+                          <p className="text-xs mt-1">Considera apenas reportes com máquina parada.</p>
+                          <p className="text-xs">{globalMetrics.totalDowntime.toFixed(1)}h parado / {globalMetrics.totalFalhas} falhas</p>
                         </TooltipContent>
                       </Tooltip>
                     </div>
                     <p className="text-3xl font-bold text-orange-600">{globalMetrics.mttrGlobal.toFixed(1)}h</p>
-                    <p className="text-xs text-orange-500">{globalMetrics.totalDowntime.toFixed(1)}h de downtime total</p>
+                    <p className="text-xs text-orange-500">{globalMetrics.totalDowntime.toFixed(1)}h / {globalMetrics.totalFalhas} falhas (máq. parada)</p>
                   </div>
                 </div>
               </div>
