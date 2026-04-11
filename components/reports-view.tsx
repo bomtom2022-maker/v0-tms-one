@@ -933,11 +933,10 @@ export function ReportsView() {
     return sum / viewMetrics.length
   }, [viewMetrics])
   
-  // ========== MÉTRICAS GLOBAIS (NÃO AFETADAS PELO FILTRO DE MÁQUINA) ==========
-  // MTBF Global: Tempo total operando / Número total de falhas
-  // MTTR Global: Média do tempo de reparo de todos os chamados
-  const globalMetrics = useMemo(() => {
-    if (viewMetrics.length === 0) return { mtbfGlobal: 0, mttrGlobal: 0, totalFalhas: 0, totalDowntime: 0 }
+  // ========== MÉTRICAS GLOBAIS PARCIAIS (MTTR e contagens) ==========
+  // O MTBF Global será calculado depois de 'stats' para usar o mesmo Tempo Operando do resumo
+  const globalMetricsPartial = useMemo(() => {
+    if (viewMetrics.length === 0) return { mttrGlobal: 0, totalFalhas: 0, totalDowntime: 0, totalMaquinas: 0 }
     
     // Somar todas as falhas e downtime de TODAS as máquinas
     const totalFalhas = viewMetrics.reduce((sum, m) => sum + m.total_falhas, 0)
@@ -946,27 +945,14 @@ export function ReportsView() {
     // MTTR Global: Downtime total / Número de falhas (tempo médio de reparo)
     const mttrGlobal = totalFalhas > 0 ? totalDowntimeHoras / totalFalhas : 0
     
-    // MTBF Global: (Tempo operando total) / (Número de falhas)
-    // Tempo operando = Capacidade total - Downtime total
-    // Capacidade total = monthlyHours * número de máquinas * (dias no período / 30)
-    const diasNoPeriodo = metricsDateRange?.from && metricsDateRange?.to 
-      ? differenceInDays(metricsDateRange.to, metricsDateRange.from) + 1 
-      : 30
-    const capacidadeTotal = monthlyHours * viewMetrics.length * (diasNoPeriodo / 30)
-    const tempoOperandoTotal = Math.max(0, capacidadeTotal - totalDowntimeHoras)
-    const mtbfGlobal = totalFalhas > 0 ? tempoOperandoTotal / totalFalhas : capacidadeTotal
-    
     return { 
-      mtbfGlobal, 
       mttrGlobal, 
       totalFalhas, 
       totalDowntime: totalDowntimeHoras,
-      tempoOperandoTotal,
-      capacidadeTotal,
       totalMaquinas: viewMetrics.length
     }
-  }, [viewMetrics, monthlyHours, metricsDateRange])
-  // ========== FIM MÉTRICAS GLOBAIS ==========
+  }, [viewMetrics])
+  // ========== FIM MÉTRICAS GLOBAIS PARCIAIS ==========
   
   const handleDatePreset = (preset: DatePreset) => {
     const today = new Date()
@@ -1230,6 +1216,31 @@ export function ReportsView() {
       dailyCapacityHours: H_PLANEJADA_DIA
     }
   }, [filteredTickets, validTicketsForMetrics, openTicketsForDowntime, cancelledTickets, viewMetrics, filters.dateRange, machines])
+
+  // ========== MTBF GLOBAL CORRIGIDO ==========
+  // Usa o MESMO Tempo Operando do resumo (stats.totalOperatingTime)
+  // Fórmula: MTBF = Tempo Operando / Número de Falhas
+  const globalMetrics = useMemo(() => {
+    // Converter tempo operando de segundos para horas
+    const tempoOperandoHoras = stats.totalOperatingTime / 3600
+    
+    // Usar o total de falhas calculado nas métricas parciais
+    const totalFalhas = globalMetricsPartial.totalFalhas
+    
+    // MTBF Global: Tempo Operando (em horas) / Total de Falhas
+    const mtbfGlobal = totalFalhas > 0 ? tempoOperandoHoras / totalFalhas : 0
+    
+    return {
+      mtbfGlobal,
+      mttrGlobal: globalMetricsPartial.mttrGlobal,
+      totalFalhas,
+      totalDowntime: globalMetricsPartial.totalDowntime,
+      tempoOperandoTotal: tempoOperandoHoras,
+      capacidadeTotal: stats.plannedCapacityHours,
+      totalMaquinas: globalMetricsPartial.totalMaquinas
+    }
+  }, [stats.totalOperatingTime, stats.plannedCapacityHours, globalMetricsPartial])
+  // ========== FIM MTBF GLOBAL CORRIGIDO ==========
 
   const machineData = useMemo(() => {
     // Usar tickets válidos (completed + resolved) + tickets em aberto para métricas de máquinas
