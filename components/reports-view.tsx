@@ -31,6 +31,13 @@ import {
   SheetFooter,
   SheetClose,
 } from '@/components/ui/sheet'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { Calendar } from '@/components/ui/calendar'
 import { useData } from '@/lib/data-context'
 import { useAuth } from '@/lib/auth-context'
@@ -779,6 +786,12 @@ export function ReportsView() {
   const [selectedSolvedTicket, setSelectedSolvedTicket] = useState<typeof tickets[0] | null>(null)
   const INITIAL_SOLVED_COUNT = 5
   
+  // Estado para modal de todos os defeitos
+  const [showAllDefectsModal, setShowAllDefectsModal] = useState(false)
+  const [defectsSearchQuery, setDefectsSearchQuery] = useState('')
+  const [defectsStatusFilter, setDefectsStatusFilter] = useState<string>('all')
+  const [defectsMachineStoppedFilter, setDefectsMachineStoppedFilter] = useState<string>('all')
+  
   // Inicializar shifts locais das máquinas
   useEffect(() => {
     const initial: Record<string, string | null> = {}
@@ -1192,6 +1205,40 @@ export function ReportsView() {
     const notResolved = filteredTickets.filter(t => t.status === 'unresolved').length
     const uniqueMachines = new Set(validTicketsForMetrics.map(t => t.machineId)).size
     
+    // ========== MÉTRICAS APENAS DE MÁQUINAS PARADAS (para MTBF/MTTR) ==========
+    // Filtrar apenas tickets onde machineStopped === true
+    const stoppedMachineTickets = filteredTickets.filter(t => t.machineStopped === true)
+    const stoppedMachineCount = stoppedMachineTickets.length
+    
+    // Downtime apenas de máquinas paradas (fechados)
+    const stoppedClosedTickets = validTicketsForMetrics.filter(t => t.machineStopped === true)
+    const stoppedClosedDowntime = stoppedClosedTickets.reduce((sum, t) => sum + t.downtime, 0)
+    
+    // Downtime de tickets abertos com máquina parada
+    const stoppedOpenTickets = openTicketsForDowntime.filter(t => t.machineStopped === true)
+    const stoppedOpenDowntime = stoppedOpenTickets.reduce((sum, ticket) => {
+      const ticketStart = new Date(ticket.createdAt)
+      let effectiveStart = ticketStart
+      if (filterStart && ticketStart < filterStart) {
+        effectiveStart = filterStart
+      }
+      let effectiveEnd = endOfYesterday
+      if (filterEnd && effectiveEnd > filterEnd) {
+        effectiveEnd = filterEnd
+      }
+      if (effectiveStart > effectiveEnd) {
+        return sum
+      }
+      const downtimeMs = effectiveEnd.getTime() - effectiveStart.getTime()
+      const downtimeSeconds = Math.max(0, Math.floor(downtimeMs / 1000))
+      return sum + downtimeSeconds
+    }, 0)
+    
+    // Total de tempo parado apenas de máquinas paradas
+    const stoppedMachineDowntime = stoppedClosedDowntime + stoppedOpenDowntime
+    const stoppedMachineUniqueCount = new Set(stoppedMachineTickets.map(t => t.machineId)).size
+    // ========== FIM MÉTRICAS MÁQUINAS PARADAS ==========
+    
     // Downtime da View (em horas) - soma de todas as máquinas
     const viewDowntimeHoras = viewMetrics.reduce((sum, m) => sum + m.downtime_horas, 0)
     
@@ -1213,38 +1260,42 @@ export function ReportsView() {
       daysInPeriod: diasNoFiltro,
       totalMachinesCount: totalMaquinas,
       plannedCapacityHours: capacidadeTotalHoras,
-      dailyCapacityHours: H_PLANEJADA_DIA
+      dailyCapacityHours: H_PLANEJADA_DIA,
+      // Métricas de máquinas paradas (para MTBF/MTTR)
+      stoppedMachineCount,
+      stoppedMachineDowntime,
+      stoppedMachineUniqueCount
     }
   }, [filteredTickets, validTicketsForMetrics, openTicketsForDowntime, cancelledTickets, viewMetrics, filters.dateRange, machines])
 
   // ========== MTBF E MTTR GLOBAL CORRIGIDOS ==========
-  // Usa os MESMOS dados do Resumo do Período para consistência
-  // MTBF = Tempo Operando / Total de Manutenções
-  // MTTR = Tempo Parado / Total de Manutenções
+  // MTBF e MTTR usam APENAS tickets onde machineStopped === true
+  // MTBF = Tempo Operando / Falhas com Máquina Parada
+  // MTTR = Tempo Parado (máquinas paradas) / Falhas com Máquina Parada
   const globalMetrics = useMemo(() => {
-    // Converter tempos de segundos para horas (mesmo do resumo)
-    const tempoOperandoHoras = stats.totalOperatingTime / 3600
-    const tempoParadoHoras = stats.totalStoppedTime / 3600
+    // Tempo operando em horas (usa capacidade total - downtime de máquinas paradas)
+    const stoppedDowntimeHoras = stats.stoppedMachineDowntime / 3600
+    const tempoOperandoHoras = Math.max(0, stats.plannedCapacityHours - stoppedDowntimeHoras)
     
-    // Total de manutenções do resumo
-    const totalManutencoes = stats.total
+    // Total de falhas = apenas tickets com máquina parada
+    const totalFalhas = stats.stoppedMachineCount
     
-    // MTBF Global: Tempo Operando / Total de Manutenções
-    const mtbfGlobal = totalManutencoes > 0 ? tempoOperandoHoras / totalManutencoes : 0
+    // MTBF Global: Tempo Operando / Falhas com Máquina Parada
+    const mtbfGlobal = totalFalhas > 0 ? tempoOperandoHoras / totalFalhas : 0
     
-    // MTTR Global: Tempo Parado / Total de Manutenções
-    const mttrGlobal = totalManutencoes > 0 ? tempoParadoHoras / totalManutencoes : 0
+    // MTTR Global: Tempo Parado (só máquinas paradas) / Falhas com Máquina Parada
+    const mttrGlobal = totalFalhas > 0 ? stoppedDowntimeHoras / totalFalhas : 0
     
     return {
       mtbfGlobal,
       mttrGlobal,
-      totalFalhas: totalManutencoes,
-      totalDowntime: tempoParadoHoras,
+      totalFalhas,
+      totalDowntime: stoppedDowntimeHoras,
       tempoOperandoTotal: tempoOperandoHoras,
       capacidadeTotal: stats.plannedCapacityHours,
-      totalMaquinas: stats.uniqueMachines
+      totalMaquinas: stats.stoppedMachineUniqueCount
     }
-  }, [stats.totalOperatingTime, stats.totalStoppedTime, stats.total, stats.plannedCapacityHours, stats.uniqueMachines])
+  }, [stats.stoppedMachineDowntime, stats.stoppedMachineCount, stats.plannedCapacityHours, stats.stoppedMachineUniqueCount])
   // ========== FIM MTBF E MTTR GLOBAL CORRIGIDOS ==========
 
   const machineData = useMemo(() => {
@@ -1764,14 +1815,28 @@ export function ReportsView() {
         <CardContent className="pt-0 space-y-4">
           {/* Linha 1: Métricas principais */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-            <div className="p-3 rounded-lg bg-muted/50">
+            <div 
+              className="p-3 rounded-lg bg-muted/50 cursor-pointer hover:bg-muted transition-colors"
+              onClick={() => setShowAllDefectsModal(true)}
+            >
               <div className="flex items-center gap-3">
                 <div className="p-2 rounded-lg bg-primary">
                   <Wrench className="w-4 h-4 text-primary-foreground" />
                 </div>
                 <div>
-                  <p className="text-xs text-muted-foreground">Total Manutenções</p>
+                  <div className="flex items-center gap-1">
+                    <p className="text-xs text-muted-foreground">Total Reportes</p>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Info className="w-3 h-3 text-muted-foreground cursor-help" />
+                      </TooltipTrigger>
+                      <TooltipContent side="top" className="max-w-[200px]">
+                        <p>Todos os reportes do período. Clique para ver detalhes.</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </div>
                   <p className="text-xl font-bold">{stats.total}</p>
+                  <p className="text-[10px] text-muted-foreground">{stats.stoppedMachineCount} com máquina parada</p>
                 </div>
               </div>
             </div>
@@ -1856,12 +1921,13 @@ export function ReportsView() {
                         </TooltipTrigger>
                         <TooltipContent side="top" className="max-w-[280px]">
                           <p className="font-medium">Tempo Médio Entre Falhas</p>
-                          <p className="text-xs mt-1">Tempo Operando ({formatDurationHours(stats.totalOperatingTime).display}) / {globalMetrics.totalFalhas} manutenções</p>
+                          <p className="text-xs mt-1">Considera apenas reportes com máquina parada.</p>
+                          <p className="text-xs">Tempo Operando / {globalMetrics.totalFalhas} falhas</p>
                         </TooltipContent>
                       </Tooltip>
                     </div>
                     <p className="text-3xl font-bold text-blue-600">{globalMetrics.mtbfGlobal.toFixed(1)}h</p>
-                    <p className="text-xs text-blue-500">{globalMetrics.totalFalhas} manutenções em {globalMetrics.totalMaquinas} máquinas</p>
+                    <p className="text-xs text-blue-500">{globalMetrics.totalFalhas} falhas (máq. parada)</p>
                   </div>
                 </div>
               </div>
@@ -1882,12 +1948,13 @@ export function ReportsView() {
                         </TooltipTrigger>
                         <TooltipContent side="top" className="max-w-[280px]">
                           <p className="font-medium">Tempo Médio de Reparo</p>
-                          <p className="text-xs mt-1">Tempo Parado ({globalMetrics.totalDowntime.toFixed(1)}h) / {globalMetrics.totalFalhas} manutenções</p>
+                          <p className="text-xs mt-1">Considera apenas reportes com máquina parada.</p>
+                          <p className="text-xs">{globalMetrics.totalDowntime.toFixed(1)}h parado / {globalMetrics.totalFalhas} falhas</p>
                         </TooltipContent>
                       </Tooltip>
                     </div>
                     <p className="text-3xl font-bold text-orange-600">{globalMetrics.mttrGlobal.toFixed(1)}h</p>
-                    <p className="text-xs text-orange-500">{globalMetrics.totalDowntime.toFixed(1)}h parado / {globalMetrics.totalFalhas} manutenções</p>
+                    <p className="text-xs text-orange-500">{globalMetrics.totalDowntime.toFixed(1)}h / {globalMetrics.totalFalhas} falhas (máq. parada)</p>
                   </div>
                 </div>
               </div>
@@ -2424,6 +2491,183 @@ export function ReportsView() {
               })()}
             </SheetContent>
           </Sheet>
+          
+          {/* Modal de Todos os Defeitos */}
+          <Dialog open={showAllDefectsModal} onOpenChange={setShowAllDefectsModal}>
+            <DialogContent className="max-w-4xl max-h-[85vh] overflow-hidden flex flex-col">
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  <Wrench className="w-5 h-5" />
+                  Todos os Reportes do Período
+                </DialogTitle>
+                <DialogDescription>
+                  {stats.total} reportes | {stats.stoppedMachineCount} com máquina parada | {stats.total - stats.stoppedMachineCount} máquina operando
+                </DialogDescription>
+              </DialogHeader>
+              
+              {/* Filtros */}
+              <div className="flex flex-col sm:flex-row gap-3 py-3 border-b">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Buscar por máquina, problema, responsável..."
+                    value={defectsSearchQuery}
+                    onChange={(e) => setDefectsSearchQuery(e.target.value)}
+                    className="pl-9"
+                  />
+                </div>
+                <Select value={defectsStatusFilter} onValueChange={setDefectsStatusFilter}>
+                  <SelectTrigger className="w-full sm:w-[150px]">
+                    <SelectValue placeholder="Status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos Status</SelectItem>
+                    <SelectItem value="open">Aberto</SelectItem>
+                    <SelectItem value="in_progress">Em Andamento</SelectItem>
+                    <SelectItem value="paused">Pausado</SelectItem>
+                    <SelectItem value="completed">Concluído</SelectItem>
+                    <SelectItem value="unresolved">Não Resolvido</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select value={defectsMachineStoppedFilter} onValueChange={setDefectsMachineStoppedFilter}>
+                  <SelectTrigger className="w-full sm:w-[160px]">
+                    <SelectValue placeholder="Máquina" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todas</SelectItem>
+                    <SelectItem value="stopped">Máq. Parada</SelectItem>
+                    <SelectItem value="running">Máq. Operando</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              {/* Lista de defeitos */}
+              <div className="flex-1 overflow-y-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-muted sticky top-0">
+                    <tr>
+                      <th className="p-2 text-left text-xs font-medium">Data</th>
+                      <th className="p-2 text-left text-xs font-medium">Máquina</th>
+                      <th className="p-2 text-left text-xs font-medium hidden sm:table-cell">Problema</th>
+                      <th className="p-2 text-left text-xs font-medium hidden md:table-cell">Reportado por</th>
+                      <th className="p-2 text-center text-xs font-medium">Status</th>
+                      <th className="p-2 text-center text-xs font-medium">Máq.</th>
+                      <th className="p-2 text-right text-xs font-medium text-red-600">Downtime</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y">
+                    {(() => {
+                      // Aplicar filtros
+                      let filtered = [...filteredTickets]
+                      
+                      // Filtro de busca
+                      if (defectsSearchQuery.trim()) {
+                        const q = defectsSearchQuery.toLowerCase()
+                        filtered = filtered.filter(t => {
+                          const machine = getMachineById(t.machineId)
+                          const problem = getProblemById(t.problemId)
+                          return (
+                            machine?.name?.toLowerCase().includes(q) ||
+                            (t.customProblemName || problem?.name || '').toLowerCase().includes(q) ||
+                            t.createdByName?.toLowerCase().includes(q) ||
+                            t.observation?.toLowerCase().includes(q)
+                          )
+                        })
+                      }
+                      
+                      // Filtro de status
+                      if (defectsStatusFilter !== 'all') {
+                        filtered = filtered.filter(t => t.status === defectsStatusFilter)
+                      }
+                      
+                      // Filtro de máquina parada
+                      if (defectsMachineStoppedFilter === 'stopped') {
+                        filtered = filtered.filter(t => t.machineStopped === true)
+                      } else if (defectsMachineStoppedFilter === 'running') {
+                        filtered = filtered.filter(t => t.machineStopped !== true)
+                      }
+                      
+                      // Ordenar por data mais recente
+                      filtered.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+                      
+                      if (filtered.length === 0) {
+                        return (
+                          <tr>
+                            <td colSpan={7} className="p-8 text-center text-muted-foreground">
+                              <Search className="w-10 h-10 mx-auto mb-2 opacity-20" />
+                              <p>Nenhum reporte encontrado com os filtros aplicados.</p>
+                            </td>
+                          </tr>
+                        )
+                      }
+                      
+                      return filtered.map((ticket) => {
+                        const machine = getMachineById(ticket.machineId)
+                        const problem = getProblemById(ticket.problemId)
+                        const statusConfig: Record<string, { label: string; color: string }> = {
+                          open: { label: 'Aberto', color: 'bg-yellow-100 text-yellow-700' },
+                          in_progress: { label: 'Andamento', color: 'bg-blue-100 text-blue-700' },
+                          paused: { label: 'Pausado', color: 'bg-orange-100 text-orange-700' },
+                          completed: { label: 'Concluído', color: 'bg-green-100 text-green-700' },
+                          unresolved: { label: 'N/Resolvido', color: 'bg-red-100 text-red-700' },
+                        }
+                        const status = statusConfig[ticket.status] || { label: ticket.status, color: 'bg-gray-100' }
+                        
+                        return (
+                          <tr key={ticket.id} className="hover:bg-muted/50">
+                            <td className="p-2 text-xs whitespace-nowrap">
+                              <div>{format(new Date(ticket.createdAt), 'dd/MM/yy', { locale: ptBR })}</div>
+                              <div className="text-muted-foreground">{format(new Date(ticket.createdAt), 'HH:mm')}</div>
+                            </td>
+                            <td className="p-2 text-xs font-medium max-w-[120px] truncate">
+                              {machine?.name || '-'}
+                            </td>
+                            <td className="p-2 text-xs hidden sm:table-cell max-w-[150px] truncate">
+                              {ticket.customProblemName || problem?.name || '-'}
+                            </td>
+                            <td className="p-2 text-xs hidden md:table-cell max-w-[100px] truncate">
+                              {ticket.createdByName || '-'}
+                            </td>
+                            <td className="p-2 text-center">
+                              <Badge className={cn("text-[10px]", status.color)}>{status.label}</Badge>
+                            </td>
+                            <td className="p-2 text-center">
+                              {ticket.machineStopped ? (
+                                <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-red-100">
+                                  <AlertTriangle className="w-3.5 h-3.5 text-red-600" />
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-green-100">
+                                  <CheckCircle2 className="w-3.5 h-3.5 text-green-600" />
+                                </span>
+                              )}
+                            </td>
+                            <td className="p-2 text-right font-mono text-xs text-red-600 font-semibold whitespace-nowrap">
+                              {ticket.machineStopped ? formatDurationHours(ticket.downtime || 0).display : '-'}
+                            </td>
+                          </tr>
+                        )
+                      })
+                    })()}
+                  </tbody>
+                </table>
+              </div>
+              
+              {/* Resumo no footer */}
+              <div className="flex items-center justify-between pt-3 border-t text-sm text-muted-foreground">
+                <div>
+                  {defectsStatusFilter !== 'all' || defectsMachineStoppedFilter !== 'all' || defectsSearchQuery ? (
+                    <span>Filtrado: mostrando resultados</span>
+                  ) : (
+                    <span>{stats.total} reportes no período</span>
+                  )}
+                </div>
+                <Button variant="outline" onClick={() => setShowAllDefectsModal(false)}>
+                  Fechar
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
         </TabsContent>
 
         {/* Tab Máquinas */}
