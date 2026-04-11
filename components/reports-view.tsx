@@ -610,7 +610,7 @@ export function ReportsView() {
     reloadAuditLogs()
   }, [])
 
-  const [activeTab, setActiveTab] = useState<ReportType>('general')
+  const [activeTab, setActiveTab] = useState<ReportType>('metrics')
   // Filtro padrão: do dia 1 do mês atual até hoje
   const [filters, setFilters] = useState<FilterState>({
     dateRange: { from: startOfMonth(new Date()), to: new Date() },
@@ -771,7 +771,7 @@ export function ReportsView() {
 
   const [showConfigSection, setShowConfigSection] = useState(false)
   const [showAvailabilitySection, setShowAvailabilitySection] = useState(false)
-  const [showSummaryCards, setShowSummaryCards] = useState(false)
+  // showSummaryCards removido - resumo agora sempre visível
   
   // Estados para aba Ocorrências Solucionadas
   const [solvedSearchQuery, setSolvedSearchQuery] = useState('')
@@ -1744,27 +1744,21 @@ export function ReportsView() {
         </CardContent>
       </Card>
 
-      {/* Summary Cards - Colapsável */}
-      <Card>
-        <CardHeader 
-          className="pb-2 cursor-pointer hover:bg-muted/50 transition-colors rounded-t-lg"
-          onClick={() => setShowSummaryCards(!showSummaryCards)}
-        >
+      {/* Resumo do Período - Sempre visível com MTBF/MTTR integrados */}
+      <Card className="border-2">
+        <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle>Resumo do Período</CardTitle>
+              <CardTitle className="text-lg">Resumo do Período</CardTitle>
               <CardDescription>
                 {stats.total} manutenções | {formatDurationHours(stats.totalStoppedTime).display} parado | {stats.uniqueMachines} máquinas
               </CardDescription>
             </div>
-            <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-              {showSummaryCards ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-            </Button>
           </div>
         </CardHeader>
-        {showSummaryCards && (
-        <CardContent className="pt-0">
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <CardContent className="pt-0 space-y-4">
+          {/* Linha 1: Métricas principais */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
             <div className="p-3 rounded-lg bg-muted/50">
               <div className="flex items-center gap-3">
                 <div className="p-2 rounded-lg bg-primary">
@@ -1839,16 +1833,71 @@ export function ReportsView() {
               </div>
             </div>
           </div>
+          
+          {/* Linha 2: MTBF e MTTR Global */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="p-4 rounded-xl bg-gradient-to-br from-blue-50 to-indigo-50 border-2 border-blue-200">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 rounded-lg bg-blue-500 shadow-sm">
+                    <TrendingUp className="w-5 h-5 text-white" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-1.5">
+                      <p className="text-sm font-semibold text-blue-700">MTBF Global</p>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Info className="w-3.5 h-3.5 text-blue-400 cursor-help" />
+                        </TooltipTrigger>
+                        <TooltipContent side="top" className="max-w-[280px]">
+                          <p className="font-medium">Tempo Médio Entre Falhas</p>
+                          <p className="text-xs mt-1">Tempo Operando ({formatDurationHours(stats.totalOperatingTime).display}) / {globalMetrics.totalFalhas} falhas</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </div>
+                    <p className="text-3xl font-bold text-blue-600">{globalMetrics.mtbfGlobal.toFixed(1)}h</p>
+                    <p className="text-xs text-blue-500">{globalMetrics.totalFalhas} falhas em {globalMetrics.totalMaquinas} máquinas</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-4 rounded-xl bg-gradient-to-br from-orange-50 to-amber-50 border-2 border-orange-200">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 rounded-lg bg-orange-500 shadow-sm">
+                    <Clock className="w-5 h-5 text-white" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-1.5">
+                      <p className="text-sm font-semibold text-orange-700">MTTR Global</p>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Info className="w-3.5 h-3.5 text-orange-400 cursor-help" />
+                        </TooltipTrigger>
+                        <TooltipContent side="top" className="max-w-[280px]">
+                          <p className="font-medium">Tempo Médio de Reparo</p>
+                          <p className="text-xs mt-1">Downtime total ({globalMetrics.totalDowntime.toFixed(1)}h) / {globalMetrics.totalFalhas} falhas</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </div>
+                    <p className="text-3xl font-bold text-orange-600">{globalMetrics.mttrGlobal.toFixed(1)}h</p>
+                    <p className="text-xs text-orange-500">{globalMetrics.totalDowntime.toFixed(1)}h de downtime total</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         </CardContent>
-        )}
       </Card>
 
       {/* Abas */}
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as ReportType)}>
 <TabsList className="grid w-full h-auto gap-1 p-1" style={{ gridTemplateColumns: 'repeat(6,minmax(0,1fr))' }}>
-  <TabsTrigger value="general" className="text-[10px] sm:text-xs px-1 sm:px-2 py-2">
-  <FileText className="w-3 h-3 sm:w-4 sm:h-4 mr-0.5 sm:mr-1" />
-  <span>Geral</span>
+  <TabsTrigger value="metrics" className="text-[10px] sm:text-xs px-1 sm:px-2 py-2">
+  <BarChart3 className="w-3 h-3 sm:w-4 sm:h-4 mr-0.5 sm:mr-1" />
+  <span className="hidden sm:inline">MTBF/MTTR</span>
+  <span className="sm:hidden">MTBF</span>
   </TabsTrigger>
   <TabsTrigger value="machines" className="text-[10px] sm:text-xs px-1 sm:px-2 py-2">
   <Settings className="w-3 h-3 sm:w-4 sm:h-4 mr-0.5 sm:mr-1" />
@@ -1873,10 +1922,9 @@ export function ReportsView() {
     <span className="ml-1 px-1.5 py-0.5 text-[8px] bg-red-100 text-red-600 rounded-full">{stats.cancelledCount}</span>
   )}
   </TabsTrigger>
-  <TabsTrigger value="metrics" className="text-[10px] sm:text-xs px-1 sm:px-2 py-2">
-  <BarChart3 className="w-3 h-3 sm:w-4 sm:h-4 mr-0.5 sm:mr-1" />
-  <span className="hidden sm:inline">MTBF/MTTR</span>
-  <span className="sm:hidden">MTBF</span>
+  <TabsTrigger value="general" className="text-[10px] sm:text-xs px-1 sm:px-2 py-2">
+  <FileText className="w-3 h-3 sm:w-4 sm:h-4 mr-0.5 sm:mr-1" />
+  <span>Geral</span>
   </TabsTrigger>
   </TabsList>
 
