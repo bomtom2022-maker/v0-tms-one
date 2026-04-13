@@ -1258,35 +1258,36 @@ export function ReportsView() {
     }
   }, [filteredTickets, validTicketsForMetrics, openTicketsForDowntime, cancelledTickets, viewMetrics, filters.dateRange, machines])
 
-  // ========== MTBF E MTTR GLOBAL CORRIGIDOS ==========
-  // MTBF e MTTR usam APENAS tickets onde machineStopped === true
-  // MTBF = Tempo Operando / Falhas com Máquina Parada
-  // MTTR = Tempo Parado (máquinas paradas) / Falhas com Máquina Parada
+  // ========== MTBF E MTTR GLOBAL (REGRA VETORE) ==========
+  // Divisor: Total de Reportes (toda a demanda gerada)
+  // MTBF = Tempo Operando Total / Total de Reportes
+  // MTTR = Tempo Parado Real (máquinas paradas) / Total de Reportes
   const globalMetrics = useMemo(() => {
-    // Tempo operando em horas (usa capacidade total - downtime de máquinas paradas)
+    // Tempo parado em horas (apenas máquinas que realmente pararam)
     const stoppedDowntimeHoras = stats.stoppedMachineDowntime / 3600
+    // Tempo operando em horas
     const tempoOperandoHoras = Math.max(0, stats.plannedCapacityHours - stoppedDowntimeHoras)
     
-    // Total de falhas = apenas tickets com máquina parada
-    const totalFalhas = stats.stoppedMachineCount
+    // Divisor único: Total de Reportes (toda a demanda)
+    const totalReportes = stats.total
     
-    // MTBF Global: Tempo Operando / Falhas com Máquina Parada
-    const mtbfGlobal = totalFalhas > 0 ? tempoOperandoHoras / totalFalhas : 0
+    // MTBF Global: Tempo Operando / Total de Reportes
+    const mtbfGlobal = totalReportes > 0 ? tempoOperandoHoras / totalReportes : 0
     
-    // MTTR Global: Tempo Parado (só máquinas paradas) / Falhas com Máquina Parada
-    const mttrGlobal = totalFalhas > 0 ? stoppedDowntimeHoras / totalFalhas : 0
+    // MTTR Global: Tempo Parado Real / Total de Reportes
+    const mttrGlobal = totalReportes > 0 ? stoppedDowntimeHoras / totalReportes : 0
     
     return {
       mtbfGlobal,
       mttrGlobal,
-      totalFalhas,
+      totalReportes,
       totalDowntime: stoppedDowntimeHoras,
       tempoOperandoTotal: tempoOperandoHoras,
       capacidadeTotal: stats.plannedCapacityHours,
-      totalMaquinas: stats.stoppedMachineUniqueCount
+      totalMaquinas: stats.uniqueMachines
     }
-  }, [stats.stoppedMachineDowntime, stats.stoppedMachineCount, stats.plannedCapacityHours, stats.stoppedMachineUniqueCount])
-  // ========== FIM MTBF E MTTR GLOBAL CORRIGIDOS ==========
+  }, [stats.stoppedMachineDowntime, stats.total, stats.plannedCapacityHours, stats.uniqueMachines])
+  // ========== FIM MTBF E MTTR GLOBAL ==========
 
   const machineData = useMemo(() => {
     // Usar tickets válidos (completed + resolved) + tickets em aberto para métricas de máquinas
@@ -1897,14 +1898,14 @@ export function ReportsView() {
                           <Info className="w-3.5 h-3.5 text-blue-400 cursor-help" />
                         </TooltipTrigger>
                         <TooltipContent side="top" className="max-w-[280px]">
-                          <p className="font-medium">Tempo Médio Entre Falhas</p>
-                          <p className="text-xs mt-1">Considera apenas reportes com máquina parada.</p>
-                          <p className="text-xs">Tempo Operando / {globalMetrics.totalFalhas} falhas</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </div>
-                    <p className="text-3xl font-bold text-blue-600">{globalMetrics.mtbfGlobal.toFixed(1)}h</p>
-                    <p className="text-xs text-blue-500">{globalMetrics.totalFalhas} falhas (máq. parada)</p>
+<p className="font-medium">Tempo Médio Entre Falhas</p>
+  <p className="text-xs mt-1">Mede a eficiência sobre toda a demanda gerada.</p>
+  <p className="text-xs">Tempo Operando / {globalMetrics.totalReportes} reportes</p>
+  </TooltipContent>
+  </Tooltip>
+  </div>
+  <p className="text-3xl font-bold text-blue-600">{globalMetrics.mtbfGlobal.toFixed(1)}h</p>
+  <p className="text-xs text-blue-500">baseado em {globalMetrics.totalReportes} reportes</p>
                   </div>
                 </div>
               </div>
@@ -1924,14 +1925,14 @@ export function ReportsView() {
                           <Info className="w-3.5 h-3.5 text-orange-400 cursor-help" />
                         </TooltipTrigger>
                         <TooltipContent side="top" className="max-w-[280px]">
-                          <p className="font-medium">Tempo Médio de Reparo</p>
-                          <p className="text-xs mt-1">Considera apenas reportes com máquina parada.</p>
-                          <p className="text-xs">{globalMetrics.totalDowntime.toFixed(1)}h parado / {globalMetrics.totalFalhas} falhas</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </div>
-                    <p className="text-3xl font-bold text-orange-600">{globalMetrics.mttrGlobal.toFixed(1)}h</p>
-                    <p className="text-xs text-orange-500">{globalMetrics.totalDowntime.toFixed(1)}h / {globalMetrics.totalFalhas} falhas (máq. parada)</p>
+<p className="font-medium">Tempo Médio de Reparo</p>
+  <p className="text-xs mt-1">Mede a eficiência sobre toda a demanda gerada.</p>
+  <p className="text-xs">{globalMetrics.totalDowntime.toFixed(1)}h parado / {globalMetrics.totalReportes} reportes</p>
+  </TooltipContent>
+  </Tooltip>
+  </div>
+  <p className="text-3xl font-bold text-orange-600">{globalMetrics.mttrGlobal.toFixed(1)}h</p>
+  <p className="text-xs text-orange-500">{globalMetrics.totalDowntime.toFixed(1)}h / {globalMetrics.totalReportes} reportes</p>
                   </div>
                 </div>
               </div>
