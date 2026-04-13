@@ -61,6 +61,7 @@ import {
   Search,
   Eye,
   History,
+  AlertTriangle,
 } from 'lucide-react'
 import { format, startOfDay, endOfDay, isWithinInterval, startOfMonth, endOfMonth, subDays, differenceInDays, getDaysInMonth } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
@@ -1087,7 +1088,12 @@ export function ReportsView() {
     
     const openTickets = tickets.filter(t => {
       // Apenas tickets com status "em aberto" (não finalizados)
-      if (t.status !== 'open' && t.status !== 'in-progress' && t.status !== 'paused') {
+      if (t.status !== 'open' && t.status !== 'in_progress' && t.status !== 'paused') {
+        return false
+      }
+      
+      // CRÍTICO: Apenas considerar downtime se a máquina está REALMENTE parada
+      if (t.machineStopped !== true) {
         return false
       }
       
@@ -1110,15 +1116,14 @@ export function ReportsView() {
   }, [tickets, filters.dateRange, filters.machineId, getMachineById])
 
   const stats = useMemo(() => {
-    // ========== CÁLCULO DO DOWNTIME TOTAL (INCLUI TICKETS EM ABERTO) ==========
+    // ========== CÁLCULO DO DOWNTIME TOTAL (INCLUI TICKETS EM ABERTO - CRONÔMETRO VIVO) ==========
     
     // 1. Downtime de tickets fechados (completed + resolved) - usa o valor já calculado
     const closedTicketsDowntime = validTicketsForMetrics.reduce((sum, t) => sum + t.downtime, 0)
     
-    // 2. Downtime de tickets em aberto (progressivo até o final do dia anterior)
-    // REGRA: Calcular desde o início do problema até 23:59:59 do dia anterior
-    const yesterday = subDays(new Date(), 1)
-    const endOfYesterday = endOfDay(yesterday)
+    // 2. Downtime de tickets em aberto (CRONÔMETRO VIVO - até AGORA)
+    // REGRA: Calcular desde o início do problema até o momento atual
+    const now = new Date()
     
     // Limites do filtro de data
     const filterStart = filters.dateRange?.from ? startOfDay(filters.dateRange.from) : null
@@ -1128,7 +1133,7 @@ export function ReportsView() {
       // Data de início do problema (criação do ticket)
       const ticketStart = new Date(ticket.createdAt)
       
-      // O downtime acumulado vai desde a criação até o fim do dia anterior
+      // O downtime acumulado vai desde a criação até AGORA (cronômetro vivo)
       // MAS deve respeitar o filtro de data selecionado
       
       // Início efetivo: o maior entre (início do ticket) e (início do filtro)
@@ -1137,8 +1142,8 @@ export function ReportsView() {
         effectiveStart = filterStart
       }
       
-      // Fim efetivo: o menor entre (fim do dia anterior) e (fim do filtro)
-      let effectiveEnd = endOfYesterday
+      // Fim efetivo: o menor entre (agora) e (fim do filtro)
+      let effectiveEnd = now
       if (filterEnd && effectiveEnd > filterEnd) {
         effectiveEnd = filterEnd
       }
@@ -1155,8 +1160,28 @@ export function ReportsView() {
       return sum + downtimeSeconds
     }, 0)
     
-    // Downtime total = fechados + abertos (progressivo)
+    // Downtime total = fechados + abertos (progressivo em tempo real)
     const totalStoppedTime = closedTicketsDowntime + openTicketsDowntime
+    
+    // ========== MÁQUINAS CRÍTICAS (paradas há mais de 48h) ==========
+    const CRITICAL_HOURS = 48
+    const criticalMachines = openTicketsForDowntime
+      .map(ticket => {
+        const ticketStart = new Date(ticket.createdAt)
+        const hoursDown = (now.getTime() - ticketStart.getTime()) / (1000 * 60 * 60)
+        return {
+          ticketId: ticket.id,
+          machineId: ticket.machineId,
+          machineName: getMachineById(ticket.machineId)?.name || 'Desconhecida',
+          status: ticket.status,
+          pauseReason: ticket.pauseReason || null,
+          createdAt: ticket.createdAt,
+          hoursDown,
+          isCritical: hoursDown >= CRITICAL_HOURS
+        }
+      })
+      .filter(m => m.isCritical)
+      .sort((a, b) => b.hoursDown - a.hoursDown)
     
     // ========== MÉTRICAS APENAS DE MÁQUINAS PARADAS (para MTBF/MTTR) ==========
     // Filtrar apenas tickets onde machineStopped === true
@@ -1167,15 +1192,16 @@ export function ReportsView() {
     const stoppedClosedTickets = validTicketsForMetrics.filter(t => t.machineStopped === true)
     const stoppedClosedDowntime = stoppedClosedTickets.reduce((sum, t) => sum + t.downtime, 0)
     
-    // Downtime de tickets abertos com máquina parada
-    const stoppedOpenTickets = openTicketsForDowntime.filter(t => t.machineStopped === true)
-    const stoppedOpenDowntime = stoppedOpenTickets.reduce((sum, ticket) => {
+    // Downtime de tickets abertos com máquina parada (CRONÔMETRO VIVO)
+    // Nota: openTicketsForDowntime já filtra por machineStopped === true
+    const stoppedOpenDowntime = openTicketsForDowntime.reduce((sum, ticket) => {
       const ticketStart = new Date(ticket.createdAt)
       let effectiveStart = ticketStart
       if (filterStart && ticketStart < filterStart) {
         effectiveStart = filterStart
       }
-      let effectiveEnd = endOfYesterday
+      // Usar NOW para cronômetro vivo
+      let effectiveEnd = now
       if (filterEnd && effectiveEnd > filterEnd) {
         effectiveEnd = filterEnd
       }
@@ -1254,9 +1280,12 @@ export function ReportsView() {
       // Métricas de máquinas paradas (para MTBF/MTTR)
       stoppedMachineCount,
       stoppedMachineDowntime,
-      stoppedMachineUniqueCount
+      stoppedMachineUniqueCount,
+      // Máquinas críticas (paradas há mais de 48h)
+      criticalMachines,
+      openTicketsCount: openTicketsForDowntime.length
     }
-  }, [filteredTickets, validTicketsForMetrics, openTicketsForDowntime, cancelledTickets, viewMetrics, filters.dateRange, machines])
+  }, [filteredTickets, validTicketsForMetrics, openTicketsForDowntime, cancelledTickets, viewMetrics, filters.dateRange, machines, getMachineById])
 
   // ========== MTBF E MTTR GLOBAL (REGRA VETORE) ==========
   // Divisor: Total de Reportes (toda a demanda gerada)
@@ -1938,6 +1967,39 @@ export function ReportsView() {
               </div>
             </div>
           </div>
+          
+          {/* Alerta de Máquinas Críticas (paradas há mais de 48h) */}
+          {stats.criticalMachines && stats.criticalMachines.length > 0 && (
+            <div className="mt-4 p-4 rounded-xl bg-red-50 border-2 border-red-300 animate-pulse">
+              <div className="flex items-center gap-2 mb-3">
+                <AlertTriangle className="w-5 h-5 text-red-600" />
+                <h4 className="font-bold text-red-700">ALERTA: Máquinas Paradas há mais de 48h</h4>
+                <Badge variant="destructive" className="ml-auto">{stats.criticalMachines.length}</Badge>
+              </div>
+              <div className="space-y-2">
+                {stats.criticalMachines.slice(0, 5).map((m) => (
+                  <div key={m.ticketId} className="flex items-center justify-between p-2 bg-white rounded-lg border border-red-200">
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold text-red-700">{m.machineName}</span>
+                      <Badge variant="outline" className="text-[10px]">
+                        {m.status === 'open' ? 'Aberto' : m.status === 'in_progress' ? 'Em Andamento' : 'Pausado'}
+                      </Badge>
+                      {m.pauseReason && (
+                        <span className="text-xs text-muted-foreground italic">({m.pauseReason})</span>
+                      )}
+                    </div>
+                    <div className="text-right">
+                      <span className="font-bold text-red-600">{Math.floor(m.hoursDown)}h</span>
+                      <span className="text-xs text-red-500 ml-1">parada</span>
+                    </div>
+                  </div>
+                ))}
+                {stats.criticalMachines.length > 5 && (
+                  <p className="text-xs text-red-600 text-center">+ {stats.criticalMachines.length - 5} outras máquinas críticas</p>
+                )}
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -3341,6 +3403,7 @@ export function ReportsView() {
                   <thead className="bg-muted">
                     <tr>
                       <th className="p-3 text-left font-medium">Máquina</th>
+                      <th className="p-3 text-center font-medium">Status Atual</th>
                       <th className="p-3 text-center font-medium">Falhas</th>
                       <th className="p-3 text-center font-medium">Downtime (h)</th>
                       <th className="p-3 text-center font-medium text-blue-600">MTBF (h)</th>
@@ -3351,13 +3414,13 @@ export function ReportsView() {
                   <tbody className="divide-y">
                     {loadingMetrics ? (
                       <tr>
-                        <td colSpan={6} className="p-8 text-center text-muted-foreground">
+                        <td colSpan={7} className="p-8 text-center text-muted-foreground">
                           Carregando métricas...
                         </td>
                       </tr>
                     ) : metricsError ? (
                       <tr>
-                        <td colSpan={6} className="p-8 text-center text-red-500">
+                        <td colSpan={7} className="p-8 text-center text-red-500">
                           Erro ao carregar: {metricsError}
                         </td>
                       </tr>
@@ -3371,7 +3434,7 @@ export function ReportsView() {
                       if (filteredMetrics.length === 0) {
                         return (
                           <tr>
-                            <td colSpan={6} className="p-8 text-center text-muted-foreground">
+                            <td colSpan={7} className="p-8 text-center text-muted-foreground">
                               Nenhuma máquina encontrada com o filtro atual.
                             </td>
                           </tr>
@@ -3379,13 +3442,52 @@ export function ReportsView() {
                       }
                       
                       // Dados vem da View já ordenados por total_falhas DESC
-                      return filteredMetrics.map(m => (
+                      return filteredMetrics.map(m => {
+                        // Buscar ticket ativo desta máquina (open, in_progress, paused com machineStopped)
+                        const activeTicket = openTicketsForDowntime.find(t => t.machineId === m.machine_id)
+                        const isCritical = activeTicket && stats.criticalMachines?.some(c => c.machineId === m.machine_id)
+                        
+                        return (
                         <tr 
                           key={m.machine_id} 
-                          className="hover:bg-primary/10 cursor-pointer transition-colors"
+                          className={cn(
+                            "hover:bg-primary/10 cursor-pointer transition-colors",
+                            isCritical && "animate-pulse bg-red-50"
+                          )}
                           onClick={() => openMachineHistory(m.machine_id, m.machine_name)}
                         >
-                          <td className="p-3 font-medium text-primary hover:underline">{m.machine_name}</td>
+                          <td className={cn("p-3 font-medium hover:underline", isCritical ? "text-red-600" : "text-primary")}>
+                            {m.machine_name}
+                            {isCritical && <AlertTriangle className="inline w-4 h-4 ml-1 text-red-500" />}
+                          </td>
+                          <td className="p-3 text-center">
+                            {activeTicket ? (
+                              <div className="flex flex-col items-center gap-0.5">
+                                <Badge 
+                                  variant="outline"
+                                  className={cn(
+                                    "text-[10px]",
+                                    activeTicket.status === 'open' ? "bg-yellow-50 text-yellow-700 border-yellow-300" :
+                                    activeTicket.status === 'in_progress' ? "bg-blue-50 text-blue-700 border-blue-300" :
+                                    "bg-orange-50 text-orange-700 border-orange-300"
+                                  )}
+                                >
+                                  {activeTicket.status === 'open' ? 'Aberto' : 
+                                   activeTicket.status === 'in_progress' ? 'Em Andamento' : 
+                                   'Pausado'}
+                                </Badge>
+                                {activeTicket.pauseReason && (
+                                  <span className="text-[9px] text-muted-foreground max-w-[100px] truncate" title={activeTicket.pauseReason}>
+                                    {activeTicket.pauseReason}
+                                  </span>
+                                )}
+                              </div>
+                            ) : (
+                              <Badge variant="outline" className="text-[10px] bg-green-50 text-green-700 border-green-300">
+                                Operando
+                              </Badge>
+                            )}
+                          </td>
                           <td className="p-3 text-center font-mono">{m.total_falhas}</td>
                           <td className="p-3 text-center font-mono text-muted-foreground">
                             {m.downtime_horas.toFixed(2)}
@@ -3410,7 +3512,7 @@ export function ReportsView() {
                             </Badge>
                           </td>
                         </tr>
-                      ))
+                      )})
                     })()}
                   </tbody>
                 </table>
