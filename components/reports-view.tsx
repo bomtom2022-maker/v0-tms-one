@@ -61,7 +61,6 @@ import {
   Search,
   Eye,
   History,
-  AlertTriangle,
 } from 'lucide-react'
 import { format, startOfDay, endOfDay, isWithinInterval, startOfMonth, endOfMonth, subDays, differenceInDays, getDaysInMonth } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
