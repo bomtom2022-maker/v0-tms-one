@@ -1308,9 +1308,16 @@ export function ReportsView() {
     // MTTR Global: Tempo Parado Real / Total de Reportes
     const mttrGlobal = totalReportes > 0 ? stoppedDowntimeHoras / totalReportes : 0
     
+    // Disponibilidade Global: (Capacidade Total - Tempo Parado) / Capacidade Total * 100
+    // Fórmula: Tempo Operando / Capacidade Total
+    const disponibilidadeGlobal = stats.plannedCapacityHours > 0 
+      ? (tempoOperandoHoras / stats.plannedCapacityHours) * 100 
+      : 100
+    
     return {
       mtbfGlobal,
       mttrGlobal,
+      disponibilidadeGlobal,
       totalReportes,
       totalDowntime: stoppedDowntimeHoras,
       tempoOperandoTotal: tempoOperandoHoras,
@@ -1835,41 +1842,9 @@ export function ReportsView() {
           </div>
         </CardHeader>
         <CardContent className="pt-0 space-y-4">
-          {/* Linha 1: Métricas principais */}
+          {/* Linha 1: Métricas principais - Ordem: Tempo Operando, Máquina Parada, Total Reportes, Máquinas Afetadas */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-  <div className="p-3 rounded-lg bg-muted/50">
-  <div className="flex items-center gap-3">
-  <div className="p-2 rounded-lg bg-primary">
-  <Wrench className="w-4 h-4 text-primary-foreground" />
-  </div>
-  <div>
-  <p className="text-xs text-muted-foreground">Total Reportes</p>
-  <p className="text-xl font-bold">{stats.total}</p>
-  <p className="text-[10px] text-muted-foreground">{stats.stoppedMachineCount} com máquina parada</p>
-  </div>
-  </div>
-  </div>
-
-            <div className="p-3 rounded-lg bg-red-50 border border-red-200">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-red-500">
-                  <Clock className="w-4 h-4 text-white" />
-                </div>
-                <div className="min-w-0">
-<p className="text-xs font-medium text-red-600">Máquina Parada</p>
-  {(() => {
-  const d = formatDurationHours(stats.stoppedMachineDowntime)
-  return (
-  <>
-  <p className="text-xl font-bold text-red-600 leading-tight">{d.display}</p>
-  <p className="text-xs font-mono text-red-500">{d.hhmm}</p>
-  </>
-  )
-  })()}
-                </div>
-              </div>
-            </div>
-
+            {/* 1. Tempo Operando */}
             <div className="p-3 rounded-lg bg-emerald-50 border border-emerald-200">
               <div className="flex items-center gap-3">
                 <div className="p-2 rounded-lg bg-emerald-600">
@@ -1900,6 +1875,42 @@ export function ReportsView() {
               </div>
             </div>
 
+            {/* 2. Máquina Parada */}
+            <div className="p-3 rounded-lg bg-red-50 border border-red-200">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-red-500">
+                  <Clock className="w-4 h-4 text-white" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-xs font-medium text-red-600">Máquina Parada</p>
+                  {(() => {
+                    const d = formatDurationHours(stats.stoppedMachineDowntime)
+                    return (
+                      <>
+                        <p className="text-xl font-bold text-red-600 leading-tight">{d.display}</p>
+                        <p className="text-xs font-mono text-red-500">{d.hhmm}</p>
+                      </>
+                    )
+                  })()}
+                </div>
+              </div>
+            </div>
+
+            {/* 3. Total Reportes */}
+            <div className="p-3 rounded-lg bg-muted/50">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-primary">
+                  <Wrench className="w-4 h-4 text-primary-foreground" />
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Total Reportes</p>
+                  <p className="text-xl font-bold">{stats.total}</p>
+                  <p className="text-[10px] text-muted-foreground">{stats.stoppedMachineCount} com máquina parada</p>
+                </div>
+              </div>
+            </div>
+
+            {/* 4. Máquinas Afetadas */}
             <div className="p-3 rounded-lg bg-muted/50">
               <div className="flex items-center gap-3">
                 <div className="p-2 rounded-lg bg-blue-500">
@@ -1913,58 +1924,87 @@ export function ReportsView() {
             </div>
           </div>
           
-          {/* Linha 2: MTBF e MTTR Global */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div className="p-4 rounded-xl bg-gradient-to-br from-blue-50 to-indigo-50 border-2 border-blue-200">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="p-2.5 rounded-lg bg-blue-500 shadow-sm">
-                    <TrendingUp className="w-5 h-5 text-white" />
+          {/* Linha 2: MTBF, MTTR e Disponibilidade Global */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            {/* MTBF Global */}
+            <div className="p-3 rounded-xl bg-gradient-to-br from-blue-50 to-indigo-50 border-2 border-blue-200">
+              <div className="flex items-center gap-2">
+                <div className="p-2 rounded-lg bg-blue-500 shadow-sm">
+                  <TrendingUp className="w-4 h-4 text-white" />
+                </div>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-1">
+                    <p className="text-xs font-semibold text-blue-700">MTBF Global</p>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Info className="w-3 h-3 text-blue-400 cursor-help" />
+                      </TooltipTrigger>
+                      <TooltipContent side="top" className="max-w-[250px]">
+                        <p className="font-medium">Tempo Médio Entre Falhas</p>
+                        <p className="text-xs mt-1">Tempo Operando / {globalMetrics.totalReportes} reportes</p>
+                      </TooltipContent>
+                    </Tooltip>
                   </div>
-                  <div>
-                    <div className="flex items-center gap-1.5">
-                      <p className="text-sm font-semibold text-blue-700">MTBF Global</p>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Info className="w-3.5 h-3.5 text-blue-400 cursor-help" />
-                        </TooltipTrigger>
-                        <TooltipContent side="top" className="max-w-[280px]">
-<p className="font-medium">Tempo Médio Entre Falhas</p>
-  <p className="text-xs mt-1">Mede a eficiência sobre toda a demanda gerada.</p>
-  <p className="text-xs">Tempo Operando / {globalMetrics.totalReportes} reportes</p>
-  </TooltipContent>
-  </Tooltip>
-  </div>
-  <p className="text-3xl font-bold text-blue-600">{globalMetrics.mtbfGlobal.toFixed(1)}h</p>
-  <p className="text-xs text-blue-500">baseado em {globalMetrics.totalReportes} reportes</p>
-                  </div>
+                  <p className="text-2xl font-bold text-blue-600">{globalMetrics.mtbfGlobal.toFixed(1)}h</p>
+                  <p className="text-[10px] text-blue-500">{globalMetrics.totalReportes} reportes</p>
                 </div>
               </div>
             </div>
 
-            <div className="p-4 rounded-xl bg-gradient-to-br from-orange-50 to-amber-50 border-2 border-orange-200">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="p-2.5 rounded-lg bg-orange-500 shadow-sm">
-                    <Clock className="w-5 h-5 text-white" />
+            {/* MTTR Global */}
+            <div className="p-3 rounded-xl bg-gradient-to-br from-orange-50 to-amber-50 border-2 border-orange-200">
+              <div className="flex items-center gap-2">
+                <div className="p-2 rounded-lg bg-orange-500 shadow-sm">
+                  <Clock className="w-4 h-4 text-white" />
+                </div>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-1">
+                    <p className="text-xs font-semibold text-orange-700">MTTR Global</p>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Info className="w-3 h-3 text-orange-400 cursor-help" />
+                      </TooltipTrigger>
+                      <TooltipContent side="top" className="max-w-[250px]">
+                        <p className="font-medium">Tempo Médio de Reparo</p>
+                        <p className="text-xs mt-1">{globalMetrics.totalDowntime.toFixed(1)}h / {globalMetrics.totalReportes} reportes</p>
+                      </TooltipContent>
+                    </Tooltip>
                   </div>
-                  <div>
-                    <div className="flex items-center gap-1.5">
-                      <p className="text-sm font-semibold text-orange-700">MTTR Global</p>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Info className="w-3.5 h-3.5 text-orange-400 cursor-help" />
-                        </TooltipTrigger>
-                        <TooltipContent side="top" className="max-w-[280px]">
-<p className="font-medium">Tempo Médio de Reparo</p>
-  <p className="text-xs mt-1">Mede a eficiência sobre toda a demanda gerada.</p>
-  <p className="text-xs">{globalMetrics.totalDowntime.toFixed(1)}h parado / {globalMetrics.totalReportes} reportes</p>
-  </TooltipContent>
-  </Tooltip>
-  </div>
-  <p className="text-3xl font-bold text-orange-600">{globalMetrics.mttrGlobal.toFixed(1)}h</p>
-  <p className="text-xs text-orange-500">{globalMetrics.totalDowntime.toFixed(1)}h / {globalMetrics.totalReportes} reportes</p>
+                  <p className="text-2xl font-bold text-orange-600">{globalMetrics.mttrGlobal.toFixed(1)}h</p>
+                  <p className="text-[10px] text-orange-500">{globalMetrics.totalDowntime.toFixed(1)}h parado</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Disponibilidade Global */}
+            <div className="p-3 rounded-xl bg-gradient-to-br from-green-50 to-emerald-50 border-2 border-green-200">
+              <div className="flex items-center gap-2">
+                <div className="p-2 rounded-lg bg-green-500 shadow-sm">
+                  <CheckCircle2 className="w-4 h-4 text-white" />
+                </div>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-1">
+                    <p className="text-xs font-semibold text-green-700">Disponibilidade</p>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Info className="w-3 h-3 text-green-400 cursor-help" />
+                      </TooltipTrigger>
+                      <TooltipContent side="top" className="max-w-[250px]">
+                        <p className="font-medium">Disponibilidade Global</p>
+                        <p className="text-xs mt-1">Tempo Operando / Capacidade Total</p>
+                        <p className="text-xs">{globalMetrics.tempoOperandoTotal.toFixed(1)}h / {globalMetrics.capacidadeTotal.toFixed(1)}h</p>
+                      </TooltipContent>
+                    </Tooltip>
                   </div>
+                  <p className={cn(
+                    "text-2xl font-bold",
+                    globalMetrics.disponibilidadeGlobal >= 95 ? "text-green-600" :
+                    globalMetrics.disponibilidadeGlobal >= 85 ? "text-yellow-600" :
+                    "text-red-600"
+                  )}>
+                    {globalMetrics.disponibilidadeGlobal.toFixed(1)}%
+                  </p>
+                  <p className="text-[10px] text-green-500">{globalMetrics.tempoOperandoTotal.toFixed(0)}h operando</p>
                 </div>
               </div>
             </div>
