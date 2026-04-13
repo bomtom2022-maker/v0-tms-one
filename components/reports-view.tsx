@@ -1974,14 +1974,14 @@ export function ReportsView() {
           {stats.criticalMachines && stats.criticalMachines.length > 0 && (
             <div className="mt-4">
               {!showCriticalMachines ? (
-                // Botão colapsado - apenas ícone piscando com contador
+                // Botão colapsado - ícone pequeno
                 <button
                   onClick={() => setShowCriticalMachines(true)}
-                  className="relative p-2 rounded-full bg-red-100 border-2 border-red-400 hover:bg-red-200 transition-colors animate-pulse"
+                  className="relative p-1 rounded-full bg-red-100 border border-red-300 hover:bg-red-200 transition-colors animate-pulse"
                   title="Máquinas paradas há mais de 48h"
                 >
-                  <AlertTriangle className="w-6 h-6 text-red-600" />
-                  <span className="absolute -top-1 -right-1 w-5 h-5 flex items-center justify-center text-[10px] font-bold text-white bg-red-600 rounded-full">
+                  <AlertTriangle className="w-4 h-4 text-red-600" />
+                  <span className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 flex items-center justify-center text-[8px] font-bold text-white bg-red-600 rounded-full">
                     {stats.criticalMachines.length}
                   </span>
                 </button>
