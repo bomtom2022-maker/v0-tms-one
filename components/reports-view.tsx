@@ -780,6 +780,9 @@ export function ReportsView() {
   const [selectedSolvedTicket, setSelectedSolvedTicket] = useState<typeof tickets[0] | null>(null)
   const INITIAL_SOLVED_COUNT = 5
   
+  // Estado para alerta de máquinas críticas (expansível)
+  const [showCriticalMachines, setShowCriticalMachines] = useState(false)
+  
 
   
   // Inicializar shifts locais das máquinas
@@ -1967,36 +1970,58 @@ export function ReportsView() {
             </div>
           </div>
           
-          {/* Alerta de Máquinas Críticas (paradas há mais de 48h) */}
+          {/* Alerta de Máquinas Críticas (paradas há mais de 48h) - Expansível */}
           {stats.criticalMachines && stats.criticalMachines.length > 0 && (
-            <div className="mt-4 p-4 rounded-xl bg-red-50 border-2 border-red-300 animate-pulse">
-              <div className="flex items-center gap-2 mb-3">
-                <AlertTriangle className="w-5 h-5 text-red-600" />
-                <h4 className="font-bold text-red-700">ALERTA: Máquinas Paradas há mais de 48h</h4>
-                <Badge variant="destructive" className="ml-auto">{stats.criticalMachines.length}</Badge>
-              </div>
-              <div className="space-y-2">
-                {stats.criticalMachines.slice(0, 5).map((m) => (
-                  <div key={m.ticketId} className="flex items-center justify-between p-2 bg-white rounded-lg border border-red-200">
-                    <div className="flex items-center gap-2">
-                      <span className="font-semibold text-red-700">{m.machineName}</span>
-                      <Badge variant="outline" className="text-[10px]">
-                        {m.status === 'open' ? 'Aberto' : m.status === 'in_progress' ? 'Em Andamento' : 'Pausado'}
-                      </Badge>
-                      {m.pauseReason && (
-                        <span className="text-xs text-muted-foreground italic">({m.pauseReason})</span>
-                      )}
-                    </div>
-                    <div className="text-right">
-                      <span className="font-bold text-red-600">{Math.floor(m.hoursDown)}h</span>
-                      <span className="text-xs text-red-500 ml-1">parada</span>
-                    </div>
+            <div className="mt-4">
+              {!showCriticalMachines ? (
+                // Botão colapsado - apenas ícone piscando
+                <button
+                  onClick={() => setShowCriticalMachines(true)}
+                  className="flex items-center gap-2 px-4 py-2 rounded-lg bg-red-100 border-2 border-red-400 hover:bg-red-200 transition-colors animate-pulse"
+                >
+                  <AlertTriangle className="w-5 h-5 text-red-600" />
+                  <span className="font-bold text-red-700">{stats.criticalMachines.length}</span>
+                  <span className="text-sm text-red-600">máquina(s) parada(s) há +48h</span>
+                  <ChevronDown className="w-4 h-4 text-red-600 ml-2" />
+                </button>
+              ) : (
+                // Card expandido
+                <div className="p-4 rounded-xl bg-red-50 border-2 border-red-300">
+                  <div className="flex items-center gap-2 mb-3">
+                    <AlertTriangle className="w-5 h-5 text-red-600" />
+                    <h4 className="font-bold text-red-700">ALERTA: Máquinas Paradas há mais de 48h</h4>
+                    <Badge variant="destructive" className="ml-auto">{stats.criticalMachines.length}</Badge>
+                    <button
+                      onClick={() => setShowCriticalMachines(false)}
+                      className="p-1 rounded hover:bg-red-200 transition-colors"
+                    >
+                      <ChevronUp className="w-4 h-4 text-red-600" />
+                    </button>
                   </div>
-                ))}
-                {stats.criticalMachines.length > 5 && (
-                  <p className="text-xs text-red-600 text-center">+ {stats.criticalMachines.length - 5} outras máquinas críticas</p>
-                )}
-              </div>
+                  <div className="space-y-2">
+                    {stats.criticalMachines.slice(0, 5).map((m) => (
+                      <div key={m.ticketId} className="flex items-center justify-between p-2 bg-white rounded-lg border border-red-200">
+                        <div className="flex items-center gap-2">
+                          <span className="font-semibold text-red-700">{m.machineName}</span>
+                          <Badge variant="outline" className="text-[10px]">
+                            {m.status === 'open' ? 'Aberto' : m.status === 'in_progress' ? 'Em Andamento' : 'Pausado'}
+                          </Badge>
+                          {m.pauseReason && (
+                            <span className="text-xs text-muted-foreground italic">({m.pauseReason})</span>
+                          )}
+                        </div>
+                        <div className="text-right">
+                          <span className="font-bold text-red-600">{Math.floor(m.hoursDown)}h</span>
+                          <span className="text-xs text-red-500 ml-1">parada</span>
+                        </div>
+                      </div>
+                    ))}
+                    {stats.criticalMachines.length > 5 && (
+                      <p className="text-xs text-red-600 text-center">+ {stats.criticalMachines.length - 5} outras máquinas críticas</p>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </CardContent>
