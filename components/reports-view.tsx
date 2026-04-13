@@ -932,12 +932,70 @@ export function ReportsView() {
       .slice(0, 5)
   }, [viewMetrics])
 
-  // Disponibilidade média geral
+  // Disponibilidade média geral (não usada mais, mas mantida por compatibilidade)
   const avgAvailability = useMemo(() => {
     if (viewMetrics.length === 0) return 100
     const sum = viewMetrics.reduce((acc, m) => acc + m.disponibilidade, 0)
     return sum / viewMetrics.length
   }, [viewMetrics])
+  
+  // ========== MÉTRICAS CORRIGIDAS COM LIVE DOWNTIME ==========
+  // Combina viewMetrics (dados históricos) com downtime ativo de tickets em aberto
+  const correctedMachineMetrics = useMemo(() => {
+    if (viewMetrics.length === 0 || monthlyHours === 0) return []
+    
+    const now = new Date()
+    
+    return viewMetrics.map(m => {
+      // Buscar tickets ativos (open, in_progress, paused) com machineStopped para esta máquina
+      const activeTickets = tickets.filter(t => 
+        t.machineId === m.machine_id &&
+        t.machineStopped === true &&
+        (t.status === 'open' || t.status === 'in_progress' || t.status === 'paused')
+      )
+      
+      // Calcular downtime ativo (desde abertura até agora) em horas
+      const liveDowntimeHoras = activeTickets.reduce((sum, ticket) => {
+        const ticketStart = new Date(ticket.createdAt)
+        const downtimeMs = now.getTime() - ticketStart.getTime()
+        const downtimeHoras = Math.max(0, downtimeMs / (1000 * 60 * 60))
+        return sum + downtimeHoras
+      }, 0)
+      
+      // Total downtime = histórico (concluídos) + ativo (em aberto)
+      const totalDowntimeHoras = m.downtime_horas + liveDowntimeHoras
+      
+      // Disponibilidade corrigida: (Capacidade - Downtime Total) / Capacidade * 100
+      const disponibilidadeCorrigida = Math.max(0, ((monthlyHours - totalDowntimeHoras) / monthlyHours) * 100)
+      
+      // Total de falhas = histórico + ativos
+      const totalFalhasCorrigido = m.total_falhas + activeTickets.length
+      
+      // MTBF e MTTR corrigidos
+      const mtbfCorrigido = totalFalhasCorrigido > 0 ? (monthlyHours - totalDowntimeHoras) / totalFalhasCorrigido : monthlyHours
+      const mttrCorrigido = totalFalhasCorrigido > 0 ? totalDowntimeHoras / totalFalhasCorrigido : 0
+      
+      // Status ativo (para exibição)
+      const activeTicket = activeTickets.length > 0 ? activeTickets[0] : null
+      
+      return {
+        ...m,
+        downtime_horas_original: m.downtime_horas,
+        downtime_horas: totalDowntimeHoras,
+        disponibilidade_original: m.disponibilidade,
+        disponibilidade: disponibilidadeCorrigida,
+        total_falhas_original: m.total_falhas,
+        total_falhas: totalFalhasCorrigido,
+        mtbf: mtbfCorrigido,
+        mttr: mttrCorrigido,
+        liveDowntimeHoras,
+        hasActiveTicket: activeTickets.length > 0,
+        activeTicketStatus: activeTicket?.status || null,
+        activeTicketPauseReason: activeTicket?.pauseReason || null,
+        activeTicketCreatedAt: activeTicket?.createdAt || null
+      }
+    }).sort((a, b) => a.disponibilidade - b.disponibilidade) // Ordenar do pior para melhor
+  }, [viewMetrics, tickets, monthlyHours])
   
   // ========== MÉTRICAS GLOBAIS PARCIAIS (MTTR e contagens) ==========
   // O MTBF Global será calculado depois de 'stats' para usar o mesmo Tempo Operando do resumo
@@ -3364,25 +3422,12 @@ export function ReportsView() {
                 <div>
                   <CardTitle>Disponibilidade das Máquinas</CardTitle>
                   <CardDescription>
-                    Máquinas com menor disponibilidade no mês {monthlyHours > 0 && `(${monthlyHours}h configuradas)`}
+                    Detalhamento individual por máquina {monthlyHours > 0 && `(${monthlyHours}h configuradas)`}
                   </CardDescription>
                 </div>
-                <div className="flex items-center gap-3">
-                  <div className="text-right">
-                    <p className="text-[10px] text-muted-foreground">Média Geral</p>
-                    <p className={cn(
-                      "text-xl font-bold",
-                      avgAvailability >= 95 ? "text-green-600" :
-                      avgAvailability >= 85 ? "text-yellow-600" :
-                      "text-red-600"
-                    )}>
-                      {loadingMetrics ? '...' : `${avgAvailability.toFixed(1)}%`}
-                    </p>
-                  </div>
-                  <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                    {showAvailabilitySection ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                  </Button>
-                </div>
+                <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                  {showAvailabilitySection ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                </Button>
               </div>
             </CardHeader>
             {showAvailabilitySection && (
@@ -3436,7 +3481,7 @@ export function ReportsView() {
                     <div className="flex flex-col items-start gap-1 text-left">
                       <CardTitle className="text-base">Ver Detalhamento por Máquina</CardTitle>
                       <CardDescription className="text-xs">
-                        Clique para expandir a análise individual de MTBF, MTTR e Disponibilidade das {viewMetrics.length} máquinas
+                        Análise com downtime em tempo real - {correctedMachineMetrics.length} máquinas
                       </CardDescription>
                     </div>
                   </AccordionTrigger>
@@ -3490,8 +3535,8 @@ export function ReportsView() {
                         </td>
                       </tr>
                     ) : (() => {
-                      // Filtrar máquinas pela busca
-                      const filteredMetrics = viewMetrics.filter(m => 
+                      // Filtrar máquinas pela busca usando métricas corrigidas com live downtime
+                      const filteredMetrics = correctedMachineMetrics.filter(m => 
                         metricsSearchMachine === '' || 
                         m.machine_name.toLowerCase().includes(metricsSearchMachine.toLowerCase())
                       )
@@ -3506,11 +3551,9 @@ export function ReportsView() {
                         )
                       }
                       
-                      // Dados vem da View já ordenados por total_falhas DESC
+                      // Dados já ordenados por disponibilidade (menor para maior)
                       return filteredMetrics.map(m => {
-                        // Buscar ticket ativo desta máquina (open, in_progress, paused com machineStopped)
-                        const activeTicket = openTicketsForDowntime.find(t => t.machineId === m.machine_id)
-                        const isCritical = activeTicket && stats.criticalMachines?.some(c => c.machineId === m.machine_id)
+                        const isCritical = m.hasActiveTicket && m.liveDowntimeHoras >= 48
                         
                         return (
                         <tr 
@@ -3526,26 +3569,29 @@ export function ReportsView() {
                             {isCritical && <AlertTriangle className="inline w-4 h-4 ml-1 text-red-500" />}
                           </td>
                           <td className="p-3 text-center">
-                            {activeTicket ? (
+                            {m.hasActiveTicket ? (
                               <div className="flex flex-col items-center gap-0.5">
                                 <Badge 
                                   variant="outline"
                                   className={cn(
                                     "text-[10px]",
-                                    activeTicket.status === 'open' ? "bg-yellow-50 text-yellow-700 border-yellow-300" :
-                                    activeTicket.status === 'in_progress' ? "bg-blue-50 text-blue-700 border-blue-300" :
+                                    m.activeTicketStatus === 'open' ? "bg-yellow-50 text-yellow-700 border-yellow-300" :
+                                    m.activeTicketStatus === 'in_progress' ? "bg-blue-50 text-blue-700 border-blue-300" :
                                     "bg-orange-50 text-orange-700 border-orange-300"
                                   )}
                                 >
-                                  {activeTicket.status === 'open' ? 'Aberto' : 
-                                   activeTicket.status === 'in_progress' ? 'Em Andamento' : 
+                                  {m.activeTicketStatus === 'open' ? 'Aberto' : 
+                                   m.activeTicketStatus === 'in_progress' ? 'Em Andamento' : 
                                    'Pausado'}
                                 </Badge>
-                                {activeTicket.pauseReason && (
-                                  <span className="text-[9px] text-muted-foreground max-w-[100px] truncate" title={activeTicket.pauseReason}>
-                                    {activeTicket.pauseReason}
+                                {m.activeTicketPauseReason && (
+                                  <span className="text-[9px] text-muted-foreground max-w-[100px] truncate" title={m.activeTicketPauseReason}>
+                                    {m.activeTicketPauseReason}
                                   </span>
                                 )}
+                                <span className="text-[9px] text-red-500 font-medium">
+                                  {m.liveDowntimeHoras.toFixed(0)}h ativo
+                                </span>
                               </div>
                             ) : (
                               <Badge variant="outline" className="text-[10px] bg-green-50 text-green-700 border-green-300">
