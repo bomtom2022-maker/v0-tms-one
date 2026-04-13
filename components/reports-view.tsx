@@ -941,12 +941,46 @@ export function ReportsView() {
   
   // ========== MÉTRICAS CORRIGIDAS COM LIVE DOWNTIME ==========
   // Combina viewMetrics (dados históricos) com downtime ativo de tickets em aberto
+  // TAMBÉM inclui máquinas que só têm tickets ativos (sem histórico)
   const correctedMachineMetrics = useMemo(() => {
-    if (viewMetrics.length === 0 || monthlyHours === 0) return []
+    if (monthlyHours === 0) return []
     
     const now = new Date()
     
-    return viewMetrics.map(m => {
+    // 1. Buscar TODOS os tickets ativos com machineStopped === true
+    const allActiveStoppedTickets = tickets.filter(t => 
+      t.machineStopped === true &&
+      (t.status === 'open' || t.status === 'in_progress' || t.status === 'paused')
+    )
+    
+    // 2. IDs de máquinas que já estão no viewMetrics (histórico)
+    const machineIdsWithHistory = new Set(viewMetrics.map(m => m.machine_id))
+    
+    // 3. Máquinas com tickets ativos que NÃO estão no viewMetrics
+    const machinesOnlyActive = allActiveStoppedTickets
+      .filter(t => !machineIdsWithHistory.has(t.machineId))
+      .reduce((acc, ticket) => {
+        if (!acc.has(ticket.machineId)) {
+          const machine = machines.find(m => m.id === ticket.machineId)
+          if (machine) {
+            acc.set(ticket.machineId, {
+              machine_id: ticket.machineId,
+              machine_name: machine.name,
+              total_falhas: 0,
+              downtime_horas: 0,
+              mtbf: monthlyHours,
+              mttr: 0,
+              disponibilidade: 100
+            })
+          }
+        }
+        return acc
+      }, new Map())
+    
+    // 4. Combinar: máquinas com histórico + máquinas só com tickets ativos
+    const allMachineData = [...viewMetrics, ...Array.from(machinesOnlyActive.values())]
+    
+    return allMachineData.map(m => {
       // Buscar tickets ativos (open, in_progress, paused) com machineStopped para esta máquina
       const activeTickets = tickets.filter(t => 
         t.machineId === m.machine_id &&
@@ -995,7 +1029,7 @@ export function ReportsView() {
         activeTicketCreatedAt: activeTicket?.createdAt || null
       }
     }).sort((a, b) => a.disponibilidade - b.disponibilidade) // Ordenar do pior para melhor
-  }, [viewMetrics, tickets, monthlyHours])
+  }, [viewMetrics, tickets, monthlyHours, machines])
   
   // ========== MÉTRICAS GLOBAIS PARCIAIS (MTTR e contagens) ==========
   // O MTBF Global será calculado depois de 'stats' para usar o mesmo Tempo Operando do resumo
