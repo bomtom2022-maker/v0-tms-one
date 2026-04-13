@@ -1974,15 +1974,16 @@ export function ReportsView() {
           {stats.criticalMachines && stats.criticalMachines.length > 0 && (
             <div className="mt-4">
               {!showCriticalMachines ? (
-                // Botão colapsado - apenas ícone piscando
+                // Botão colapsado - apenas ícone piscando com contador
                 <button
                   onClick={() => setShowCriticalMachines(true)}
-                  className="flex items-center gap-2 px-4 py-2 rounded-lg bg-red-100 border-2 border-red-400 hover:bg-red-200 transition-colors animate-pulse"
+                  className="relative p-2 rounded-full bg-red-100 border-2 border-red-400 hover:bg-red-200 transition-colors animate-pulse"
+                  title="Máquinas paradas há mais de 48h"
                 >
-                  <AlertTriangle className="w-5 h-5 text-red-600" />
-                  <span className="font-bold text-red-700">{stats.criticalMachines.length}</span>
-                  <span className="text-sm text-red-600">máquina(s) parada(s) há +48h</span>
-                  <ChevronDown className="w-4 h-4 text-red-600 ml-2" />
+                  <AlertTriangle className="w-6 h-6 text-red-600" />
+                  <span className="absolute -top-1 -right-1 w-5 h-5 flex items-center justify-center text-[10px] font-bold text-white bg-red-600 rounded-full">
+                    {stats.criticalMachines.length}
+                  </span>
                 </button>
               ) : (
                 // Card expandido
