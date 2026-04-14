@@ -2842,8 +2842,21 @@ export function ReportsView() {
                   <div className="space-y-3">
                     {(machineHistoryTickets || []).map((ticket) => {
                       const problem = ticket?.problemId ? getProblemById(ticket.problemId) : null
-                      const downtimeSeconds = ticket?.downtime || 0
                       const isCompleted = ticket?.status === 'completed'
+                      const isCancelled = ticket?.status === 'cancelled'
+                      const isActive = !isCompleted && !isCancelled && ticket?.machineStopped === true
+                      
+                      // Calcular downtime: para tickets concluídos usa o valor salvo, para ativos calcula live
+                      let downtimeSeconds = ticket?.downtime || 0
+                      let liveDowntimeHoras = 0
+                      
+                      if (isActive && ticket?.createdAt) {
+                        const ticketStart = new Date(ticket.createdAt)
+                        const now = new Date()
+                        liveDowntimeHoras = (now.getTime() - ticketStart.getTime()) / (1000 * 60 * 60)
+                        downtimeSeconds = liveDowntimeHoras * 3600 // converter para segundos
+                      }
+                      
                       const hasDowntime = downtimeSeconds > 0
                       
                       // Buscar técnico: prioriza quem finalizou, depois último operador, depois quem criou
@@ -2905,9 +2918,10 @@ export function ReportsView() {
                           {/* Downtime */}
                           {hasDowntime && (
                             <div className="flex items-center gap-2 text-sm">
-                              <Clock className="w-4 h-4 text-red-500" />
-                              <span className="text-red-600 font-medium">
+                              <Clock className={cn("w-4 h-4", isActive ? "text-orange-500 animate-pulse" : "text-red-500")} />
+                              <span className={cn("font-medium", isActive ? "text-orange-600" : "text-red-600")}>
                                 Downtime: {formatDurationHours(downtimeSeconds).display}
+                                {isActive && <span className="ml-1 text-xs">(ativo)</span>}
                               </span>
                             </div>
                           )}
@@ -3743,8 +3757,21 @@ export function ReportsView() {
                     {(machineHistoryTickets || []).map((ticket) => {
                       // Buscar dados com segurança
                       const problem = ticket?.problemId ? getProblemById(ticket.problemId) : null
-                      const downtimeSeconds = ticket?.downtime || 0
                       const isCompleted = ticket?.status === 'completed'
+                      const isCancelled = ticket?.status === 'cancelled'
+                      const isActive = !isCompleted && !isCancelled && ticket?.machineStopped === true
+                      
+                      // Calcular downtime: para tickets concluídos usa o valor salvo, para ativos calcula live
+                      let downtimeSeconds = ticket?.downtime || 0
+                      let liveDowntimeHoras = 0
+                      
+                      if (isActive && ticket?.createdAt) {
+                        const ticketStart = new Date(ticket.createdAt)
+                        const now = new Date()
+                        liveDowntimeHoras = (now.getTime() - ticketStart.getTime()) / (1000 * 60 * 60)
+                        downtimeSeconds = liveDowntimeHoras * 3600 // converter para segundos
+                      }
+                      
                       const hasDowntime = downtimeSeconds > 0
                       
                       // Buscar técnico: prioriza quem finalizou, depois último operador, depois quem criou
@@ -3806,9 +3833,10 @@ export function ReportsView() {
                           {/* Downtime */}
                           {hasDowntime && (
                             <div className="flex items-center gap-2 text-sm">
-                              <Clock className="w-4 h-4 text-red-500" />
-                              <span className="text-red-600 font-medium">
+                              <Clock className={cn("w-4 h-4", isActive ? "text-orange-500 animate-pulse" : "text-red-500")} />
+                              <span className={cn("font-medium", isActive ? "text-orange-600" : "text-red-600")}>
                                 Downtime: {formatDurationHours(downtimeSeconds).display}
+                                {isActive && <span className="ml-1 text-xs">(ativo)</span>}
                               </span>
                             </div>
                           )}
