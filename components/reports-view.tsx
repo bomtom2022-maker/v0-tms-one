@@ -3630,7 +3630,7 @@ export function ReportsView() {
                             {m.downtime_horas.toFixed(2)}
                           </td>
                           <td className="p-3 text-center font-mono text-blue-600 font-semibold">
-                            {m.total_falhas === 0 ? (monthlyHours > 0 ? monthlyHours.toFixed(1) : '-') : m.mtbf.toFixed(1)}
+                            {m.total_falhas === 0 ? (m.capacidadePeriodo > 0 ? m.capacidadePeriodo.toFixed(1) : '-') : m.mtbf.toFixed(1)}
                           </td>
                           <td className="p-3 text-center font-mono text-orange-600 font-semibold">
                             {m.total_falhas === 0 ? '0.00' : m.mttr.toFixed(2)}
