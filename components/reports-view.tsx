@@ -2850,18 +2850,26 @@ export function ReportsView() {
                       const isCancelled = ticket?.status === 'cancelled'
                       const isActive = !isCompleted && !isCancelled && ticket?.machineStopped === true
                       
-                      // Calcular downtime: para tickets concluídos usa o valor salvo, para ativos calcula live
+                      // Calcular downtime baseado no status do ticket
                       let downtimeSeconds = ticket?.downtime || 0
                       let liveDowntimeHoras = 0
                       
                       if (isActive && ticket?.createdAt) {
+                        // Ticket ativo: calcular tempo desde abertura até agora
                         const ticketStart = new Date(ticket.createdAt)
                         const now = new Date()
                         liveDowntimeHoras = (now.getTime() - ticketStart.getTime()) / (1000 * 60 * 60)
-                        downtimeSeconds = liveDowntimeHoras * 3600 // converter para segundos
+                        downtimeSeconds = liveDowntimeHoras * 3600
+                      } else if (isCompleted && downtimeSeconds === 0 && ticket?.createdAt && ticket?.completedAt) {
+                        // Ticket concluído sem downtime salvo: calcular baseado em createdAt e completedAt
+                        const ticketStart = new Date(ticket.createdAt)
+                        const ticketEnd = new Date(ticket.completedAt)
+                        const calculatedHoras = (ticketEnd.getTime() - ticketStart.getTime()) / (1000 * 60 * 60)
+                        downtimeSeconds = Math.max(0, calculatedHoras * 3600)
                       }
                       
-                      const hasDowntime = downtimeSeconds > 0
+                      // Só mostrar downtime se for > 0.01h (36 segundos) para evitar ruído
+                      const hasDowntime = downtimeSeconds > 36
                       
                       // Buscar técnico: prioriza quem finalizou, depois último operador, depois quem criou
                       const actions = ticket?.actions || []
@@ -3765,18 +3773,26 @@ export function ReportsView() {
                       const isCancelled = ticket?.status === 'cancelled'
                       const isActive = !isCompleted && !isCancelled && ticket?.machineStopped === true
                       
-                      // Calcular downtime: para tickets concluídos usa o valor salvo, para ativos calcula live
+                      // Calcular downtime baseado no status do ticket
                       let downtimeSeconds = ticket?.downtime || 0
                       let liveDowntimeHoras = 0
                       
                       if (isActive && ticket?.createdAt) {
+                        // Ticket ativo: calcular tempo desde abertura até agora
                         const ticketStart = new Date(ticket.createdAt)
                         const now = new Date()
                         liveDowntimeHoras = (now.getTime() - ticketStart.getTime()) / (1000 * 60 * 60)
-                        downtimeSeconds = liveDowntimeHoras * 3600 // converter para segundos
+                        downtimeSeconds = liveDowntimeHoras * 3600
+                      } else if (isCompleted && downtimeSeconds === 0 && ticket?.createdAt && ticket?.completedAt) {
+                        // Ticket concluído sem downtime salvo: calcular baseado em createdAt e completedAt
+                        const ticketStart = new Date(ticket.createdAt)
+                        const ticketEnd = new Date(ticket.completedAt)
+                        const calculatedHoras = (ticketEnd.getTime() - ticketStart.getTime()) / (1000 * 60 * 60)
+                        downtimeSeconds = Math.max(0, calculatedHoras * 3600)
                       }
                       
-                      const hasDowntime = downtimeSeconds > 0
+                      // Só mostrar downtime se for > 0.01h (36 segundos) para evitar ruído
+                      const hasDowntime = downtimeSeconds > 36
                       
                       // Buscar técnico: prioriza quem finalizou, depois último operador, depois quem criou
                       const actions = ticket?.actions || []
