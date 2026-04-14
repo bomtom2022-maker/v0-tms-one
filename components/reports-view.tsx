@@ -926,10 +926,17 @@ export function ReportsView() {
   // ========== MÉTRICAS CORRIGIDAS COM LIVE DOWNTIME ==========
   // Combina viewMetrics (dados históricos) com downtime ativo de tickets em aberto
   // TAMBÉM inclui máquinas que só têm tickets ativos (sem histórico)
+  // RESPONSIVO ao filtro de data - usa capacidade proporcional ao período
   const correctedMachineMetrics = useMemo(() => {
     if (monthlyHours === 0) return []
     
     const now = new Date()
+    
+    // Calcular capacidade proporcional ao período filtrado
+    // Usa stats.dailyCapacityHours (horas por dia) * dias no filtro
+    const horasPorDia = stats.dailyCapacityHours || (monthlyHours / 21) // fallback: 474h / 21 dias
+    const diasNoFiltro = stats.daysInPeriod || 1
+    const capacidadePeriodo = horasPorDia * diasNoFiltro
     
     // 1. Buscar TODOS os tickets ativos com machineStopped === true
     const allActiveStoppedTickets = tickets.filter(t => 
@@ -952,7 +959,7 @@ export function ReportsView() {
               machine_name: machine.name,
               total_falhas: 0,
               downtime_horas: 0,
-              mtbf: monthlyHours,
+              mtbf: capacidadePeriodo,
               mttr: 0,
               disponibilidade: 100
             })
@@ -964,6 +971,10 @@ export function ReportsView() {
     // 4. Combinar: máquinas com histórico + máquinas só com tickets ativos
     const allMachineData = [...viewMetrics, ...Array.from(machinesOnlyActive.values())]
     
+    // Filtros de data para calcular downtime dentro do período
+    const filterStart = filters.dateRange?.from ? startOfDay(filters.dateRange.from) : null
+    const filterEnd = filters.dateRange?.to ? endOfDay(filters.dateRange.to) : now
+    
     return allMachineData.map(m => {
       // Buscar tickets ativos (open, in_progress, paused) com machineStopped para esta máquina
       const activeTickets = tickets.filter(t => 
@@ -972,26 +983,51 @@ export function ReportsView() {
         (t.status === 'open' || t.status === 'in_progress' || t.status === 'paused')
       )
       
-      // Calcular downtime ativo (desde abertura até agora) em horas
+      // Calcular downtime ativo DENTRO DO PERÍODO FILTRADO
       const liveDowntimeHoras = activeTickets.reduce((sum, ticket) => {
         const ticketStart = new Date(ticket.createdAt)
-        const downtimeMs = now.getTime() - ticketStart.getTime()
+        
+        // Início efetivo: maior entre (início ticket) e (início filtro)
+        let effectiveStart = ticketStart
+        if (filterStart && ticketStart < filterStart) {
+          effectiveStart = filterStart
+        }
+        
+        // Fim efetivo: menor entre (agora) e (fim filtro)
+        let effectiveEnd = now
+        if (filterEnd && effectiveEnd > filterEnd) {
+          effectiveEnd = filterEnd
+        }
+        
+        // Se fora do período, não conta
+        if (effectiveStart > effectiveEnd) return sum
+        
+        const downtimeMs = effectiveEnd.getTime() - effectiveStart.getTime()
         const downtimeHoras = Math.max(0, downtimeMs / (1000 * 60 * 60))
         return sum + downtimeHoras
       }, 0)
       
-      // Total downtime = histórico (concluídos) + ativo (em aberto)
-      const totalDowntimeHoras = m.downtime_horas + liveDowntimeHoras
+      // Total downtime = histórico (concluídos) + ativo (em aberto) - LIMITADO à capacidade do período
+      const totalDowntimeHoras = Math.min(m.downtime_horas + liveDowntimeHoras, capacidadePeriodo)
       
-      // Disponibilidade corrigida: (Capacidade - Downtime Total) / Capacidade * 100
-      const disponibilidadeCorrigida = Math.max(0, ((monthlyHours - totalDowntimeHoras) / monthlyHours) * 100)
+      // Tempo operando no período
+      const tempoOperandoPeriodo = Math.max(0, capacidadePeriodo - totalDowntimeHoras)
+      
+      // Disponibilidade corrigida: Tempo Operando / Capacidade do Período * 100
+      const disponibilidadeCorrigida = capacidadePeriodo > 0 
+        ? Math.max(0, (tempoOperandoPeriodo / capacidadePeriodo) * 100) 
+        : 100
       
       // Total de falhas = histórico + ativos
       const totalFalhasCorrigido = m.total_falhas + activeTickets.length
       
-      // MTBF e MTTR corrigidos
-      const mtbfCorrigido = totalFalhasCorrigido > 0 ? (monthlyHours - totalDowntimeHoras) / totalFalhasCorrigido : monthlyHours
-      const mttrCorrigido = totalFalhasCorrigido > 0 ? totalDowntimeHoras / totalFalhasCorrigido : 0
+      // MTBF e MTTR corrigidos usando capacidade do período
+      const mtbfCorrigido = totalFalhasCorrigido > 0 
+        ? Math.max(0, tempoOperandoPeriodo / totalFalhasCorrigido) 
+        : capacidadePeriodo
+      const mttrCorrigido = totalFalhasCorrigido > 0 
+        ? totalDowntimeHoras / totalFalhasCorrigido 
+        : 0
       
       // Status ativo (para exibição)
       const activeTicket = activeTickets.length > 0 ? activeTickets[0] : null
@@ -1007,13 +1043,14 @@ export function ReportsView() {
         mtbf: mtbfCorrigido,
         mttr: mttrCorrigido,
         liveDowntimeHoras,
+        capacidadePeriodo,
         hasActiveTicket: activeTickets.length > 0,
         activeTicketStatus: activeTicket?.status || null,
         activeTicketPauseReason: activeTicket?.pauseReason || null,
         activeTicketCreatedAt: activeTicket?.createdAt || null
       }
     }).sort((a, b) => a.disponibilidade - b.disponibilidade) // Ordenar do pior para melhor
-  }, [viewMetrics, tickets, monthlyHours, machines])
+  }, [viewMetrics, tickets, monthlyHours, machines, stats.dailyCapacityHours, stats.daysInPeriod, filters.dateRange])
   
   // ========== MÉTRICAS GLOBAIS PARCIAIS (MTTR e contagens) ==========
   // O MTBF Global será calculado depois de 'stats' para usar o mesmo Tempo Operando do resumo
