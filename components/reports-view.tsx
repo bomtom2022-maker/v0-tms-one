@@ -932,10 +932,15 @@ export function ReportsView() {
     
     const now = new Date()
     
+    // Calcular dias no período filtrado
+    const filterStart = filters.dateRange?.from ? startOfDay(filters.dateRange.from) : startOfMonth(new Date())
+    const filterEnd = filters.dateRange?.to ? endOfDay(filters.dateRange.to) : endOfMonth(new Date())
+    const diasNoFiltro = Math.max(1, differenceInDays(filterEnd, filterStart) + 1)
+    
     // Calcular capacidade proporcional ao período filtrado
-    // Usa stats.dailyCapacityHours (horas por dia) * dias no filtro
-    const horasPorDia = stats.dailyCapacityHours || (monthlyHours / 21) // fallback: 474h / 21 dias
-    const diasNoFiltro = stats.daysInPeriod || 1
+    // Usa horas por dia (22.57h) * dias no filtro
+    const diasNoMes = getDaysInMonth(filterStart)
+    const horasPorDia = monthlyHours / diasNoMes
     const capacidadePeriodo = horasPorDia * diasNoFiltro
     
     // 1. Buscar TODOS os tickets ativos com machineStopped === true
@@ -970,10 +975,6 @@ export function ReportsView() {
     
     // 4. Combinar: máquinas com histórico + máquinas só com tickets ativos
     const allMachineData = [...viewMetrics, ...Array.from(machinesOnlyActive.values())]
-    
-    // Filtros de data para calcular downtime dentro do período
-    const filterStart = filters.dateRange?.from ? startOfDay(filters.dateRange.from) : null
-    const filterEnd = filters.dateRange?.to ? endOfDay(filters.dateRange.to) : now
     
     return allMachineData.map(m => {
       // Buscar tickets ativos (open, in_progress, paused) com machineStopped para esta máquina
@@ -1050,7 +1051,7 @@ export function ReportsView() {
         activeTicketCreatedAt: activeTicket?.createdAt || null
       }
     }).sort((a, b) => a.disponibilidade - b.disponibilidade) // Ordenar do pior para melhor
-  }, [viewMetrics, tickets, monthlyHours, machines, stats.dailyCapacityHours, stats.daysInPeriod, filters.dateRange])
+  }, [viewMetrics, tickets, monthlyHours, machines, filters.dateRange])
   
   // ========== MÉTRICAS GLOBAIS PARCIAIS (MTTR e contagens) ==========
   // O MTBF Global será calculado depois de 'stats' para usar o mesmo Tempo Operando do resumo
