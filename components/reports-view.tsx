@@ -2851,8 +2851,17 @@ export function ReportsView() {
                       const isActive = !isCompleted && !isCancelled && ticket?.machineStopped === true
                       
                       // Calcular downtime baseado no status do ticket
-                      let downtimeSeconds = ticket?.downtime || 0
+                      // Prioridade: totalDowntimeMinutes > downtime > cálculo manual
+                      let downtimeSeconds = 0
                       let liveDowntimeHoras = 0
+                      
+                      // Primeiro: usar totalDowntimeMinutes se disponível (campo mais preciso)
+                      if (ticket?.totalDowntimeMinutes && ticket.totalDowntimeMinutes > 0) {
+                        downtimeSeconds = ticket.totalDowntimeMinutes * 60
+                      } else if (ticket?.downtime && ticket.downtime > 0) {
+                        // Fallback para downtime em segundos
+                        downtimeSeconds = ticket.downtime
+                      }
                       
                       if (isActive && ticket?.createdAt) {
                         // Ticket ativo: calcular tempo desde abertura até agora
@@ -3774,8 +3783,17 @@ export function ReportsView() {
                       const isActive = !isCompleted && !isCancelled && ticket?.machineStopped === true
                       
                       // Calcular downtime baseado no status do ticket
-                      let downtimeSeconds = ticket?.downtime || 0
+                      // Prioridade: totalDowntimeMinutes > downtime > cálculo manual
+                      let downtimeSeconds = 0
                       let liveDowntimeHoras = 0
+                      
+                      // Primeiro: usar totalDowntimeMinutes se disponível (campo mais preciso)
+                      if (ticket?.totalDowntimeMinutes && ticket.totalDowntimeMinutes > 0) {
+                        downtimeSeconds = ticket.totalDowntimeMinutes * 60
+                      } else if (ticket?.downtime && ticket.downtime > 0) {
+                        // Fallback para downtime em segundos
+                        downtimeSeconds = ticket.downtime
+                      }
                       
                       if (isActive && ticket?.createdAt) {
                         // Ticket ativo: calcular tempo desde abertura até agora
