@@ -862,9 +862,14 @@ export function ReportsView() {
         // Verificar se o ticket é da máquina
         if (t.machineId !== machineId) return false
         
-        // IMPORTANTE: Só mostrar tickets onde a máquina estava PARADA
-        // Tickets com machineStopped === false não afetam o downtime/disponibilidade
-        if (t.machineStopped !== true) return false
+        // Mostrar tickets que afetam downtime:
+        // 1. machineStopped === true OU
+        // 2. Tem downtime registrado (totalDowntimeMinutes > 0 ou downtime > 0)
+        const hasDowntimeRecorded = (t.totalDowntimeMinutes && t.totalDowntimeMinutes > 0) || 
+                                    (t.downtime && t.downtime > 0)
+        const hasMachineStopped = t.machineStopped === true
+        
+        if (!hasDowntimeRecorded && !hasMachineStopped) return false
         
         // Verificar filtro de data se existir (usa filters.dateRange que é o filtro geral da página)
         if (filters.dateRange?.from && filters.dateRange?.to) {
