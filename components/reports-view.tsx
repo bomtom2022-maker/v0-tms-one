@@ -862,6 +862,15 @@ export function ReportsView() {
         // Verificar se o ticket é da máquina
         if (t.machineId !== machineId) return false
         
+        // Mostrar tickets que afetam downtime:
+        // 1. machineStopped === true OU
+        // 2. Tem downtime registrado (totalDowntimeMinutes > 0 ou downtime > 0)
+        const hasDowntimeRecorded = (t.totalDowntimeMinutes && t.totalDowntimeMinutes > 0) || 
+                                    (t.downtime && t.downtime > 0)
+        const hasMachineStopped = t.machineStopped === true
+        
+        if (!hasDowntimeRecorded && !hasMachineStopped) return false
+        
         // Verificar filtro de data se existir (usa filters.dateRange que é o filtro geral da página)
         if (filters.dateRange?.from && filters.dateRange?.to) {
           try {
@@ -2842,8 +2851,29 @@ export function ReportsView() {
                   <div className="space-y-3">
                     {(machineHistoryTickets || []).map((ticket) => {
                       const problem = ticket?.problemId ? getProblemById(ticket.problemId) : null
-                      const downtimeSeconds = ticket?.downtime || 0
                       const isCompleted = ticket?.status === 'completed'
+                      const isCancelled = ticket?.status === 'cancelled'
+                      const isActive = !isCompleted && !isCancelled && ticket?.machineStopped === true
+                      
+                      // CÁLCULO CORRETO INDUSTRIAL (Machine Downtime Real)
+                      // Tempo de parada da produção = created_at até completed_at (ou agora se ainda aberto)
+                      let downtimeSeconds = 0
+                      
+                      if (ticket?.machineStopped) {
+                        const startTime = ticket?.createdAt ? new Date(ticket.createdAt).getTime() : 0
+                        
+                        if (isCompleted && ticket?.completedAt && startTime > 0) {
+                          // Máquina parou e já foi consertada (Tempo total da falha)
+                          const endTime = new Date(ticket.completedAt).getTime()
+                          downtimeSeconds = Math.max(0, Math.floor((endTime - startTime) / 1000))
+                          
+                        } else if (isActive && startTime > 0) {
+                          // Máquina está parada AGORA (Tempo desde a quebra até agora)
+                          const nowTime = new Date().getTime()
+                          downtimeSeconds = Math.max(0, Math.floor((nowTime - startTime) / 1000))
+                        }
+                      }
+                      
                       const hasDowntime = downtimeSeconds > 0
                       
                       // Buscar técnico: prioriza quem finalizou, depois último operador, depois quem criou
@@ -2905,9 +2935,10 @@ export function ReportsView() {
                           {/* Downtime */}
                           {hasDowntime && (
                             <div className="flex items-center gap-2 text-sm">
-                              <Clock className="w-4 h-4 text-red-500" />
-                              <span className="text-red-600 font-medium">
+                              <Clock className={cn("w-4 h-4", isActive ? "text-orange-500 animate-pulse" : "text-red-500")} />
+                              <span className={cn("font-medium", isActive ? "text-orange-600" : "text-red-600")}>
                                 Downtime: {formatDurationHours(downtimeSeconds).display}
+                                {isActive && <span className="ml-1 text-xs">(ativo)</span>}
                               </span>
                             </div>
                           )}
@@ -3743,8 +3774,29 @@ export function ReportsView() {
                     {(machineHistoryTickets || []).map((ticket) => {
                       // Buscar dados com segurança
                       const problem = ticket?.problemId ? getProblemById(ticket.problemId) : null
-                      const downtimeSeconds = ticket?.downtime || 0
                       const isCompleted = ticket?.status === 'completed'
+                      const isCancelled = ticket?.status === 'cancelled'
+                      const isActive = !isCompleted && !isCancelled && ticket?.machineStopped === true
+                      
+                      // CÁLCULO CORRETO INDUSTRIAL (Machine Downtime Real)
+                      // Tempo de parada da produção = created_at até completed_at (ou agora se ainda aberto)
+                      let downtimeSeconds = 0
+                      
+                      if (ticket?.machineStopped) {
+                        const startTime = ticket?.createdAt ? new Date(ticket.createdAt).getTime() : 0
+                        
+                        if (isCompleted && ticket?.completedAt && startTime > 0) {
+                          // Máquina parou e já foi consertada (Tempo total da falha)
+                          const endTime = new Date(ticket.completedAt).getTime()
+                          downtimeSeconds = Math.max(0, Math.floor((endTime - startTime) / 1000))
+                          
+                        } else if (isActive && startTime > 0) {
+                          // Máquina está parada AGORA (Tempo desde a quebra até agora)
+                          const nowTime = new Date().getTime()
+                          downtimeSeconds = Math.max(0, Math.floor((nowTime - startTime) / 1000))
+                        }
+                      }
+                      
                       const hasDowntime = downtimeSeconds > 0
                       
                       // Buscar técnico: prioriza quem finalizou, depois último operador, depois quem criou
@@ -3806,9 +3858,10 @@ export function ReportsView() {
                           {/* Downtime */}
                           {hasDowntime && (
                             <div className="flex items-center gap-2 text-sm">
-                              <Clock className="w-4 h-4 text-red-500" />
-                              <span className="text-red-600 font-medium">
+                              <Clock className={cn("w-4 h-4", isActive ? "text-orange-500 animate-pulse" : "text-red-500")} />
+                              <span className={cn("font-medium", isActive ? "text-orange-600" : "text-red-600")}>
                                 Downtime: {formatDurationHours(downtimeSeconds).display}
+                                {isActive && <span className="ml-1 text-xs">(ativo)</span>}
                               </span>
                             </div>
                           )}
