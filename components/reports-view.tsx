@@ -2855,35 +2855,26 @@ export function ReportsView() {
                       const isCancelled = ticket?.status === 'cancelled'
                       const isActive = !isCompleted && !isCancelled && ticket?.machineStopped === true
                       
-                      // Calcular downtime baseado no status do ticket
-                      // Prioridade: totalDowntimeMinutes > downtime > cálculo manual
+                      // CÁLCULO CORRETO INDUSTRIAL (Machine Downtime Real)
+                      // Tempo de parada da produção = created_at até completed_at (ou agora se ainda aberto)
                       let downtimeSeconds = 0
-                      let liveDowntimeHoras = 0
                       
-                      // Primeiro: usar totalDowntimeMinutes se disponível (campo mais preciso)
-                      if (ticket?.totalDowntimeMinutes && ticket.totalDowntimeMinutes > 0) {
-                        downtimeSeconds = ticket.totalDowntimeMinutes * 60
-                      } else if (ticket?.downtime && ticket.downtime > 0) {
-                        // Fallback para downtime em segundos
-                        downtimeSeconds = ticket.downtime
+                      if (ticket?.machineStopped) {
+                        const startTime = ticket?.createdAt ? new Date(ticket.createdAt).getTime() : 0
+                        
+                        if (isCompleted && ticket?.completedAt && startTime > 0) {
+                          // Máquina parou e já foi consertada (Tempo total da falha)
+                          const endTime = new Date(ticket.completedAt).getTime()
+                          downtimeSeconds = Math.max(0, Math.floor((endTime - startTime) / 1000))
+                          
+                        } else if (isActive && startTime > 0) {
+                          // Máquina está parada AGORA (Tempo desde a quebra até agora)
+                          const nowTime = new Date().getTime()
+                          downtimeSeconds = Math.max(0, Math.floor((nowTime - startTime) / 1000))
+                        }
                       }
                       
-                      if (isActive && ticket?.createdAt) {
-                        // Ticket ativo: calcular tempo desde abertura até agora
-                        const ticketStart = new Date(ticket.createdAt)
-                        const now = new Date()
-                        liveDowntimeHoras = (now.getTime() - ticketStart.getTime()) / (1000 * 60 * 60)
-                        downtimeSeconds = liveDowntimeHoras * 3600
-                      } else if (isCompleted && downtimeSeconds === 0 && ticket?.createdAt && ticket?.completedAt) {
-                        // Ticket concluído sem downtime salvo: calcular baseado em createdAt e completedAt
-                        const ticketStart = new Date(ticket.createdAt)
-                        const ticketEnd = new Date(ticket.completedAt)
-                        const calculatedHoras = (ticketEnd.getTime() - ticketStart.getTime()) / (1000 * 60 * 60)
-                        downtimeSeconds = Math.max(0, calculatedHoras * 3600)
-                      }
-                      
-                      // Só mostrar downtime se for > 0.01h (36 segundos) para evitar ruído
-                      const hasDowntime = downtimeSeconds > 36
+                      const hasDowntime = downtimeSeconds > 0
                       
                       // Buscar técnico: prioriza quem finalizou, depois último operador, depois quem criou
                       const actions = ticket?.actions || []
@@ -3787,35 +3778,26 @@ export function ReportsView() {
                       const isCancelled = ticket?.status === 'cancelled'
                       const isActive = !isCompleted && !isCancelled && ticket?.machineStopped === true
                       
-                      // Calcular downtime baseado no status do ticket
-                      // Prioridade: totalDowntimeMinutes > downtime > cálculo manual
+                      // CÁLCULO CORRETO INDUSTRIAL (Machine Downtime Real)
+                      // Tempo de parada da produção = created_at até completed_at (ou agora se ainda aberto)
                       let downtimeSeconds = 0
-                      let liveDowntimeHoras = 0
                       
-                      // Primeiro: usar totalDowntimeMinutes se disponível (campo mais preciso)
-                      if (ticket?.totalDowntimeMinutes && ticket.totalDowntimeMinutes > 0) {
-                        downtimeSeconds = ticket.totalDowntimeMinutes * 60
-                      } else if (ticket?.downtime && ticket.downtime > 0) {
-                        // Fallback para downtime em segundos
-                        downtimeSeconds = ticket.downtime
+                      if (ticket?.machineStopped) {
+                        const startTime = ticket?.createdAt ? new Date(ticket.createdAt).getTime() : 0
+                        
+                        if (isCompleted && ticket?.completedAt && startTime > 0) {
+                          // Máquina parou e já foi consertada (Tempo total da falha)
+                          const endTime = new Date(ticket.completedAt).getTime()
+                          downtimeSeconds = Math.max(0, Math.floor((endTime - startTime) / 1000))
+                          
+                        } else if (isActive && startTime > 0) {
+                          // Máquina está parada AGORA (Tempo desde a quebra até agora)
+                          const nowTime = new Date().getTime()
+                          downtimeSeconds = Math.max(0, Math.floor((nowTime - startTime) / 1000))
+                        }
                       }
                       
-                      if (isActive && ticket?.createdAt) {
-                        // Ticket ativo: calcular tempo desde abertura até agora
-                        const ticketStart = new Date(ticket.createdAt)
-                        const now = new Date()
-                        liveDowntimeHoras = (now.getTime() - ticketStart.getTime()) / (1000 * 60 * 60)
-                        downtimeSeconds = liveDowntimeHoras * 3600
-                      } else if (isCompleted && downtimeSeconds === 0 && ticket?.createdAt && ticket?.completedAt) {
-                        // Ticket concluído sem downtime salvo: calcular baseado em createdAt e completedAt
-                        const ticketStart = new Date(ticket.createdAt)
-                        const ticketEnd = new Date(ticket.completedAt)
-                        const calculatedHoras = (ticketEnd.getTime() - ticketStart.getTime()) / (1000 * 60 * 60)
-                        downtimeSeconds = Math.max(0, calculatedHoras * 3600)
-                      }
-                      
-                      // Só mostrar downtime se for > 0.01h (36 segundos) para evitar ruído
-                      const hasDowntime = downtimeSeconds > 36
+                      const hasDowntime = downtimeSeconds > 0
                       
                       // Buscar técnico: prioriza quem finalizou, depois último operador, depois quem criou
                       const actions = ticket?.actions || []
