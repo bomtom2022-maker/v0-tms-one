@@ -1005,43 +1005,39 @@ export function ReportsView() {
         return completedAt >= filterStart && completedAt <= filterEnd
       })
       
-      // Downtime de tickets CONCLUÍDOS no período (do banco ou calculado)
+      // CÁLCULO CORRETO INDUSTRIAL (Machine Downtime Real)
+      // Downtime = tempo total que a máquina ficou parada (created_at até completed_at)
       const completedDowntimeHoras = completedTicketsInPeriod.reduce((sum, ticket) => {
-        // Usar downtime do ticket se disponível, senão calcular
-        if (ticket.totalDowntimeMinutes) {
-          return sum + (ticket.totalDowntimeMinutes / 60)
-        }
-        // Calcular baseado em createdAt e completedAt
-        const start = new Date(ticket.createdAt)
-        const end = ticket.completedAt ? new Date(ticket.completedAt) : now
-        const effectiveStart = start < filterStart ? filterStart : start
-        const effectiveEnd = end > filterEnd ? filterEnd : end
+        const startTime = ticket.createdAt ? new Date(ticket.createdAt).getTime() : 0
+        const endTime = ticket.completedAt ? new Date(ticket.completedAt).getTime() : 0
+        
+        if (startTime === 0 || endTime === 0) return sum
+        
+        // Aplicar filtro de período
+        const effectiveStart = Math.max(startTime, filterStart.getTime())
+        const effectiveEnd = Math.min(endTime, filterEnd.getTime())
+        
         if (effectiveStart > effectiveEnd) return sum
-        return sum + ((effectiveEnd.getTime() - effectiveStart.getTime()) / (1000 * 60 * 60))
+        
+        const downtimeMs = effectiveEnd - effectiveStart
+        return sum + (downtimeMs / (1000 * 60 * 60))
       }, 0)
       
-      // Calcular downtime ativo DENTRO DO PERÍODO FILTRADO
+      // CÁLCULO CORRETO INDUSTRIAL - Downtime de tickets ATIVOS (máquina parada agora)
       const liveDowntimeHoras = activeTickets.reduce((sum, ticket) => {
-        const ticketStart = new Date(ticket.createdAt)
+        const startTime = ticket.createdAt ? new Date(ticket.createdAt).getTime() : 0
+        const nowTime = now.getTime()
         
-        // Início efetivo: maior entre (início ticket) e (início filtro)
-        let effectiveStart = ticketStart
-        if (filterStart && ticketStart < filterStart) {
-          effectiveStart = filterStart
-        }
+        if (startTime === 0) return sum
         
-        // Fim efetivo: menor entre (agora) e (fim filtro)
-        let effectiveEnd = now
-        if (filterEnd && effectiveEnd > filterEnd) {
-          effectiveEnd = filterEnd
-        }
+        // Aplicar filtro de período
+        const effectiveStart = Math.max(startTime, filterStart.getTime())
+        const effectiveEnd = Math.min(nowTime, filterEnd.getTime())
         
-        // Se fora do período, não conta
         if (effectiveStart > effectiveEnd) return sum
         
-        const downtimeMs = effectiveEnd.getTime() - effectiveStart.getTime()
-        const downtimeHoras = Math.max(0, downtimeMs / (1000 * 60 * 60))
-        return sum + downtimeHoras
+        const downtimeMs = effectiveEnd - effectiveStart
+        return sum + (downtimeMs / (1000 * 60 * 60))
       }, 0)
       
       // Total downtime NO PERÍODO = concluídos no período + ativos no período
